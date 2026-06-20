@@ -190,18 +190,6 @@ Proyecto desarrollado por estudiantes de la **Licenciatura en Finanzas y Banca**
 
 CapitalLab fue diseñado para complementar materias de análisis financiero y mercados de capitales. Permite a los estudiantes experimentar en la práctica los conceptos de rentabilidad, riesgo, diversificación, VaR, Sharpe y Beta que se estudian teóricamente en el aula.
 
----
-
-## Trabajo Futuro
-
-Las siguientes funcionalidades están documentadas para versiones posteriores:
-
-- **Libreta de órdenes** — Spread bid-ask, órdenes limitadas y stop-loss
-- **Correlación completa vía Cholesky** — Actualmente el modelo usa un solo factor de mercado
-- **Modo docente** — Panel de comparación de carteras entre estudiantes
-- **Paginación del watchlist** — Agrupación visual mejorada para los 150 activos
-
----
 
 <p align="center">
   <strong>CapitalLab</strong> · Universidad de Panamá · Facultad de Economía · 2026<br>
