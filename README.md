@@ -16,8 +16,6 @@
 - [Estructura del Proyecto](#estructura-del-proyecto)
 - [Equipo](#equipo)
 - [Contexto Académico](#contexto-académico)
-- [Trabajo Futuro](#trabajo-futuro)
-
 ---
 
 ## Descripción
