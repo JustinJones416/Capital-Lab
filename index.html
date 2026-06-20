@@ -50,6 +50,29 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .wf-btn.active{background:rgba(0,196,255,.12);color:var(--accent2);}
 .wl-body{flex:1;overflow-y:auto;padding:4px 0;}
 .wl-section{padding:5px 10px 2px;}
+.news-classes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+.news-class-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);color:var(--t2);font-size:12px;font-weight:500;font-family:var(--font-body);cursor:pointer;transition:all .15s;}
+.news-class-btn:hover{border-color:var(--accent2);color:var(--t1);}
+.news-class-btn.active{background:var(--accent2);border-color:var(--accent2);color:#05121f;font-weight:600;}
+.news-class-btn i{font-size:15px;}
+.news-center{display:flex;flex-direction:column;gap:12px;}
+.news-art{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);padding:16px 18px;border-left:4px solid var(--c4);transition:border-color .15s;}
+.news-art:hover{border-left-color:var(--accent2);}
+.news-art.bull{border-left-color:var(--green);}
+.news-art.bear{border-left-color:var(--red);}
+.news-art.neutral{border-left-color:var(--amber);}
+.news-art-meta{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+.news-art-tag{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:20px;}
+.news-art-tag.bull{background:rgba(0,208,132,.15);color:var(--green);}
+.news-art-tag.bear{background:rgba(255,71,87,.15);color:var(--red);}
+.news-art-tag.neutral{background:rgba(255,180,0,.15);color:var(--amber);}
+.news-art-ticker{font-size:11px;font-family:var(--font-mono);color:var(--accent2);font-weight:600;}
+.news-art-cat{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;}
+.news-art-time{font-size:10px;color:var(--t3);margin-left:auto;}
+.news-art-headline{font-size:15px;font-weight:600;color:var(--t1);line-height:1.4;margin-bottom:6px;font-family:var(--font-head);}
+.news-art-body{font-size:12.5px;color:var(--t2);line-height:1.6;}
+.news-empty{text-align:center;padding:40px 20px;color:var(--t3);font-size:13px;}
+@media(max-width:480px){.news-class-btn{flex:1;justify-content:center;padding:8px 10px;font-size:11px;}.news-art{padding:13px 14px;}.news-art-headline{font-size:14px;}}
 .prof-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;}
 .prof-sort{display:flex;align-items:center;gap:8px;margin-left:auto;}
 .prof-sort select{padding:7px 10px;background:var(--c3);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:11px;font-family:var(--font-body);outline:none;}
@@ -676,6 +699,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <button class="wl-nav-btn"        id="nav-laboratorio"   onclick="goPage('laboratorio')"><i class="ti ti-flask"></i> Laboratorio</button>
     <button class="wl-nav-btn"        id="nav-resultados"    onclick="goPage('resultados')"><i class="ti ti-award"></i> Resultados</button>
     <button class="wl-nav-btn"        id="nav-resultados-lab" onclick="goPage('resultados-lab')"><i class="ti ti-report-analytics"></i> Resultados Lab</button>
+    <button class="wl-nav-btn"        id="nav-noticias"      onclick="goPage('noticias')"><i class="ti ti-news"></i> Noticias</button>
     <button class="wl-nav-btn"        id="nav-profesor"      onclick="goPage('profesor')"><i class="ti ti-school"></i> Modo Profesor</button>
   </div>
   <!-- Watchlist -->
@@ -1142,7 +1166,23 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   <div id="rlab-content"></div>
 </div>
 
-<!-- ════════ MODO PROFESOR ════════ -->
+<!-- ════════ NOTICIAS ════════ -->
+<div id="page-noticias" class="page">
+  <div class="page-header">
+    <div class="page-title">Centro de Noticias</div>
+    <div class="page-sub">Noticias del mercado por categoría de activo · Actualización en tiempo real durante la sesión</div>
+  </div>
+  <div class="news-classes" id="news-classes">
+    <button class="news-class-btn active" data-cat="all" onclick="setNewsCategory('all',this)"><i class="ti ti-world"></i> Todas</button>
+    <button class="news-class-btn" data-cat="accion" onclick="setNewsCategory('accion',this)"><i class="ti ti-trending-up"></i> Acciones</button>
+    <button class="news-class-btn" data-cat="bono" onclick="setNewsCategory('bono',this)"><i class="ti ti-building-bank"></i> Bonos</button>
+    <button class="news-class-btn" data-cat="divisa" onclick="setNewsCategory('divisa',this)"><i class="ti ti-currency-dollar"></i> Divisas</button>
+    <button class="news-class-btn" data-cat="futuro" onclick="setNewsCategory('futuro',this)"><i class="ti ti-chart-candle"></i> Futuros</button>
+    <button class="news-class-btn" data-cat="derivado" onclick="setNewsCategory('derivado',this)"><i class="ti ti-diamonds"></i> Derivados</button>
+    <button class="news-class-btn" data-cat="general" onclick="setNewsCategory('general',this)"><i class="ti ti-broadcast"></i> Generales</button>
+  </div>
+  <div id="news-center" class="news-center"></div>
+</div>
 <div id="page-profesor" class="page">
   <div class="page-header">
     <div class="page-title">Modo Profesor</div>
@@ -1201,6 +1241,11 @@ const ALL_STOCKS=[
        {year:2023,assets:352583,liabilities:290437,equity:62146,cash:29965,debt:111088},
        {year:2022,assets:352755,liabilities:302083,equity:50672,cash:23646,debt:120069},
        {year:2021,assets:351002,liabilities:287912,equity:63090,cash:34940,debt:109106},
+     ],
+     cashflow:[
+       {year:2023,operating:110543,investing:3705,financing:-108488},
+       {year:2022,operating:122151,investing:-22354,financing:-110749},
+       {year:2021,operating:104038,investing:-14545,financing:-93353},
      ]
    }
   },
@@ -1215,6 +1260,11 @@ const ALL_STOCKS=[
        {year:2023,assets:411976,liabilities:205753,equity:206223,cash:34704,debt:59965},
        {year:2022,assets:364840,liabilities:198298,equity:166542,cash:13931,debt:61270},
        {year:2021,assets:333779,liabilities:191791,equity:141988,cash:14224,debt:67775},
+     ],
+     cashflow:[
+       {year:2023,operating:87582,investing:-22680,financing:-43935},
+       {year:2022,operating:89035,investing:-30311,financing:-58876},
+       {year:2021,operating:76740,investing:-27577,financing:-48486},
      ]
    }
   },
@@ -1229,6 +1279,11 @@ const ALL_STOCKS=[
        {year:2023,assets:527854,liabilities:369272,equity:158578,cash:73387,debt:67150},
        {year:2022,assets:462675,liabilities:316633,equity:146042,cash:53888,debt:67765},
        {year:2021,assets:420549,liabilities:282304,equity:138245,cash:96049,debt:48744},
+     ],
+     cashflow:[
+       {year:2023,operating:84946,investing:-49833,financing:-15879},
+       {year:2022,operating:46752,investing:-37601,financing:9718},
+       {year:2021,operating:46327,investing:-58154,financing:6291},
      ]
    }
   },
@@ -1243,6 +1298,11 @@ const ALL_STOCKS=[
        {year:2023,assets:106618,liabilities:43009,equity:62634,cash:29094,debt:2656},
        {year:2022,assets:82338,liabilities:36440,equity:44704,cash:22185,debt:1597},
        {year:2021,assets:62131,liabilities:30548,equity:30189,cash:17576,debt:5245},
+     ],
+     cashflow:[
+       {year:2023,operating:13256,investing:-15584,financing:2589},
+       {year:2022,operating:14724,investing:-11973,financing:-3527},
+       {year:2021,operating:11497,investing:-7868,financing:-5203},
      ]
    }
   },
@@ -1257,6 +1317,11 @@ const ALL_STOCKS=[
        {year:2024,assets:65728,liabilities:22975,equity:42978,cash:25984,debt:8462},
        {year:2023,assets:41193,liabilities:17575,equity:22101,cash:13296,debt:9709},
        {year:2022,assets:44187,liabilities:17575,equity:26612,cash:19726,debt:10992},
+     ],
+     cashflow:[
+       {year:2023,operating:28090,investing:-10610,financing:-13633},
+       {year:2022,operating:5641,investing:-9830,financing:1865},
+       {year:2021,operating:9108,investing:-19675,financing:1865},
      ]
    }
   },
@@ -1271,6 +1336,11 @@ const ALL_STOCKS=[
        {year:2023,assets:3875393,liabilities:3534419,equity:327921,cash:575681,debt:292392},
        {year:2022,assets:3665743,liabilities:3341226,equity:292332,cash:477247,debt:300168},
        {year:2021,assets:3743567,liabilities:3432060,equity:294127,cash:702017,debt:272921},
+     ],
+     cashflow:[
+       {year:2023,operating:0,investing:0,financing:0},
+       {year:2022,operating:0,investing:0,financing:0},
+       {year:2021,operating:0,investing:0,financing:0},
      ]
    }
   },
@@ -1285,226 +1355,645 @@ const ALL_STOCKS=[
        {year:2023,assets:75200,liabilities:68400,equity:6800,cash:4200,debt:12500},
        {year:2022,assets:68900,liabilities:62800,equity:6100,cash:3800,debt:11200},
        {year:2021,assets:60400,liabilities:55100,equity:5300,cash:3100,debt:9800},
+     ],
+     cashflow:[
+       {year:2023,operating:2400,investing:-900,financing:-700},
+       {year:2022,operating:2100,investing:-800,financing:-600},
+       {year:2021,operating:1900,investing:-700,financing:-550},
      ]
    }
   },
-  {id:'GOOGL',name:'Alphabet Inc.',ticker:'GOOGL',sector:'Tecnología',country:'EE.UU.',price:171.4,beta:1.05,sigma:24.3,ret:11.2,rating:'AA+',dividend:0.0,type:'accion',profile:'Alphabet Inc. es una empresa del sector tecnología con domicilio en EE.UU.. Cotiza bajo el símbolo GOOGL con beta de 1.05 y volatilidad anualizada de 24.3%. Calificación crediticia AA+.'},
-  {id:'META',name:'Meta Platforms',ticker:'META',sector:'Tecnología',country:'EE.UU.',price:502.3,beta:1.21,sigma:29.8,ret:13.5,rating:'AA',dividend:0.0,type:'accion',profile:'Meta Platforms es una empresa del sector tecnología con domicilio en EE.UU.. Cotiza bajo el símbolo META con beta de 1.21 y volatilidad anualizada de 29.8%. Calificación crediticia AA.'},
-  {id:'BRK',name:'Berkshire Hathaway',ticker:'BRK.B',sector:'Finanzas',country:'EE.UU.',price:408.7,beta:0.88,sigma:16.2,ret:9.1,rating:'AAA',dividend:0.0,type:'accion',profile:'Berkshire Hathaway es una empresa del sector finanzas con domicilio en EE.UU.. Cotiza bajo el símbolo BRK.B con beta de 0.88 y volatilidad anualizada de 16.2%. Calificación crediticia AAA.'},
-  {id:'JNJ',name:'Johnson & Johnson',ticker:'JNJ',sector:'Salud',country:'EE.UU.',price:152.8,beta:0.54,sigma:14.1,ret:7.2,rating:'AAA',dividend:3.05,type:'accion',profile:'Johnson & Johnson es una empresa del sector salud con domicilio en EE.UU.. Cotiza bajo el símbolo JNJ con beta de 0.54 y volatilidad anualizada de 14.1%. Calificación crediticia AAA.'},
-  {id:'V',name:'Visa Inc.',ticker:'V',sector:'Finanzas',country:'EE.UU.',price:278.5,beta:0.96,sigma:20.4,ret:11.8,rating:'AA+',dividend:1.8,type:'accion',profile:'Visa Inc. es una empresa del sector finanzas con domicilio en EE.UU.. Cotiza bajo el símbolo V con beta de 0.96 y volatilidad anualizada de 20.4%. Calificación crediticia AA+.'},
-  {id:'WMT',name:'Walmart Inc.',ticker:'WMT',sector:'Consumo',country:'EE.UU.',price:68.4,beta:0.49,sigma:17.3,ret:8.4,rating:'AA',dividend:0.83,type:'accion',profile:'Walmart Inc. es una empresa del sector consumo con domicilio en EE.UU.. Cotiza bajo el símbolo WMT con beta de 0.49 y volatilidad anualizada de 17.3%. Calificación crediticia AA.'},
-  {id:'XOM',name:'Exxon Mobil',ticker:'XOM',sector:'Energía',country:'EE.UU.',price:118.9,beta:0.92,sigma:25.7,ret:9.6,rating:'AA-',dividend:3.8,type:'accion',profile:'Exxon Mobil es una empresa del sector energía con domicilio en EE.UU.. Cotiza bajo el símbolo XOM con beta de 0.92 y volatilidad anualizada de 25.7%. Calificación crediticia AA-.'},
-  {id:'KO',name:'Coca-Cola Co.',ticker:'KO',sector:'Consumo',country:'EE.UU.',price:62.3,beta:0.58,sigma:13.8,ret:6.9,rating:'A+',dividend:1.94,type:'accion',profile:'Coca-Cola Co. es una empresa del sector consumo con domicilio en EE.UU.. Cotiza bajo el símbolo KO con beta de 0.58 y volatilidad anualizada de 13.8%. Calificación crediticia A+.'},
-  {id:'DIS',name:'Walt Disney Co.',ticker:'DIS',sector:'Comunicación',country:'EE.UU.',price:98.7,beta:1.32,sigma:28.4,ret:9.2,rating:'A-',dividend:0.0,type:'accion',profile:'Walt Disney Co. es una empresa del sector comunicación con domicilio en EE.UU.. Cotiza bajo el símbolo DIS con beta de 1.32 y volatilidad anualizada de 28.4%. Calificación crediticia A-.'},
-  {id:'MCD',name:"McDonald's Corp.",ticker:'MCD',sector:'Consumo',country:'EE.UU.',price:289.6,beta:0.67,sigma:16.9,ret:8.7,rating:'BBB+',dividend:6.68,type:'accion',profile:"McDonald's Corp. es una empresa del sector consumo con domicilio en EE.UU.. Cotiza bajo el símbolo MCD con beta de 0.67 y volatilidad anualizada de 16.9%. Calificación crediticia BBB+."},
-  {id:'NKE',name:'Nike Inc.',ticker:'NKE',sector:'Consumo',country:'EE.UU.',price:94.2,beta:1.08,sigma:26.1,ret:9.8,rating:'AA-',dividend:1.48,type:'accion',profile:'Nike Inc. es una empresa del sector consumo con domicilio en EE.UU.. Cotiza bajo el símbolo NKE con beta de 1.08 y volatilidad anualizada de 26.1%. Calificación crediticia AA-.'},
-  {id:'PFE',name:'Pfizer Inc.',ticker:'PFE',sector:'Salud',country:'EE.UU.',price:28.4,beta:0.62,sigma:22.8,ret:7.4,rating:'A+',dividend:1.68,type:'accion',profile:'Pfizer Inc. es una empresa del sector salud con domicilio en EE.UU.. Cotiza bajo el símbolo PFE con beta de 0.62 y volatilidad anualizada de 22.8%. Calificación crediticia A+.'},
-  {id:'BAC',name:'Bank of America',ticker:'BAC',sector:'Finanzas',country:'EE.UU.',price:39.8,beta:1.34,sigma:28.7,ret:9.4,rating:'A-',dividend:0.96,type:'accion',profile:'Bank of America es una empresa del sector finanzas con domicilio en EE.UU.. Cotiza bajo el símbolo BAC con beta de 1.34 y volatilidad anualizada de 28.7%. Calificación crediticia A-.'},
-  {id:'INTC',name:'Intel Corp.',ticker:'INTC',sector:'Tecnología',country:'EE.UU.',price:31.2,beta:1.18,sigma:33.5,ret:8.1,rating:'A',dividend:0.5,type:'accion',profile:'Intel Corp. es una empresa del sector tecnología con domicilio en EE.UU.. Cotiza bajo el símbolo INTC con beta de 1.18 y volatilidad anualizada de 33.5%. Calificación crediticia A.'},
-  {id:'CSCO',name:'Cisco Systems',ticker:'CSCO',sector:'Tecnología',country:'EE.UU.',price:49.6,beta:0.89,sigma:20.3,ret:8.9,rating:'AA-',dividend:1.6,type:'accion',profile:'Cisco Systems es una empresa del sector tecnología con domicilio en EE.UU.. Cotiza bajo el símbolo CSCO con beta de 0.89 y volatilidad anualizada de 20.3%. Calificación crediticia AA-.'},
-  {id:'SAN',name:'Banco Santander',ticker:'SAN',sector:'Finanzas',country:'España',price:4.8,beta:1.28,sigma:30.2,ret:9.7,rating:'A',dividend:0.12,type:'accion',profile:'Banco Santander es una empresa del sector finanzas con domicilio en España. Cotiza bajo el símbolo SAN con beta de 1.28 y volatilidad anualizada de 30.2%. Calificación crediticia A.'},
-  {id:'TSM',name:'Taiwan Semicon.',ticker:'TSM',sector:'Tecnología',country:'Taiwán',price:172.5,beta:1.15,sigma:31.4,ret:13.8,rating:'AA-',dividend:0.55,type:'accion',profile:'Taiwan Semicon. es una empresa del sector tecnología con domicilio en Taiwán. Cotiza bajo el símbolo TSM con beta de 1.15 y volatilidad anualizada de 31.4%. Calificación crediticia AA-.'},
-  {id:'TM',name:'Toyota Motor',ticker:'TM',sector:'Automotriz',country:'Japón',price:211.3,beta:0.84,sigma:21.6,ret:8.3,rating:'A+',dividend:3.2,type:'accion',profile:'Toyota Motor es una empresa del sector automotriz con domicilio en Japón. Cotiza bajo el símbolo TM con beta de 0.84 y volatilidad anualizada de 21.6%. Calificación crediticia A+.'},
-  {id:'NVO',name:'Novo Nordisk',ticker:'NVO',sector:'Salud',country:'Dinamarca',price:128.9,beta:0.71,sigma:24.9,ret:14.2,rating:'AA-',dividend:1.1,type:'accion',profile:'Novo Nordisk es una empresa del sector salud con domicilio en Dinamarca. Cotiza bajo el símbolo NVO con beta de 0.71 y volatilidad anualizada de 24.9%. Calificación crediticia AA-.'},
-  {id:'SHEL',name:'Shell plc',ticker:'SHEL',sector:'Energía',country:'Reino Unido',price:68.2,beta:0.95,sigma:24.1,ret:8.8,rating:'AA-',dividend:2.6,type:'accion',profile:'Shell plc es una empresa del sector energía con domicilio en Reino Unido. Cotiza bajo el símbolo SHEL con beta de 0.95 y volatilidad anualizada de 24.1%. Calificación crediticia AA-.'},
-  {id:'BABA',name:'Alibaba Group',ticker:'BABA',sector:'Tecnología',country:'China',price:78.4,beta:1.42,sigma:38.7,ret:10.4,rating:'A+',dividend:0.0,type:'accion',profile:'Alibaba Group es una empresa del sector tecnología con domicilio en China. Cotiza bajo el símbolo BABA con beta de 1.42 y volatilidad anualizada de 38.7%. Calificación crediticia A+.'},
-  {id:'MELI',name:'MercadoLibre',ticker:'MELI',sector:'Tecnología',country:'Argentina',price:1684.0,beta:1.55,sigma:42.3,ret:16.8,rating:'BBB',dividend:0.0,type:'accion',profile:'MercadoLibre es una empresa del sector tecnología con domicilio en Argentina. Cotiza bajo el símbolo MELI con beta de 1.55 y volatilidad anualizada de 42.3%. Calificación crediticia BBB.'},
-  {id:'VALE',name:'Vale S.A.',ticker:'VALE',sector:'Materiales',country:'Brasil',price:11.8,beta:1.38,sigma:35.9,ret:10.2,rating:'BBB-',dividend:1.4,type:'accion',profile:'Vale S.A. es una empresa del sector materiales con domicilio en Brasil. Cotiza bajo el símbolo VALE con beta de 1.38 y volatilidad anualizada de 35.9%. Calificación crediticia BBB-.'}
+  {id:'GOOGL',name:'Alphabet Inc.',ticker:'GOOGL',sector:'Tecnología',country:'EE.UU.',price:171.4,beta:1.05,sigma:24.3,ret:11.2,rating:'AA+',dividend:0.0,type:'accion',profile:'Alphabet Inc. es una empresa del sector tecnología con domicilio en EE.UU.. Cotiza bajo el símbolo GOOGL con beta de 1.05 y volatilidad anualizada de 24.3%. Calificación crediticia AA+.',
+   fs:{
+     income:[
+       {year:2023,revenue:307394,grossProfit:182527,ebit:84293,netIncome:73795},
+       {year:2022,revenue:282836,grossProfit:156633,ebit:74842,netIncome:59972},
+       {year:2021,revenue:257637,grossProfit:146698,ebit:78714,netIncome:76033},
+     ],
+     balance:[
+       {year:2023,assets:402392,liabilities:119013,equity:283379,cash:110916,debt:28746},
+       {year:2022,assets:365264,liabilities:109120,equity:256144,cash:113762,debt:29677},
+       {year:2021,assets:359268,liabilities:107633,equity:251635,cash:139649,debt:28505},
+     ],
+     cashflow:[
+       {year:2023,operating:101746,investing:-27063,financing:-71265},
+       {year:2022,operating:91495,investing:-20298,financing:-69757},
+       {year:2021,operating:91652,investing:-35523,financing:-61362},
+     ]
+   }
+  },
+  {id:'META',name:'Meta Platforms',ticker:'META',sector:'Tecnología',country:'EE.UU.',price:502.3,beta:1.21,sigma:29.8,ret:13.5,rating:'AA',dividend:0.0,type:'accion',profile:'Meta Platforms es una empresa del sector tecnología con domicilio en EE.UU.. Cotiza bajo el símbolo META con beta de 1.21 y volatilidad anualizada de 29.8%. Calificación crediticia AA.',
+   fs:{
+     income:[
+       {year:2023,revenue:134902,grossProfit:108936,ebit:46751,netIncome:39098},
+       {year:2022,revenue:116609,grossProfit:93457,ebit:28944,netIncome:23200},
+       {year:2021,revenue:117929,grossProfit:97362,ebit:46753,netIncome:39370},
+     ],
+     balance:[
+       {year:2023,assets:229623,liabilities:53935,equity:153168,cash:41862,debt:18385},
+       {year:2022,assets:185727,liabilities:60014,equity:125713,cash:40738,debt:9923},
+       {year:2021,assets:165987,liabilities:41108,equity:124879,cash:47998,debt:0},
+     ],
+     cashflow:[
+       {year:2023,operating:71113,investing:-27931,financing:-19500},
+       {year:2022,operating:50475,investing:-28970,financing:-22136},
+       {year:2021,operating:57683,investing:-7572,financing:-50728},
+     ]
+   }
+  },
+  {id:'BRK',name:'Berkshire Hathaway',ticker:'BRK.B',sector:'Finanzas',country:'EE.UU.',price:408.7,beta:0.88,sigma:16.2,ret:9.1,rating:'AAA',dividend:0.0,type:'accion',profile:'Berkshire Hathaway es una empresa del sector finanzas con domicilio en EE.UU.. Cotiza bajo el símbolo BRK.B con beta de 0.88 y volatilidad anualizada de 16.2%. Calificación crediticia AAA.',
+   fs:{
+     income:[
+       {year:2023,revenue:364482,grossProfit:0,ebit:0,netIncome:96223},
+       {year:2022,revenue:302089,grossProfit:0,ebit:0,netIncome:-22819},
+       {year:2021,revenue:276094,grossProfit:0,ebit:0,netIncome:89795},
+     ],
+     balance:[
+       {year:2023,assets:1069978,liabilities:508924,equity:561054,cash:167640,debt:128299},
+       {year:2022,assets:948452,liabilities:476667,equity:471785,cash:128651,debt:122139},
+       {year:2021,assets:958784,liabilities:444010,equity:514770,cash:146715,debt:118599},
+     ],
+     cashflow:[
+       {year:2023,operating:49185,investing:-31570,financing:-9497},
+       {year:2022,operating:37239,investing:-44329,financing:4769},
+       {year:2021,operating:39713,investing:-29998,financing:-15966},
+     ]
+   }
+  },
+  {id:'JNJ',name:'Johnson & Johnson',ticker:'JNJ',sector:'Salud',country:'EE.UU.',price:152.8,beta:0.54,sigma:14.1,ret:7.2,rating:'AAA',dividend:3.05,type:'accion',profile:'Johnson & Johnson es una empresa del sector salud con domicilio en EE.UU.. Cotiza bajo el símbolo JNJ con beta de 0.54 y volatilidad anualizada de 14.1%. Calificación crediticia AAA.',
+   fs:{
+     income:[
+       {year:2023,revenue:85159,grossProfit:57050,ebit:24461,netIncome:35153},
+       {year:2022,revenue:94943,grossProfit:63451,ebit:24578,netIncome:17941},
+       {year:2021,revenue:93775,grossProfit:62450,ebit:24011,netIncome:20878},
+     ],
+     balance:[
+       {year:2023,assets:167558,liabilities:118046,equity:68761,cash:21859,debt:29322},
+       {year:2022,assets:187378,liabilities:110574,equity:76804,cash:23519,debt:39592},
+       {year:2021,assets:182018,liabilities:108457,equity:74023,cash:31635,debt:33510},
+     ],
+     cashflow:[
+       {year:2023,operating:22791,investing:-16001,financing:-13780},
+       {year:2022,operating:21194,investing:-9258,financing:-13407},
+       {year:2021,operating:23393,investing:-7591,financing:-13670},
+     ]
+   }
+  },
+  {id:'V',name:'Visa Inc.',ticker:'V',sector:'Finanzas',country:'EE.UU.',price:278.5,beta:0.96,sigma:20.4,ret:11.8,rating:'AA+',dividend:1.8,type:'accion',profile:'Visa Inc. es una empresa del sector finanzas con domicilio en EE.UU.. Cotiza bajo el símbolo V con beta de 0.96 y volatilidad anualizada de 20.4%. Calificación crediticia AA+.',
+   fs:{
+     income:[
+       {year:2023,revenue:32653,grossProfit:26468,ebit:21881,netIncome:17273},
+       {year:2022,revenue:29310,grossProfit:23700,ebit:18814,netIncome:14957},
+       {year:2021,revenue:24105,grossProfit:19493,ebit:15804,netIncome:12311},
+     ],
+     balance:[
+       {year:2023,assets:90499,liabilities:51282,equity:38733,cash:16286,debt:20612},
+       {year:2022,assets:85501,liabilities:49869,equity:35632,cash:15689,debt:20200},
+       {year:2021,assets:82896,liabilities:47297,equity:35599,cash:16487,debt:19978},
+     ],
+     cashflow:[
+       {year:2023,operating:20755,investing:-1015,financing:-17743},
+       {year:2022,operating:18849,investing:1394,financing:-15278},
+       {year:2021,operating:15227,investing:-2098,financing:-13730},
+     ]
+   }
+  },
+  {id:'WMT',name:'Walmart Inc.',ticker:'WMT',sector:'Consumo',country:'EE.UU.',price:68.4,beta:0.49,sigma:17.3,ret:8.4,rating:'AA',dividend:0.83,type:'accion',profile:'Walmart Inc. es una empresa del sector consumo con domicilio en EE.UU.. Cotiza bajo el símbolo WMT con beta de 0.49 y volatilidad anualizada de 17.3%. Calificación crediticia AA.',
+   fs:{
+     income:[
+       {year:2023,revenue:648125,grossProfit:157983,ebit:27012,netIncome:15511},
+       {year:2022,revenue:611289,grossProfit:147568,ebit:20428,netIncome:11680},
+       {year:2021,revenue:572754,grossProfit:143754,ebit:25942,netIncome:13673},
+     ],
+     balance:[
+       {year:2023,assets:252399,liabilities:168544,equity:83861,cash:9867,debt:49787},
+       {year:2022,assets:243197,liabilities:165139,equity:78034,cash:8625,debt:47831},
+       {year:2021,assets:244860,liabilities:162828,equity:91891,cash:14760,debt:44567},
+     ],
+     cashflow:[
+       {year:2023,operating:35726,investing:-19926,financing:-15991},
+       {year:2022,operating:28841,investing:-16753,financing:-17517},
+       {year:2021,operating:36361,investing:-9787,financing:-25767},
+     ]
+   }
+  },
+  {id:'XOM',name:'Exxon Mobil',ticker:'XOM',sector:'Energía',country:'EE.UU.',price:118.9,beta:0.92,sigma:25.7,ret:9.6,rating:'AA-',dividend:3.8,type:'accion',profile:'Exxon Mobil es una empresa del sector energía con domicilio en EE.UU.. Cotiza bajo el símbolo XOM con beta de 0.92 y volatilidad anualizada de 25.7%. Calificación crediticia AA-.',
+   fs:{
+     income:[
+       {year:2023,revenue:344582,grossProfit:72703,ebit:55755,netIncome:36010},
+       {year:2022,revenue:413680,grossProfit:98912,ebit:77893,netIncome:55740},
+       {year:2021,revenue:285640,grossProfit:67428,ebit:23512,netIncome:23040},
+     ],
+     balance:[
+       {year:2023,assets:376317,liabilities:163779,equity:204802,cash:31539,debt:41573},
+       {year:2022,assets:369067,liabilities:166594,equity:202409,cash:29640,debt:40559},
+       {year:2021,assets:338923,liabilities:168620,equity:168577,cash:6802,debt:47704},
+     ],
+     cashflow:[
+       {year:2023,operating:55369,investing:-18634,financing:-39595},
+       {year:2022,operating:76797,investing:-13313,financing:-37312},
+       {year:2021,operating:48129,investing:-10234,financing:-37339},
+     ]
+   }
+  },
+  {id:'KO',name:'Coca-Cola Co.',ticker:'KO',sector:'Consumo',country:'EE.UU.',price:62.3,beta:0.58,sigma:13.8,ret:6.9,rating:'A+',dividend:1.94,type:'accion',profile:'Coca-Cola Co. es una empresa del sector consumo con domicilio en EE.UU.. Cotiza bajo el símbolo KO con beta de 0.58 y volatilidad anualizada de 13.8%. Calificación crediticia A+.',
+   fs:{
+     income:[
+       {year:2023,revenue:45754,grossProfit:27234,ebit:11311,netIncome:10714},
+       {year:2022,revenue:43004,grossProfit:25004,ebit:10909,netIncome:9542},
+       {year:2021,revenue:38655,grossProfit:23298,ebit:10308,netIncome:9771},
+     ],
+     balance:[
+       {year:2023,assets:97703,liabilities:68460,equity:29512,cash:9366,debt:42130},
+       {year:2022,assets:92763,liabilities:66937,equity:25826,cash:9519,debt:39148},
+       {year:2021,assets:94354,liabilities:53203,equity:40768,cash:9684,debt:40125},
+     ],
+     cashflow:[
+       {year:2023,operating:11599,investing:-560,financing:-10306},
+       {year:2022,operating:11018,investing:-2618,financing:-9070},
+       {year:2021,operating:12625,investing:-4150,financing:-6786},
+     ]
+   }
+  },
+  {id:'DIS',name:'Walt Disney Co.',ticker:'DIS',sector:'Comunicación',country:'EE.UU.',price:98.7,beta:1.32,sigma:28.4,ret:9.2,rating:'A-',dividend:0.0,type:'accion',profile:'Walt Disney Co. es una empresa del sector comunicación con domicilio en EE.UU.. Cotiza bajo el símbolo DIS con beta de 1.32 y volatilidad anualizada de 28.4%. Calificación crediticia A-.',
+   fs:{
+     income:[
+       {year:2023,revenue:88898,grossProfit:30425,ebit:12891,netIncome:2354},
+       {year:2022,revenue:82722,grossProfit:28321,ebit:9854,netIncome:3145},
+       {year:2021,revenue:67418,grossProfit:22287,ebit:5972,netIncome:1995},
+     ],
+     balance:[
+       {year:2023,assets:205579,liabilities:95308,equity:99277,cash:14182,debt:46286},
+       {year:2022,assets:203631,liabilities:98049,equity:99100,cash:11615,debt:48369},
+       {year:2021,assets:203609,liabilities:97064,equity:93025,cash:15959,debt:48540},
+     ],
+     cashflow:[
+       {year:2023,operating:9866,investing:-4869,financing:-5419},
+       {year:2022,operating:6002,investing:-4513,financing:-3236},
+       {year:2021,operating:5566,investing:-3171,financing:-1330},
+     ]
+   }
+  },
+  {id:'MCD',name:"McDonald's Corp.",ticker:'MCD',sector:'Consumo',country:'EE.UU.',price:289.6,beta:0.67,sigma:16.9,ret:8.7,rating:'BBB+',dividend:6.68,type:'accion',profile:"McDonald's Corp. es una empresa del sector consumo con domicilio en EE.UU.. Cotiza bajo el símbolo MCD con beta de 0.67 y volatilidad anualizada de 16.9%. Calificación crediticia BBB+.",
+   fs:{
+     income:[
+       {year:2023,revenue:25494,grossProfit:14563,ebit:11647,netIncome:8469},
+       {year:2022,revenue:23183,grossProfit:13207,ebit:10371,netIncome:6177},
+       {year:2021,revenue:23223,grossProfit:13753,ebit:10356,netIncome:7545},
+     ],
+     balance:[
+       {year:2023,assets:56147,liabilities:60429,equity:-4708,cash:4579,debt:38629},
+       {year:2022,assets:50436,liabilities:56732,equity:-6003,cash:2584,debt:35922},
+       {year:2021,assets:53854,liabilities:58450,equity:-4601,cash:4709,debt:35623},
+     ],
+     cashflow:[
+       {year:2023,operating:9614,investing:-2926,financing:-7104},
+       {year:2022,operating:7410,investing:-2284,financing:-5879},
+       {year:2021,operating:8581,investing:-1681,financing:-7456},
+     ]
+   }
+  },
+  {id:'NKE',name:'Nike Inc.',ticker:'NKE',sector:'Consumo',country:'EE.UU.',price:94.2,beta:1.08,sigma:26.1,ret:9.8,rating:'AA-',dividend:1.48,type:'accion',profile:'Nike Inc. es una empresa del sector consumo con domicilio en EE.UU.. Cotiza bajo el símbolo NKE con beta de 1.08 y volatilidad anualizada de 26.1%. Calificación crediticia AA-.',
+   fs:{
+     income:[
+       {year:2023,revenue:51217,grossProfit:22877,ebit:6723,netIncome:5070},
+       {year:2022,revenue:46710,grossProfit:21479,ebit:6679,netIncome:6046},
+       {year:2021,revenue:44538,grossProfit:21479,ebit:6789,netIncome:5727},
+     ],
+     balance:[
+       {year:2023,assets:37531,liabilities:22772,equity:14004,cash:7511,debt:8927},
+       {year:2022,assets:40321,liabilities:23682,equity:15281,cash:10612,debt:8927},
+       {year:2021,assets:37740,liabilities:24341,equity:12767,cash:9889,debt:9413},
+     ],
+     cashflow:[
+       {year:2023,operating:5836,investing:-1148,financing:-5279},
+       {year:2022,operating:5188,investing:-394,financing:-4488},
+       {year:2021,operating:6657,investing:-3851,financing:-2356},
+     ]
+   }
+  },
+  {id:'PFE',name:'Pfizer Inc.',ticker:'PFE',sector:'Salud',country:'EE.UU.',price:28.4,beta:0.62,sigma:22.8,ret:7.4,rating:'A+',dividend:1.68,type:'accion',profile:'Pfizer Inc. es una empresa del sector salud con domicilio en EE.UU.. Cotiza bajo el símbolo PFE con beta de 0.62 y volatilidad anualizada de 22.8%. Calificación crediticia A+.',
+   fs:{
+     income:[
+       {year:2023,revenue:58496,grossProfit:40130,ebit:3955,netIncome:2119},
+       {year:2022,revenue:100330,grossProfit:67844,ebit:37700,netIncome:31372},
+       {year:2021,revenue:81288,grossProfit:51547,ebit:22034,netIncome:21979},
+     ],
+     balance:[
+       {year:2023,assets:226501,liabilities:128606,equity:89014,cash:12694,debt:71179},
+       {year:2022,assets:197205,liabilities:102306,equity:94806,cash:22318,debt:38978},
+       {year:2021,assets:181476,liabilities:104008,equity:77201,cash:31069,debt:36486},
+     ],
+     cashflow:[
+       {year:2023,operating:8700,investing:-31633,financing:16986},
+       {year:2022,operating:29267,investing:-19255,financing:-10330},
+       {year:2021,operating:32922,investing:-3595,financing:-29325},
+     ]
+   }
+  },
+  {id:'BAC',name:'Bank of America',ticker:'BAC',sector:'Finanzas',country:'EE.UU.',price:39.8,beta:1.34,sigma:28.7,ret:9.4,rating:'A-',dividend:0.96,type:'accion',profile:'Bank of America es una empresa del sector finanzas con domicilio en EE.UU.. Cotiza bajo el símbolo BAC con beta de 1.34 y volatilidad anualizada de 28.7%. Calificación crediticia A-.',
+   fs:{
+     income:[
+       {year:2023,revenue:98581,grossProfit:0,ebit:0,netIncome:26515},
+       {year:2022,revenue:94950,grossProfit:0,ebit:0,netIncome:27528},
+       {year:2021,revenue:89113,grossProfit:0,ebit:0,netIncome:31978},
+     ],
+     balance:[
+       {year:2023,assets:3180151,liabilities:2888163,equity:291646,cash:333703,debt:652020},
+       {year:2022,assets:3051375,liabilities:2778149,equity:273197,cash:230093,debt:609395},
+       {year:2021,assets:3169495,liabilities:2899053,equity:270066,cash:348221,debt:541870},
+     ],
+     cashflow:[
+       {year:2023,operating:73682,investing:-39510,financing:-30877},
+       {year:2022,operating:48891,investing:-227883,financing:180685},
+       {year:2021,operating:89531,investing:-282993,financing:160768},
+     ]
+   }
+  },
+  {id:'INTC',name:'Intel Corp.',ticker:'INTC',sector:'Tecnología',country:'EE.UU.',price:31.2,beta:1.18,sigma:33.5,ret:8.1,rating:'A',dividend:0.5,type:'accion',profile:'Intel Corp. es una empresa del sector tecnología con domicilio en EE.UU.. Cotiza bajo el símbolo INTC con beta de 1.18 y volatilidad anualizada de 33.5%. Calificación crediticia A.',
+   fs:{
+     income:[
+       {year:2023,revenue:54228,grossProfit:21711,ebit:93,netIncome:1689},
+       {year:2022,revenue:63054,grossProfit:27365,ebit:2335,netIncome:8014},
+       {year:2021,revenue:79024,grossProfit:43815,ebit:19456,netIncome:19868},
+     ],
+     balance:[
+       {year:2023,assets:191572,liabilities:81607,equity:109895,cash:7079,debt:49266},
+       {year:2022,assets:182103,liabilities:78216,equity:103886,cash:11144,debt:37684},
+       {year:2021,assets:168406,liabilities:67815,equity:95391,cash:4827,debt:33510},
+     ],
+     cashflow:[
+       {year:2023,operating:11471,investing:-25577,financing:11868},
+       {year:2022,operating:15433,investing:-21433,financing:5043},
+       {year:2021,operating:29456,investing:-24449,financing:-2329},
+     ]
+   }
+  },
+  {id:'CSCO',name:'Cisco Systems',ticker:'CSCO',sector:'Tecnología',country:'EE.UU.',price:49.6,beta:0.89,sigma:20.3,ret:8.9,rating:'AA-',dividend:1.6,type:'accion',profile:'Cisco Systems es una empresa del sector tecnología con domicilio en EE.UU.. Cotiza bajo el símbolo CSCO con beta de 0.89 y volatilidad anualizada de 20.3%. Calificación crediticia AA-.',
+   fs:{
+     income:[
+       {year:2023,revenue:56998,grossProfit:36692,ebit:15585,netIncome:12613},
+       {year:2022,revenue:51557,grossProfit:32956,ebit:13973,netIncome:11812},
+       {year:2021,revenue:49818,grossProfit:32522,ebit:13973,netIncome:10591},
+     ],
+     balance:[
+       {year:2023,assets:101852,liabilities:57932,equity:43748,cash:10123,debt:8416},
+       {year:2022,assets:94002,liabilities:52258,equity:41736,cash:7079,debt:9504},
+       {year:2021,assets:97497,liabilities:55418,equity:42079,cash:9388,debt:11529},
+     ],
+     cashflow:[
+       {year:2023,operating:19886,investing:-3815,financing:-12099},
+       {year:2022,operating:13219,investing:-2840,financing:-12099},
+       {year:2021,operating:15454,investing:1085,financing:-13089},
+     ]
+   }
+  },
+  {id:'SAN',name:'Banco Santander',ticker:'SAN',sector:'Finanzas',country:'España',price:4.8,beta:1.28,sigma:30.2,ret:9.7,rating:'A',dividend:0.12,type:'accion',profile:'Banco Santander es una empresa del sector finanzas con domicilio en España. Cotiza bajo el símbolo SAN con beta de 1.28 y volatilidad anualizada de 30.2%. Calificación crediticia A.',
+   fs:{
+     income:[
+       {year:2023,revenue:57647,grossProfit:0,ebit:0,netIncome:12392},
+       {year:2022,revenue:52117,grossProfit:0,ebit:0,netIncome:9605},
+       {year:2021,revenue:46404,grossProfit:0,ebit:0,netIncome:8124},
+     ],
+     balance:[
+       {year:2023,assets:1797000,liabilities:1701000,equity:96000,cash:223000,debt:289000},
+       {year:2022,assets:1734000,liabilities:1637000,equity:97000,cash:210000,debt:276000},
+       {year:2021,assets:1595000,liabilities:1498000,equity:97000,cash:195000,debt:261000},
+     ],
+     cashflow:[
+       {year:2023,operating:28000,investing:-12000,financing:-9000},
+       {year:2022,operating:24000,investing:-10000,financing:-8000},
+       {year:2021,operating:22000,investing:-9000,financing:-7500},
+     ]
+   }
+  },
+  {id:'TSM',name:'Taiwan Semicon.',ticker:'TSM',sector:'Tecnología',country:'Taiwán',price:172.5,beta:1.15,sigma:31.4,ret:13.8,rating:'AA-',dividend:0.55,type:'accion',profile:'Taiwan Semicon. es una empresa del sector tecnología con domicilio en Taiwán. Cotiza bajo el símbolo TSM con beta de 1.15 y volatilidad anualizada de 31.4%. Calificación crediticia AA-.',
+   fs:{
+     income:[
+       {year:2023,revenue:69298,grossProfit:37810,ebit:29077,netIncome:26900},
+       {year:2022,revenue:73558,grossProfit:43525,ebit:36000,netIncome:34000},
+       {year:2021,revenue:56822,grossProfit:30900,ebit:23000,netIncome:21300},
+     ],
+     balance:[
+       {year:2023,assets:192000,liabilities:68000,equity:124000,cash:49000,debt:30000},
+       {year:2022,assets:184000,liabilities:70000,equity:114000,cash:52000,debt:28000},
+       {year:2021,assets:150000,liabilities:60000,equity:90000,cash:44000,debt:24000},
+     ],
+     cashflow:[
+       {year:2023,operating:48000,investing:-29000,financing:-7000},
+       {year:2022,operating:56000,investing:-36000,financing:-4000},
+       {year:2021,operating:46000,investing:-34000,financing:-1000},
+     ]
+   }
+  },
+  {id:'TM',name:'Toyota Motor',ticker:'TM',sector:'Automotriz',country:'Japón',price:211.3,beta:0.84,sigma:21.6,ret:8.3,rating:'A+',dividend:3.2,type:'accion',profile:'Toyota Motor es una empresa del sector automotriz con domicilio en Japón. Cotiza bajo el símbolo TM con beta de 0.84 y volatilidad anualizada de 21.6%. Calificación crediticia A+.',
+   fs:{
+     income:[
+       {year:2023,revenue:296000,grossProfit:0,ebit:30000,netIncome:32000},
+       {year:2022,revenue:279000,grossProfit:0,ebit:27000,netIncome:23000},
+       {year:2021,revenue:265000,grossProfit:0,ebit:29000,netIncome:28000},
+     ],
+     balance:[
+       {year:2023,assets:560000,liabilities:360000,equity:200000,cash:60000,debt:200000},
+       {year:2022,assets:540000,liabilities:350000,equity:190000,cash:55000,debt:195000},
+       {year:2021,assets:520000,liabilities:340000,equity:180000,cash:50000,debt:190000},
+     ],
+     cashflow:[
+       {year:2023,operating:38000,investing:-30000,financing:-5000},
+       {year:2022,operating:35000,investing:-28000,financing:-4000},
+       {year:2021,operating:37000,investing:-29000,financing:-6000},
+     ]
+   }
+  },
+  {id:'NVO',name:'Novo Nordisk',ticker:'NVO',sector:'Salud',country:'Dinamarca',price:128.9,beta:0.71,sigma:24.9,ret:14.2,rating:'AA-',dividend:1.1,type:'accion',profile:'Novo Nordisk es una empresa del sector salud con domicilio en Dinamarca. Cotiza bajo el símbolo NVO con beta de 0.71 y volatilidad anualizada de 24.9%. Calificación crediticia AA-.',
+   fs:{
+     income:[
+       {year:2023,revenue:33700,grossProfit:28000,ebit:15000,netIncome:12100},
+       {year:2022,revenue:25500,grossProfit:21000,ebit:11000,netIncome:8900},
+       {year:2021,revenue:20800,grossProfit:17000,ebit:9000,netIncome:7000},
+     ],
+     balance:[
+       {year:2023,assets:45000,liabilities:22000,equity:23000,cash:5000,debt:8000},
+       {year:2022,assets:35000,liabilities:18000,equity:17000,cash:4000,debt:6000},
+       {year:2021,assets:30000,liabilities:15000,equity:15000,cash:3500,debt:5000},
+     ],
+     cashflow:[
+       {year:2023,operating:14000,investing:-3000,financing:-9000},
+       {year:2022,operating:11000,investing:-2500,financing:-7500},
+       {year:2021,operating:9000,investing:-2000,financing:-6000},
+     ]
+   }
+  },
+  {id:'SHEL',name:'Shell plc',ticker:'SHEL',sector:'Energía',country:'Reino Unido',price:68.2,beta:0.95,sigma:24.1,ret:8.8,rating:'AA-',dividend:2.6,type:'accion',profile:'Shell plc es una empresa del sector energía con domicilio en Reino Unido. Cotiza bajo el símbolo SHEL con beta de 0.95 y volatilidad anualizada de 24.1%. Calificación crediticia AA-.',
+   fs:{
+     income:[
+       {year:2023,revenue:323183,grossProfit:0,ebit:0,netIncome:19359},
+       {year:2022,revenue:381314,grossProfit:0,ebit:0,netIncome:42309},
+       {year:2021,revenue:261504,grossProfit:0,ebit:0,netIncome:20101},
+     ],
+     balance:[
+       {year:2023,assets:406270,liabilities:217000,equity:189270,cash:40000,debt:82000},
+       {year:2022,assets:443000,liabilities:240000,equity:203000,cash:44000,debt:84000},
+       {year:2021,assets:404000,liabilities:230000,equity:174000,cash:37000,debt:89000},
+     ],
+     cashflow:[
+       {year:2023,operating:54200,investing:-18000,financing:-35000},
+       {year:2022,operating:68400,investing:-20000,financing:-43000},
+       {year:2021,operating:45100,investing:-12000,financing:-30000},
+     ]
+   }
+  },
+  {id:'BABA',name:'Alibaba Group',ticker:'BABA',sector:'Tecnología',country:'China',price:78.4,beta:1.42,sigma:38.7,ret:10.4,rating:'A+',dividend:0.0,type:'accion',profile:'Alibaba Group es una empresa del sector tecnología con domicilio en China. Cotiza bajo el símbolo BABA con beta de 1.42 y volatilidad anualizada de 38.7%. Calificación crediticia A+.',
+   fs:{
+     income:[
+       {year:2023,revenue:130350,grossProfit:49000,ebit:18000,netIncome:10600},
+       {year:2022,revenue:134570,grossProfit:48000,ebit:15000,netIncome:9700},
+       {year:2021,revenue:109480,grossProfit:45000,ebit:12000,netIncome:8900},
+     ],
+     balance:[
+       {year:2023,assets:264000,liabilities:90000,equity:165000,cash:80000,debt:20000},
+       {year:2022,assets:255000,liabilities:88000,equity:158000,cash:75000,debt:19000},
+       {year:2021,assets:245000,liabilities:85000,equity:150000,cash:70000,debt:18000},
+     ],
+     cashflow:[
+       {year:2023,operating:24000,investing:-15000,financing:-8000},
+       {year:2022,operating:22000,investing:-14000,financing:-7000},
+       {year:2021,operating:31000,investing:-20000,financing:-9000},
+     ]
+   }
+  },
+  {id:'MELI',name:'MercadoLibre',ticker:'MELI',sector:'Tecnología',country:'Argentina',price:1684.0,beta:1.55,sigma:42.3,ret:16.8,rating:'BBB',dividend:0.0,type:'accion',profile:'MercadoLibre es una empresa del sector tecnología con domicilio en Argentina. Cotiza bajo el símbolo MELI con beta de 1.55 y volatilidad anualizada de 42.3%. Calificación crediticia BBB.',
+   fs:{
+     income:[
+       {year:2023,revenue:14473,grossProfit:6800,ebit:1300,netIncome:987},
+       {year:2022,revenue:10537,grossProfit:4900,ebit:800,netIncome:482},
+       {year:2021,revenue:7069,grossProfit:3200,ebit:200,netIncome:83},
+     ],
+     balance:[
+       {year:2023,assets:13900,liabilities:10500,equity:3400,cash:2700,debt:1900},
+       {year:2022,assets:10400,liabilities:8200,equity:2200,cash:2300,debt:1700},
+       {year:2021,assets:8400,liabilities:6700,equity:1700,cash:2000,debt:1500},
+     ],
+     cashflow:[
+       {year:2023,operating:2700,investing:-1500,financing:-300},
+       {year:2022,operating:2000,investing:-1200,financing:500},
+       {year:2021,operating:1300,investing:-900,financing:1500},
+     ]
+   }
+  },
+  {id:'VALE',name:'Vale S.A.',ticker:'VALE',sector:'Materiales',country:'Brasil',price:11.8,beta:1.38,sigma:35.9,ret:10.2,rating:'BBB-',dividend:1.4,type:'accion',profile:'Vale S.A. es una empresa del sector materiales con domicilio en Brasil. Cotiza bajo el símbolo VALE con beta de 1.38 y volatilidad anualizada de 35.9%. Calificación crediticia BBB-.',
+   fs:{
+     income:[
+       {year:2023,revenue:41784,grossProfit:16000,ebit:12000,netIncome:7980},
+       {year:2022,revenue:43839,grossProfit:18000,ebit:14000,netIncome:18800},
+       {year:2021,revenue:54502,grossProfit:28000,ebit:24000,netIncome:22440},
+     ],
+     balance:[
+       {year:2023,assets:89000,liabilities:45000,equity:44000,cash:5000,debt:12000},
+       {year:2022,assets:92000,liabilities:47000,equity:45000,cash:4500,debt:13000},
+       {year:2021,assets:95000,liabilities:48000,equity:47000,cash:11000,debt:14000},
+     ],
+     cashflow:[
+       {year:2023,operating:13000,investing:-5000,financing:-9000},
+       {year:2022,operating:17000,investing:-6000,financing:-12000},
+       {year:2021,operating:24000,investing:-7000,financing:-15000},
+     ]
+   }
+  }
 ];
 const ALL_BONDS=[
-  {id:'UST10',name:'Tesoro EE.UU. 10Y',ticker:'UST-10Y',country:'EE.UU.',price:97.5,coupon:4.25,maturity:10,rating:'AAA',sigma:4.2,ret:4.25,profile:'Bono del Tesoro a 10 años, activo libre de riesgo global. Respaldado por el gobierno federal. Tasa refleja política monetaria de la Fed.',rp:0.1,type:'bono',
+  {id:'UST10',name:'Tesoro EE.UU. 10Y',ticker:'UST-10Y',country:'EE.UU.',price:97.5,coupon:4.25,maturity:10,rating:'AAA',sigma:4.2,ret:4.25,profile:'Bono del Tesoro a 10 años, activo libre de riesgo global. Respaldado por el gobierno federal. Tasa refleja política monetaria de la Fed.',rp:0.1,type:'bono',ytm:4.51,duration:6.54,convexity:36.4,couponFreq:'Semestral',faceValue:100,dirtyPrice:98.56,
    bondDoc:{issuer:'Departamento del Tesoro de los Estados Unidos',totalIssuance:'$120,000 M',couponFrequency:'Semestral',dayCount:'Act/Act',clearing:'Fedwire / DTC',callable:false,yieldCurve:[{tenor:'3M',yield:5.28},{tenor:'6M',yield:5.30},{tenor:'2Y',yield:4.88},{tenor:'5Y',yield:4.55},{tenor:'10Y',yield:4.25},{tenor:'30Y',yield:4.48}],duration:8.42,convexity:0.82,cashFlows:[{period:1,year:0.5,coupon:2125,principal:0,total:2125},{period:2,year:1.0,coupon:2125,principal:0,total:2125},{period:3,year:2.0,coupon:2125,principal:0,total:2125},{period:5,year:5.0,coupon:2125,principal:0,total:2125},{period:10,year:10.0,coupon:2125,principal:100000,total:102125}]}
   },
-  {id:'GER10',name:'Bono Alemán 10Y',ticker:'GER-10Y',country:'Alemania',price:98.2,coupon:2.50,maturity:10,rating:'AAA',sigma:3.8,ret:2.50,profile:'Bono soberano del Gobierno Federal Alemán a 10 años, referencia de la zona euro. Alemania mantiene calificación AAA con deuda/PIB de 66%. Activo refugio europeo por excelencia.',rp:0.05,type:'bono',
+  {id:'GER10',name:'Bono Alemán 10Y',ticker:'GER-10Y',country:'Alemania',price:98.2,coupon:2.50,maturity:10,rating:'AAA',sigma:3.8,ret:2.50,profile:'Bono soberano del Gobierno Federal Alemán a 10 años, referencia de la zona euro. Alemania mantiene calificación AAA con deuda/PIB de 66%. Activo refugio europeo por excelencia.',rp:0.05,type:'bono',ytm:2.68,duration:7.4,convexity:46.5,couponFreq:'Semestral',faceValue:100,dirtyPrice:98.83,
    bondDoc:{issuer:'República Federal de Alemania — Finanzagentur GmbH',totalIssuance:'€26,000 M',couponFrequency:'Anual',dayCount:'Act/Act ICMA',clearing:'Euroclear / Clearstream',callable:false,yieldCurve:[{tenor:'1Y',yield:3.62},{tenor:'2Y',yield:2.88},{tenor:'5Y',yield:2.65},{tenor:'10Y',yield:2.50},{tenor:'30Y',yield:2.65}],duration:8.95,convexity:0.91,cashFlows:[{period:1,year:1.0,coupon:2500,principal:0,total:2500},{period:3,year:3.0,coupon:2500,principal:0,total:2500},{period:5,year:5.0,coupon:2500,principal:0,total:2500},{period:10,year:10.0,coupon:2500,principal:100000,total:102500}]}
   },
-  {id:'BON-PA',name:'Bono Rep. Panamá',ticker:'PAN-30',country:'Panamá',price:94.8,coupon:3.87,maturity:15,rating:'BBB',sigma:8.4,ret:5.20,profile:'Panamá mantiene grado de inversión. Dolarización elimina riesgo cambiario. Canal de Panamá genera ingresos estratégicos. Deuda/PIB: 55%.',rp:1.8,type:'bono',
+  {id:'BON-PA',name:'Bono Rep. Panamá',ticker:'PAN-30',country:'Panamá',price:94.8,coupon:3.87,maturity:15,rating:'BBB',sigma:8.4,ret:5.20,profile:'Panamá mantiene grado de inversión. Dolarización elimina riesgo cambiario. Canal de Panamá genera ingresos estratégicos. Deuda/PIB: 55%.',rp:1.8,type:'bono',ytm:5.57,duration:8.9,convexity:67.3,couponFreq:'Semestral',faceValue:100,dirtyPrice:95.77,
    bondDoc:{issuer:'República de Panamá — Ministerio de Economía y Finanzas',totalIssuance:'$2,000 M',couponFrequency:'Semestral',dayCount:'30/360',clearing:'DTC / Euroclear',callable:false,yieldCurve:[{tenor:'5Y',yield:4.90},{tenor:'10Y',yield:5.10},{tenor:'15Y',yield:5.20},{tenor:'30Y',yield:5.55}],duration:10.84,convexity:1.42,cashFlows:[{period:1,year:0.5,coupon:1935,principal:0,total:1935},{period:3,year:3.0,coupon:1935,principal:0,total:1935},{period:5,year:5.0,coupon:1935,principal:0,total:1935},{period:10,year:10.0,coupon:1935,principal:0,total:1935},{period:15,year:15.0,coupon:1935,principal:100000,total:101935}]}
   },
-  {id:'COL-10',name:'TES Colombia 10Y',ticker:'COL-10Y',country:'Colombia',price:89.4,coupon:7.00,maturity:10,rating:'BB+',sigma:12.1,ret:8.60,profile:'Títulos del Ministerio de Hacienda de Colombia. Alta rentabilidad refleja riesgo moderado. EMBI Colombia: ~250bps.',rp:2.5,type:'bono',
+  {id:'COL-10',name:'TES Colombia 10Y',ticker:'COL-10Y',country:'Colombia',price:89.4,coupon:7.00,maturity:10,rating:'BB+',sigma:12.1,ret:8.60,profile:'Títulos del Ministerio de Hacienda de Colombia. Alta rentabilidad refleja riesgo moderado. EMBI Colombia: ~250bps.',rp:2.5,type:'bono',ytm:9.79,duration:5.62,convexity:26.8,couponFreq:'Semestral',faceValue:100,dirtyPrice:91.15,
    bondDoc:{issuer:'República de Colombia — Ministerio de Hacienda y Crédito Público',totalIssuance:'COP 15.2 B',couponFrequency:'Semestral',dayCount:'Act/365',clearing:'DCV (Depósito Central de Valores)',callable:false,yieldCurve:[{tenor:'1Y',yield:10.20},{tenor:'3Y',yield:9.50},{tenor:'5Y',yield:8.90},{tenor:'10Y',yield:8.60}],duration:7.12,convexity:0.68,cashFlows:[{period:1,year:0.5,coupon:3500,principal:0,total:3500},{period:3,year:3.0,coupon:3500,principal:0,total:3500},{period:5,year:5.0,coupon:3500,principal:0,total:3500},{period:10,year:10.0,coupon:3500,principal:100000,total:103500}]}
   },
-  {id:'MEX-10',name:'Cetes México 1Y',ticker:'CETES-1Y',country:'México',price:99.1,coupon:10.50,maturity:1,rating:'BBB-',sigma:6.8,ret:10.50,profile:'Certificados de la Tesorería de México. Alta tasa refleja política del Banxico contra inflación. México grado de inversión.',rp:2.1,type:'bono',
+  {id:'MEX-10',name:'Cetes México 1Y',ticker:'CETES-1Y',country:'México',price:99.1,coupon:10.50,maturity:1,rating:'BBB-',sigma:6.8,ret:10.50,profile:'Certificados de la Tesorería de México. Alta tasa refleja política del Banxico contra inflación. México grado de inversión.',rp:2.1,type:'bono',ytm:11.41,duration:0.84,convexity:0.6,couponFreq:'Semestral',faceValue:100,dirtyPrice:101.72,
    bondDoc:{issuer:'Gobierno Federal de México — SHCP / Banco de México',totalIssuance:'MXN 800,000 M',couponFrequency:'Descuento (cero cupón)',dayCount:'Act/360',clearing:'INDEVAL',callable:false,yieldCurve:[{tenor:'28d',yield:11.00},{tenor:'91d',yield:10.85},{tenor:'182d',yield:10.60},{tenor:'364d',yield:10.50}],duration:1.0,convexity:0.01,cashFlows:[{period:1,year:1.0,coupon:10500,principal:100000,total:110500}]}
   },
-  {id:'ARG-10',name:'Bono Argentina 2030',ticker:'AL30',country:'Argentina',price:42.5,coupon:0.50,maturity:5,rating:'CCC',sigma:35.6,ret:28.4,profile:'Argentina en reestructuración soberana. Inflación 200%+, EMBI 1800bps. Inversión especulativa de altísimo riesgo con potencial retorno extraordinario.',rp:18.0,type:'bono',
+  {id:'ARG-10',name:'Bono Argentina 2030',ticker:'AL30',country:'Argentina',price:42.5,coupon:0.50,maturity:5,rating:'CCC',sigma:35.6,ret:28.4,profile:'Argentina en reestructuración soberana. Inflación 200%+, EMBI 1800bps. Inversión especulativa de altísimo riesgo con potencial retorno extraordinario.',rp:18.0,type:'bono',ytm:55.46,duration:4.53,convexity:17.4,couponFreq:'Semestral',faceValue:100,dirtyPrice:42.62,
    bondDoc:{issuer:'República Argentina — Ministerio de Economía',totalIssuance:'$16,200 M (post-reestructuración 2020)',couponFrequency:'Semestral (step-up)',dayCount:'30/360',clearing:'DTC / Euroclear / Caja de Valores',callable:false,yieldCurve:[{tenor:'5Y',yield:28.4},{tenor:'10Y',yield:22.0},{tenor:'30Y',yield:18.5}],duration:3.85,convexity:0.18,cashFlows:[{period:1,year:0.5,coupon:250,principal:0,total:250},{period:2,year:1.0,coupon:500,principal:0,total:500},{period:3,year:2.0,coupon:750,principal:0,total:750},{period:5,year:5.0,coupon:1000,principal:100000,total:101000}]}
   },
-  {id:'UST2',name:'Bono EE.UU. 2Y',ticker:'UST-2Y',country:'EE.UU.',price:99.1,coupon:4.75,maturity:2,rating:'AAA',sigma:1.8,ret:4.75,rp:0.0,type:'bono',profile:'Bono EE.UU. 2Y emitido por EE.UU.. Cupón anual de 4.75% con vencimiento a 2 años. Calificación AAA, spread de riesgo país 0.0%.'},
-  {id:'UST30',name:'Bono EE.UU. 30Y',ticker:'UST-30Y',country:'EE.UU.',price:95.4,coupon:4.25,maturity:30,rating:'AAA',sigma:7.2,ret:4.25,rp:0.0,type:'bono',profile:'Bono EE.UU. 30Y emitido por EE.UU.. Cupón anual de 4.25% con vencimiento a 30 años. Calificación AAA, spread de riesgo país 0.0%.'},
-  {id:'GER2',name:'Bono Alemán 2Y',ticker:'GER-2Y',country:'Alemania',price:99.6,coupon:2.8,maturity:2,rating:'AAA',sigma:1.5,ret:2.8,rp:0.05,type:'bono',profile:'Bono Alemán 2Y emitido por Alemania. Cupón anual de 2.8% con vencimiento a 2 años. Calificación AAA, spread de riesgo país 0.05%.'},
-  {id:'GER30',name:'Bono Alemán 30Y',ticker:'GER-30Y',country:'Alemania',price:94.8,coupon:2.65,maturity:30,rating:'AAA',sigma:8.1,ret:2.65,rp:0.05,type:'bono',profile:'Bono Alemán 30Y emitido por Alemania. Cupón anual de 2.65% con vencimiento a 30 años. Calificación AAA, spread de riesgo país 0.05%.'},
-  {id:'GB10',name:'Gilt Británico 10Y',ticker:'GB-10Y',country:'Reino Unido',price:96.7,coupon:4.05,maturity:10,rating:'AA',sigma:6.4,ret:4.05,rp:0.3,type:'bono',profile:'Gilt Británico 10Y emitido por Reino Unido. Cupón anual de 4.05% con vencimiento a 10 años. Calificación AA, spread de riesgo país 0.3%.'},
-  {id:'FR10',name:'OAT Francés 10Y',ticker:'FR-10Y',country:'Francia',price:97.2,coupon:3.15,maturity:10,rating:'AA-',sigma:6.2,ret:3.15,rp:0.2,type:'bono',profile:'OAT Francés 10Y emitido por Francia. Cupón anual de 3.15% con vencimiento a 10 años. Calificación AA-, spread de riesgo país 0.2%.'},
-  {id:'IT10',name:'BTP Italiano 10Y',ticker:'IT-10Y',country:'Italia',price:93.5,coupon:4.35,maturity:10,rating:'BBB',sigma:7.8,ret:4.35,rp:1.8,type:'bono',profile:'BTP Italiano 10Y emitido por Italia. Cupón anual de 4.35% con vencimiento a 10 años. Calificación BBB, spread de riesgo país 1.8%.'},
-  {id:'ES10',name:'Bono Español 10Y',ticker:'ES-10Y',country:'España',price:95.1,coupon:3.45,maturity:10,rating:'A',sigma:6.9,ret:3.45,rp:0.9,type:'bono',profile:'Bono Español 10Y emitido por España. Cupón anual de 3.45% con vencimiento a 10 años. Calificación A, spread de riesgo país 0.9%.'},
-  {id:'JP10',name:'Bono Japonés 10Y',ticker:'JP-10Y',country:'Japón',price:98.9,coupon:0.95,maturity:10,rating:'A+',sigma:5.1,ret:0.95,rp:0.2,type:'bono',profile:'Bono Japonés 10Y emitido por Japón. Cupón anual de 0.95% con vencimiento a 10 años. Calificación A+, spread de riesgo país 0.2%.'},
-  {id:'CN10',name:'Bono Chino 10Y',ticker:'CN-10Y',country:'China',price:97.8,coupon:2.45,maturity:10,rating:'A+',sigma:5.8,ret:2.45,rp:0.6,type:'bono',profile:'Bono Chino 10Y emitido por China. Cupón anual de 2.45% con vencimiento a 10 años. Calificación A+, spread de riesgo país 0.6%.'},
-  {id:'BR10',name:'Bono Brasileño 10Y',ticker:'BR-10Y',country:'Brasil',price:88.4,coupon:11.25,maturity:10,rating:'BB',sigma:11.2,ret:11.25,rp:2.4,type:'bono',profile:'Bono Brasileño 10Y emitido por Brasil. Cupón anual de 11.25% con vencimiento a 10 años. Calificación BB, spread de riesgo país 2.4%.'},
-  {id:'MX5',name:'Bono Mexicano 5Y',ticker:'MX-5Y',country:'México',price:94.2,coupon:8.75,maturity:5,rating:'BBB',sigma:6.8,ret:8.75,rp:1.6,type:'bono',profile:'Bono Mexicano 5Y emitido por México. Cupón anual de 8.75% con vencimiento a 5 años. Calificación BBB, spread de riesgo país 1.6%.'},
-  {id:'CL10',name:'Bono Chileno 10Y',ticker:'CL-10Y',country:'Chile',price:93.8,coupon:5.95,maturity:10,rating:'A',sigma:7.1,ret:5.95,rp:1.2,type:'bono',profile:'Bono Chileno 10Y emitido por Chile. Cupón anual de 5.95% con vencimiento a 10 años. Calificación A, spread de riesgo país 1.2%.'},
-  {id:'PE10',name:'Bono Peruano 10Y',ticker:'PE-10Y',country:'Perú',price:92.1,coupon:6.45,maturity:10,rating:'BBB',sigma:8.2,ret:6.45,rp:1.7,type:'bono',profile:'Bono Peruano 10Y emitido por Perú. Cupón anual de 6.45% con vencimiento a 10 años. Calificación BBB, spread de riesgo país 1.7%.'},
-  {id:'ZA10',name:'Bono Sudafricano 10Y',ticker:'ZA-10Y',country:'Sudáfrica',price:85.6,coupon:10.85,maturity:10,rating:'BB-',sigma:12.4,ret:10.85,rp:3.1,type:'bono',profile:'Bono Sudafricano 10Y emitido por Sudáfrica. Cupón anual de 10.85% con vencimiento a 10 años. Calificación BB-, spread de riesgo país 3.1%.'},
-  {id:'TR10',name:'Bono Turco 10Y',ticker:'TR-10Y',country:'Turquía',price:78.3,coupon:24.5,maturity:10,rating:'B',sigma:18.7,ret:24.5,rp:4.8,type:'bono',profile:'Bono Turco 10Y emitido por Turquía. Cupón anual de 24.5% con vencimiento a 10 años. Calificación B, spread de riesgo país 4.8%.'},
-  {id:'IN10',name:'Bono Indio 10Y',ticker:'IN-10Y',country:'India',price:96.4,coupon:7.05,maturity:10,rating:'BBB-',sigma:7.4,ret:7.05,rp:1.5,type:'bono',profile:'Bono Indio 10Y emitido por India. Cupón anual de 7.05% con vencimiento a 10 años. Calificación BBB-, spread de riesgo país 1.5%.'},
-  {id:'ID10',name:'Bono Indonesio 10Y',ticker:'ID-10Y',country:'Indonesia',price:94.7,coupon:6.65,maturity:10,rating:'BBB',sigma:8.1,ret:6.65,rp:1.9,type:'bono',profile:'Bono Indonesio 10Y emitido por Indonesia. Cupón anual de 6.65% con vencimiento a 10 años. Calificación BBB, spread de riesgo país 1.9%.'},
-  {id:'PA5',name:'Bono Panamá 5Y',ticker:'PA-5Y',country:'Panamá',price:96.2,coupon:5.25,maturity:5,rating:'BBB',sigma:5.4,ret:5.25,rp:1.3,type:'bono',profile:'Bono Panamá 5Y emitido por Panamá. Cupón anual de 5.25% con vencimiento a 5 años. Calificación BBB, spread de riesgo país 1.3%.'},
-  {id:'CR10',name:'Bono Costa Rica 10Y',ticker:'CR-10Y',country:'Costa Rica',price:90.8,coupon:7.85,maturity:10,rating:'BB',sigma:9.6,ret:7.85,rp:2.6,type:'bono',profile:'Bono Costa Rica 10Y emitido por Costa Rica. Cupón anual de 7.85% con vencimiento a 10 años. Calificación BB, spread de riesgo país 2.6%.'},
-  {id:'CORP-AAPL',name:'Bono Corp. Apple 10Y',ticker:'AAPL-BND',country:'EE.UU.',price:97.5,coupon:3.85,maturity:10,rating:'AAA',sigma:5.9,ret:3.85,rp:0.1,type:'bono',profile:'Bono Corp. Apple 10Y emitido por EE.UU.. Cupón anual de 3.85% con vencimiento a 10 años. Calificación AAA, spread de riesgo país 0.1%.'},
-  {id:'CORP-MSFT',name:'Bono Corp. Microsoft 10Y',ticker:'MSFT-BND',country:'EE.UU.',price:98.1,coupon:3.65,maturity:10,rating:'AAA',sigma:5.7,ret:3.65,rp:0.1,type:'bono',profile:'Bono Corp. Microsoft 10Y emitido por EE.UU.. Cupón anual de 3.65% con vencimiento a 10 años. Calificación AAA, spread de riesgo país 0.1%.'},
-  {id:'CORP-KO',name:'Bono Corp. Coca-Cola 10Y',ticker:'KO-BND',country:'EE.UU.',price:96.3,coupon:4.15,maturity:10,rating:'A+',sigma:6.1,ret:4.15,rp:0.4,type:'bono',profile:'Bono Corp. Coca-Cola 10Y emitido por EE.UU.. Cupón anual de 4.15% con vencimiento a 10 años. Calificación A+, spread de riesgo país 0.4%.'},
-  {id:'HY-US',name:'Bono Alto Rendimiento US',ticker:'HY-US',country:'EE.UU.',price:91.2,coupon:7.95,maturity:7,rating:'BB',sigma:9.8,ret:7.95,rp:2.2,type:'bono',profile:'Bono Alto Rendimiento US emitido por EE.UU.. Cupón anual de 7.95% con vencimiento a 7 años. Calificación BB, spread de riesgo país 2.2%.'}
+  {id:'UST2',name:'Bono EE.UU. 2Y',ticker:'UST-2Y',country:'EE.UU.',price:99.1,coupon:4.75,maturity:2,rating:'AAA',sigma:1.8,ret:4.75,rp:0.0,type:'bono',ytm:5.2,duration:1.69,convexity:2.4,couponFreq:'Semestral',faceValue:100,dirtyPrice:100.29,profile:'Bono EE.UU. 2Y emitido por EE.UU.. Cupón anual de 4.75% con vencimiento a 2 años. Calificación AAA, spread de riesgo país 0.0%.'},
+  {id:'UST30',name:'Bono EE.UU. 30Y',ticker:'UST-30Y',country:'EE.UU.',price:95.4,coupon:4.25,maturity:30,rating:'AAA',sigma:7.2,ret:4.25,rp:0.0,type:'bono',ytm:4.41,duration:12.43,convexity:131.3,couponFreq:'Semestral',faceValue:100,dirtyPrice:96.46,profile:'Bono EE.UU. 30Y emitido por EE.UU.. Cupón anual de 4.25% con vencimiento a 30 años. Calificación AAA, spread de riesgo país 0.0%.'},
+  {id:'GER2',name:'Bono Alemán 2Y',ticker:'GER-2Y',country:'Alemania',price:99.6,coupon:2.8,maturity:2,rating:'AAA',sigma:1.5,ret:2.8,rp:0.05,type:'bono',ytm:3.0,duration:1.75,convexity:2.6,couponFreq:'Semestral',faceValue:100,dirtyPrice:100.3,profile:'Bono Alemán 2Y emitido por Alemania. Cupón anual de 2.8% con vencimiento a 2 años. Calificación AAA, spread de riesgo país 0.05%.'},
+  {id:'GER30',name:'Bono Alemán 30Y',ticker:'GER-30Y',country:'Alemania',price:94.8,coupon:2.65,maturity:30,rating:'AAA',sigma:8.1,ret:2.65,rp:0.05,type:'bono',ytm:2.83,duration:15.57,convexity:206.1,couponFreq:'Semestral',faceValue:100,dirtyPrice:95.46,profile:'Bono Alemán 30Y emitido por Alemania. Cupón anual de 2.65% con vencimiento a 30 años. Calificación AAA, spread de riesgo país 0.05%.'},
+  {id:'GB10',name:'Gilt Británico 10Y',ticker:'GB-10Y',country:'Reino Unido',price:96.7,coupon:4.05,maturity:10,rating:'AA',sigma:6.4,ret:4.05,rp:0.3,type:'bono',ytm:4.39,duration:6.63,convexity:37.4,couponFreq:'Semestral',faceValue:100,dirtyPrice:97.71,profile:'Gilt Británico 10Y emitido por Reino Unido. Cupón anual de 4.05% con vencimiento a 10 años. Calificación AA, spread de riesgo país 0.3%.'},
+  {id:'FR10',name:'OAT Francés 10Y',ticker:'FR-10Y',country:'Francia',price:97.2,coupon:3.15,maturity:10,rating:'AA-',sigma:6.2,ret:3.15,rp:0.2,type:'bono',ytm:3.44,duration:7.05,convexity:42.2,couponFreq:'Semestral',faceValue:100,dirtyPrice:97.99,profile:'OAT Francés 10Y emitido por Francia. Cupón anual de 3.15% con vencimiento a 10 años. Calificación AA-, spread de riesgo país 0.2%.'},
+  {id:'IT10',name:'BTP Italiano 10Y',ticker:'IT-10Y',country:'Italia',price:93.5,coupon:4.35,maturity:10,rating:'BBB',sigma:7.8,ret:4.35,rp:1.8,type:'bono',ytm:5.05,duration:6.51,convexity:36.0,couponFreq:'Semestral',faceValue:100,dirtyPrice:94.59,profile:'BTP Italiano 10Y emitido por Italia. Cupón anual de 4.35% con vencimiento a 10 años. Calificación BBB, spread de riesgo país 1.8%.'},
+  {id:'ES10',name:'Bono Español 10Y',ticker:'ES-10Y',country:'España',price:95.1,coupon:3.45,maturity:10,rating:'A',sigma:6.9,ret:3.45,rp:0.9,type:'bono',ytm:3.97,duration:6.91,convexity:40.6,couponFreq:'Semestral',faceValue:100,dirtyPrice:95.96,profile:'Bono Español 10Y emitido por España. Cupón anual de 3.45% con vencimiento a 10 años. Calificación A, spread de riesgo país 0.9%.'},
+  {id:'JP10',name:'Bono Japonés 10Y',ticker:'JP-10Y',country:'Japón',price:98.9,coupon:0.95,maturity:10,rating:'A+',sigma:5.1,ret:0.95,rp:0.2,type:'bono',ytm:1.06,duration:8.41,convexity:60.1,couponFreq:'Semestral',faceValue:100,dirtyPrice:99.14,profile:'Bono Japonés 10Y emitido por Japón. Cupón anual de 0.95% con vencimiento a 10 años. Calificación A+, spread de riesgo país 0.2%.'},
+  {id:'CN10',name:'Bono Chino 10Y',ticker:'CN-10Y',country:'China',price:97.8,coupon:2.45,maturity:10,rating:'A+',sigma:5.8,ret:2.45,rp:0.6,type:'bono',ytm:2.67,duration:7.43,convexity:46.9,couponFreq:'Semestral',faceValue:100,dirtyPrice:98.41,profile:'Bono Chino 10Y emitido por China. Cupón anual de 2.45% con vencimiento a 10 años. Calificación A+, spread de riesgo país 0.6%.'},
+  {id:'BR10',name:'Bono Brasileño 10Y',ticker:'BR-10Y',country:'Brasil',price:88.4,coupon:11.25,maturity:10,rating:'BB',sigma:11.2,ret:11.25,rp:2.4,type:'bono',ytm:12.56,duration:4.6,convexity:18.0,couponFreq:'Semestral',faceValue:100,dirtyPrice:91.21,profile:'Bono Brasileño 10Y emitido por Brasil. Cupón anual de 11.25% con vencimiento a 10 años. Calificación BB, spread de riesgo país 2.4%.'},
+  {id:'MX5',name:'Bono Mexicano 5Y',ticker:'MX-5Y',country:'México',price:94.2,coupon:8.75,maturity:5,rating:'BBB',sigma:6.8,ret:8.75,rp:1.6,type:'bono',ytm:9.98,duration:3.29,convexity:9.2,couponFreq:'Semestral',faceValue:100,dirtyPrice:96.39,profile:'Bono Mexicano 5Y emitido por México. Cupón anual de 8.75% con vencimiento a 5 años. Calificación BBB, spread de riesgo país 1.6%.'},
+  {id:'CL10',name:'Bono Chileno 10Y',ticker:'CL-10Y',country:'Chile',price:93.8,coupon:5.95,maturity:10,rating:'A',sigma:7.1,ret:5.95,rp:1.2,type:'bono',ytm:6.61,duration:5.9,convexity:29.6,couponFreq:'Semestral',faceValue:100,dirtyPrice:95.29,profile:'Bono Chileno 10Y emitido por Chile. Cupón anual de 5.95% con vencimiento a 10 años. Calificación A, spread de riesgo país 1.2%.'},
+  {id:'PE10',name:'Bono Peruano 10Y',ticker:'PE-10Y',country:'Perú',price:92.1,coupon:6.45,maturity:10,rating:'BBB',sigma:8.2,ret:6.45,rp:1.7,type:'bono',ytm:7.31,duration:5.75,convexity:28.1,couponFreq:'Semestral',faceValue:100,dirtyPrice:93.71,profile:'Bono Peruano 10Y emitido por Perú. Cupón anual de 6.45% con vencimiento a 10 años. Calificación BBB, spread de riesgo país 1.7%.'},
+  {id:'ZA10',name:'Bono Sudafricano 10Y',ticker:'ZA-10Y',country:'Sudáfrica',price:85.6,coupon:10.85,maturity:10,rating:'BB-',sigma:12.4,ret:10.85,rp:3.1,type:'bono',ytm:12.53,duration:4.68,convexity:18.6,couponFreq:'Semestral',faceValue:100,dirtyPrice:88.31,profile:'Bono Sudafricano 10Y emitido por Sudáfrica. Cupón anual de 10.85% con vencimiento a 10 años. Calificación BB-, spread de riesgo país 3.1%.'},
+  {id:'TR10',name:'Bono Turco 10Y',ticker:'TR-10Y',country:'Turquía',price:78.3,coupon:24.5,maturity:10,rating:'B',sigma:18.7,ret:24.5,rp:4.8,type:'bono',ytm:27.27,duration:3.15,convexity:8.4,couponFreq:'Semestral',faceValue:100,dirtyPrice:84.42,profile:'Bono Turco 10Y emitido por Turquía. Cupón anual de 24.5% con vencimiento a 10 años. Calificación B, spread de riesgo país 4.8%.'},
+  {id:'IN10',name:'Bono Indio 10Y',ticker:'IN-10Y',country:'India',price:96.4,coupon:7.05,maturity:10,rating:'BBB-',sigma:7.4,ret:7.05,rp:1.5,type:'bono',ytm:7.42,duration:5.55,convexity:26.2,couponFreq:'Semestral',faceValue:100,dirtyPrice:98.16,profile:'Bono Indio 10Y emitido por India. Cupón anual de 7.05% con vencimiento a 10 años. Calificación BBB-, spread de riesgo país 1.5%.'},
+  {id:'ID10',name:'Bono Indonesio 10Y',ticker:'ID-10Y',country:'Indonesia',price:94.7,coupon:6.65,maturity:10,rating:'BBB',sigma:8.1,ret:6.65,rp:1.9,type:'bono',ytm:7.21,duration:5.68,convexity:27.4,couponFreq:'Semestral',faceValue:100,dirtyPrice:96.36,profile:'Bono Indonesio 10Y emitido por Indonesia. Cupón anual de 6.65% con vencimiento a 10 años. Calificación BBB, spread de riesgo país 1.9%.'},
+  {id:'PA5',name:'Bono Panamá 5Y',ticker:'PA-5Y',country:'Panamá',price:96.2,coupon:5.25,maturity:5,rating:'BBB',sigma:5.4,ret:5.25,rp:1.3,type:'bono',ytm:6.04,duration:3.69,convexity:11.6,couponFreq:'Semestral',faceValue:100,dirtyPrice:97.51,profile:'Bono Panamá 5Y emitido por Panamá. Cupón anual de 5.25% con vencimiento a 5 años. Calificación BBB, spread de riesgo país 1.3%.'},
+  {id:'CR10',name:'Bono Costa Rica 10Y',ticker:'CR-10Y',country:'Costa Rica',price:90.8,coupon:7.85,maturity:10,rating:'BB',sigma:9.6,ret:7.85,rp:2.6,type:'bono',ytm:8.86,duration:5.35,convexity:24.3,couponFreq:'Semestral',faceValue:100,dirtyPrice:92.76,profile:'Bono Costa Rica 10Y emitido por Costa Rica. Cupón anual de 7.85% con vencimiento a 10 años. Calificación BB, spread de riesgo país 2.6%.'},
+  {id:'CORP-AAPL',name:'Bono Corp. Apple 10Y',ticker:'AAPL-BND',country:'EE.UU.',price:97.5,coupon:3.85,maturity:10,rating:'AAA',sigma:5.9,ret:3.85,rp:0.1,type:'bono',ytm:4.11,duration:6.72,convexity:38.4,couponFreq:'Semestral',faceValue:100,dirtyPrice:98.46,profile:'Bono Corp. Apple 10Y emitido por EE.UU.. Cupón anual de 3.85% con vencimiento a 10 años. Calificación AAA, spread de riesgo país 0.1%.'},
+  {id:'CORP-MSFT',name:'Bono Corp. Microsoft 10Y',ticker:'MSFT-BND',country:'EE.UU.',price:98.1,coupon:3.65,maturity:10,rating:'AAA',sigma:5.7,ret:3.65,rp:0.1,type:'bono',ytm:3.84,duration:6.81,convexity:39.4,couponFreq:'Semestral',faceValue:100,dirtyPrice:99.01,profile:'Bono Corp. Microsoft 10Y emitido por EE.UU.. Cupón anual de 3.65% con vencimiento a 10 años. Calificación AAA, spread de riesgo país 0.1%.'},
+  {id:'CORP-KO',name:'Bono Corp. Coca-Cola 10Y',ticker:'KO-BND',country:'EE.UU.',price:96.3,coupon:4.15,maturity:10,rating:'A+',sigma:6.1,ret:4.15,rp:0.4,type:'bono',ytm:4.53,duration:6.59,convexity:36.9,couponFreq:'Semestral',faceValue:100,dirtyPrice:97.34,profile:'Bono Corp. Coca-Cola 10Y emitido por EE.UU.. Cupón anual de 4.15% con vencimiento a 10 años. Calificación A+, spread de riesgo país 0.4%.'},
+  {id:'HY-US',name:'Bono Alto Rendimiento US',ticker:'HY-US',country:'EE.UU.',price:91.2,coupon:7.95,maturity:7,rating:'BB',sigma:9.8,ret:7.95,rp:2.2,type:'bono',ytm:9.33,duration:4.27,convexity:15.5,couponFreq:'Semestral',faceValue:100,dirtyPrice:93.19,profile:'Bono Alto Rendimiento US emitido por EE.UU.. Cupón anual de 7.95% con vencimiento a 7 años. Calificación BB, spread de riesgo país 2.2%.'}
 ];
 const ALL_FOREX=[
-  {id:'EURUSD',name:'Euro / Dólar',ticker:'EUR/USD',country:'Eurozona',price:1.082,sigma:8.2,ret:3.7,riskCountry:'Bajo',profile:'El EUR/USD es el par de divisas más negociado del mundo, con cerca del 24% del volumen diario global. La dirección del par está determinada por las decisiones del Banco Central Europeo (BCE) y la Reserva Federal de Estados Unidos (Fed). Es sensible a diferenciales de tasas de interés, datos de empleo e inflación de ambas regiones.',rp:0.3,type:'divisa',
+  {id:'EURUSD',name:'Euro / Dólar',ticker:'EUR/USD',country:'Eurozona',price:1.082,sigma:8.2,ret:3.7,riskCountry:'Bajo',profile:'El EUR/USD es el par de divisas más negociado del mundo, con cerca del 24% del volumen diario global. La dirección del par está determinada por las decisiones del Banco Central Europeo (BCE) y la Reserva Federal de Estados Unidos (Fed). Es sensible a diferenciales de tasas de interés, datos de empleo e inflación de ambas regiones.',rp:0.3,type:'divisa',rateBase:5.5,rateQuote:3.0,rateDiff:2.5,tradeBalance:-3,
    gdp:{total:'18,350',perCapita:'38,200',growth:0.6,inflation:2.9,unemployment:6.1,currency:'Euro (EUR)',mainSectors:'Servicios (74%), Industria (20%), Agricultura (2%)',outlook:'Recuperación gradual. El BCE inició ciclo de recorte de tasas. Alemania, Francia e Italia como motores principales.',rating:'AAA/AA+'}
   },
-  {id:'GBPUSD',name:'Libra / Dólar',ticker:'GBP/USD',country:'Reino Unido',price:1.268,sigma:9.8,ret:4.1,riskCountry:'Bajo',profile:'La libra esterlina es una de las monedas con mayor historia en el sistema financiero internacional. Tras el Brexit, el Banco de Inglaterra opera con plena autonomía respecto a la política monetaria europea. El par es sensible a los datos del PIB, inflación y empleo del Reino Unido, así como a las negociaciones comerciales con la Unión Europea.',rp:0.4,type:'divisa',
+  {id:'GBPUSD',name:'Libra / Dólar',ticker:'GBP/USD',country:'Reino Unido',price:1.268,sigma:9.8,ret:4.1,riskCountry:'Bajo',profile:'La libra esterlina es una de las monedas con mayor historia en el sistema financiero internacional. Tras el Brexit, el Banco de Inglaterra opera con plena autonomía respecto a la política monetaria europea. El par es sensible a los datos del PIB, inflación y empleo del Reino Unido, así como a las negociaciones comerciales con la Unión Europea.',rp:0.4,type:'divisa',rateBase:5.5,rateQuote:5.25,rateDiff:0.25,tradeBalance:98,
    gdp:{total:'3,070',perCapita:'45,800',growth:0.4,inflation:3.2,unemployment:4.2,currency:'Libra esterlina (GBP)',mainSectors:'Servicios financieros (30%), Manufactura (10%), Servicios (60%)',outlook:'Recuperación post-Brexit lenta. BoE mantiene tasas restrictivas. Presión inflacionaria persistente en servicios.',rating:'AA−'}
   },
-  {id:'USDJPY',name:'Dólar / Yen',ticker:'USD/JPY',country:'Japón',price:154.7,sigma:7.5,ret:2.8,riskCountry:'Muy bajo',profile:'El yen japonés es una de las principales monedas refugio del mundo. Japón mantiene una política monetaria ultraexpansiva con control de la curva de rendimientos (YCC). El Banco de Japón interviene activamente en el mercado. Japón es la cuarta economía más grande del mundo por PIB nominal.',rp:0.1,type:'divisa',
+  {id:'USDJPY',name:'Dólar / Yen',ticker:'USD/JPY',country:'Japón',price:154.7,sigma:7.5,ret:2.8,riskCountry:'Muy bajo',profile:'El yen japonés es una de las principales monedas refugio del mundo. Japón mantiene una política monetaria ultraexpansiva con control de la curva de rendimientos (YCC). El Banco de Japón interviene activamente en el mercado. Japón es la cuarta economía más grande del mundo por PIB nominal.',rp:0.1,type:'divisa',rateBase:5.5,rateQuote:0.1,rateDiff:5.4,tradeBalance:-77,
    gdp:{total:'4,231',perCapita:'33,800',growth:1.9,inflation:3.3,unemployment:2.6,currency:'Yen japonés (JPY)',mainSectors:'Manufactura (27%), Servicios (70%), Exportaciones tecnológicas',outlook:'Salida gradual de política monetaria ultralaxa. Debilidad del yen impulsa exportaciones. Envejecimiento poblacional presiona crecimiento potencial.',rating:'A+'}
   },
-  {id:'USDCOP',name:'Dólar / Peso Col.',ticker:'USD/COP',country:'Colombia',price:3948,sigma:18.4,ret:6.2,riskCountry:'Moderado',profile:'El peso colombiano mantiene una alta correlación con el precio del petróleo Brent, dada la importancia del sector energético en la economía nacional. La incertidumbre en torno a la política energética del gobierno ha incrementado la percepción de riesgo. El EMBI de Colombia se sitúa alrededor de 250 puntos base, reflejando un riesgo país moderado.',rp:2.5,type:'divisa',
+  {id:'USDCOP',name:'Dólar / Peso Col.',ticker:'USD/COP',country:'Colombia',price:3948,sigma:18.4,ret:6.2,riskCountry:'Moderado',profile:'El peso colombiano mantiene una alta correlación con el precio del petróleo Brent, dada la importancia del sector energético en la economía nacional. La incertidumbre en torno a la política energética del gobierno ha incrementado la percepción de riesgo. El EMBI de Colombia se sitúa alrededor de 250 puntos base, reflejando un riesgo país moderado.',rp:2.5,type:'divisa',rateBase:5.5,rateQuote:3.0,rateDiff:2.5,tradeBalance:-27,
    gdp:{total:'363',perCapita:'7,200',growth:1.6,inflation:9.3,unemployment:10.2,currency:'Peso colombiano (COP)',mainSectors:'Petróleo y minería (10%), Servicios (56%), Manufactura (11%)',outlook:'Inflación en descenso pero aún elevada. Banrep en ciclo de recorte de tasas. Incertidumbre por reforma energética y política fiscal del gobierno Petro.',rating:'BB+'}
   },
-  {id:'USDMXN',name:'Dólar / Peso Mex.',ticker:'USD/MXN',country:'México',price:17.15,sigma:12.1,ret:5.8,riskCountry:'Moderado',profile:'El peso mexicano es una de las monedas de mercados emergentes más operadas a nivel global. El fenómeno del nearshoring ha impulsado la inversión extranjera directa y fortalecido la economía. El Banco de México mantiene tasas de interés elevadas para controlar la inflación. El par es muy sensible a la relación comercial con Estados Unidos en el marco del T-MEC.',rp:2.1,type:'divisa',
+  {id:'USDMXN',name:'Dólar / Peso Mex.',ticker:'USD/MXN',country:'México',price:17.15,sigma:12.1,ret:5.8,riskCountry:'Moderado',profile:'El peso mexicano es una de las monedas de mercados emergentes más operadas a nivel global. El fenómeno del nearshoring ha impulsado la inversión extranjera directa y fortalecido la economía. El Banco de México mantiene tasas de interés elevadas para controlar la inflación. El par es muy sensible a la relación comercial con Estados Unidos en el marco del T-MEC.',rp:2.1,type:'divisa',rateBase:5.5,rateQuote:11.25,rateDiff:-5.75,tradeBalance:-54,
    gdp:{total:'1,322',perCapita:'10,200',growth:3.2,inflation:4.9,unemployment:2.9,currency:'Peso mexicano (MXN)',mainSectors:'Manufactura (20%), Petróleo y gas (7%), Servicios (63%)',outlook:'Nearshoring impulsa inversión extranjera directa récord. Banxico con tasas restrictivas. Resultado electoral 2024 con impacto en política fiscal y certidumbre jurídica.',rating:'BBB−'}
   },
-  {id:'USDBRL',name:'Dólar / Real Bra.',ticker:'USD/BRL',country:'Brasil',price:5.02,sigma:16.8,ret:7.4,riskCountry:'Moderado-alto',profile:'Real brasileño con alta volatilidad por incertidumbre fiscal. Mayor economía de Latinoamérica. Banco Central de Brasil aplica política monetaria agresiva contra la inflación. Las exportaciones de materias primas (soja, petróleo) determinan la tendencia del BRL.',rp:3.2,type:'divisa',
+  {id:'USDBRL',name:'Dólar / Real Bra.',ticker:'USD/BRL',country:'Brasil',price:5.02,sigma:16.8,ret:7.4,riskCountry:'Moderado-alto',profile:'Real brasileño con alta volatilidad por incertidumbre fiscal. Mayor economía de Latinoamérica. Banco Central de Brasil aplica política monetaria agresiva contra la inflación. Las exportaciones de materias primas (soja, petróleo) determinan la tendencia del BRL.',rp:3.2,type:'divisa',rateBase:5.5,rateQuote:11.75,rateDiff:-6.25,tradeBalance:92,
    gdp:{total:'2,173',perCapita:'10,300',growth:2.9,inflation:4.6,unemployment:7.8,currency:'Real brasileño (BRL)',mainSectors:'Servicios (73%), Industria (20%), Agricultura (7%)',outlook:'Crecimiento sólido impulsado por agro y servicios. Preocupaciones fiscales generan presión sobre el real. BCB con tasa Selic elevada para controlar inflación.',rating:'BB'}
   },
-  {id:'USDARS',name:'Dólar / Peso Arg.',ticker:'USD/ARS',country:'Argentina',price:896,sigma:65.2,ret:45.0,riskCountry:'Muy alto',profile:'Argentina atraviesa un período de alta inestabilidad macroeconómica, con tasas de inflación superiores al 200% anual y severas restricciones cambiarias. El Banco Central de la República Argentina opera con reservas internacionales negativas. Existe una brecha significativa entre el tipo de cambio oficial y el paralelo. Se trata de una inversión de carácter exclusivamente especulativo.',rp:18.0,type:'divisa',
+  {id:'USDARS',name:'Dólar / Peso Arg.',ticker:'USD/ARS',country:'Argentina',price:896,sigma:65.2,ret:45.0,riskCountry:'Muy alto',profile:'Argentina atraviesa un período de alta inestabilidad macroeconómica, con tasas de inflación superiores al 200% anual y severas restricciones cambiarias. El Banco Central de la República Argentina opera con reservas internacionales negativas. Existe una brecha significativa entre el tipo de cambio oficial y el paralelo. Se trata de una inversión de carácter exclusivamente especulativo.',rp:18.0,type:'divisa',rateBase:5.5,rateQuote:3.0,rateDiff:2.5,tradeBalance:-76,
    gdp:{total:'621',perCapita:'13,400',growth:-2.5,inflation:211.4,unemployment:6.2,currency:'Peso argentino (ARS)',mainSectors:'Servicios (53%), Industria (23%), Agro (7%), Minería (3%)',outlook:'Ajuste fiscal severo bajo gobierno Milei. Inflación en descenso desde pico de 211%. Reservas negativas del BCRA. Proceso de renegociación con FMI en curso. Alto riesgo de volatilidad.',rating:'CCC'}
   },
-  {id:'USDCHF',name:'Dólar / Franco Suizo',ticker:'USD/CHF',country:'Suiza',price:0.882,sigma:8.4,ret:1.2,rating:'AAA',rp:0.1,riskCountry:'Bajo',type:'divisa',profile:'Dólar / Franco Suizo (USD/CHF). Par cambiario asociado a Suiza. Volatilidad anualizada de 8.4%, calificación soberana AAA, riesgo país 0.1%.',gdp:{rating:'AAA',inflation:2.1,total:'—'}},
-  {id:'USDCAD',name:'Dólar / Dólar Canadiense',ticker:'USD/CAD',country:'Canadá',price:1.365,sigma:9.1,ret:1.8,rating:'AAA',rp:0.2,riskCountry:'Bajo',type:'divisa',profile:'Dólar / Dólar Canadiense (USD/CAD). Par cambiario asociado a Canadá. Volatilidad anualizada de 9.1%, calificación soberana AAA, riesgo país 0.2%.',gdp:{rating:'AAA',inflation:2.2,total:'—'}},
-  {id:'AUDUSD',name:'Dólar Australiano / Dólar',ticker:'AUD/USD',country:'Australia',price:0.658,sigma:11.2,ret:2.4,rating:'AAA',rp:0.3,riskCountry:'Bajo',type:'divisa',profile:'Dólar Australiano / Dólar (AUD/USD). Par cambiario asociado a Australia. Volatilidad anualizada de 11.2%, calificación soberana AAA, riesgo país 0.3%.',gdp:{rating:'AAA',inflation:2.3,total:'—'}},
-  {id:'NZDUSD',name:'Dólar Neozelandés / Dólar',ticker:'NZD/USD',country:'Nueva Zelanda',price:0.612,sigma:11.8,ret:2.6,rating:'AA',rp:0.4,riskCountry:'Bajo',type:'divisa',profile:'Dólar Neozelandés / Dólar (NZD/USD). Par cambiario asociado a Nueva Zelanda. Volatilidad anualizada de 11.8%, calificación soberana AA, riesgo país 0.4%.',gdp:{rating:'AA',inflation:2.4,total:'—'}},
-  {id:'USDCNY',name:'Dólar / Yuan Chino',ticker:'USD/CNY',country:'China',price:7.24,sigma:6.8,ret:1.4,rating:'A+',rp:0.6,riskCountry:'Moderado',type:'divisa',profile:'Dólar / Yuan Chino (USD/CNY). Par cambiario asociado a China. Volatilidad anualizada de 6.8%, calificación soberana A+, riesgo país 0.6%.',gdp:{rating:'A+',inflation:2.6,total:'—'}},
-  {id:'USDINR',name:'Dólar / Rupia India',ticker:'USD/INR',country:'India',price:83.4,sigma:7.2,ret:2.1,rating:'BBB-',rp:1.5,riskCountry:'Moderado',type:'divisa',profile:'Dólar / Rupia India (USD/INR). Par cambiario asociado a India. Volatilidad anualizada de 7.2%, calificación soberana BBB-, riesgo país 1.5%.',gdp:{rating:'BBB-',inflation:3.5,total:'—'}},
-  {id:'USDSGD',name:'Dólar / Dólar Singapur',ticker:'USD/SGD',country:'Singapur',price:1.348,sigma:6.4,ret:1.1,rating:'AAA',rp:0.1,riskCountry:'Bajo',type:'divisa',profile:'Dólar / Dólar Singapur (USD/SGD). Par cambiario asociado a Singapur. Volatilidad anualizada de 6.4%, calificación soberana AAA, riesgo país 0.1%.',gdp:{rating:'AAA',inflation:2.1,total:'—'}},
-  {id:'USDHKD',name:'Dólar / Dólar Hong Kong',ticker:'USD/HKD',country:'Hong Kong',price:7.81,sigma:2.1,ret:0.4,rating:'AA+',rp:0.3,riskCountry:'Bajo',type:'divisa',profile:'Dólar / Dólar Hong Kong (USD/HKD). Par cambiario asociado a Hong Kong. Volatilidad anualizada de 2.1%, calificación soberana AA+, riesgo país 0.3%.',gdp:{rating:'AA+',inflation:2.3,total:'—'}},
-  {id:'USDSEK',name:'Dólar / Corona Sueca',ticker:'USD/SEK',country:'Suecia',price:10.62,sigma:12.4,ret:2.2,rating:'AAA',rp:0.2,riskCountry:'Bajo',type:'divisa',profile:'Dólar / Corona Sueca (USD/SEK). Par cambiario asociado a Suecia. Volatilidad anualizada de 12.4%, calificación soberana AAA, riesgo país 0.2%.',gdp:{rating:'AAA',inflation:2.2,total:'—'}},
-  {id:'USDNOK',name:'Dólar / Corona Noruega',ticker:'USD/NOK',country:'Noruega',price:10.88,sigma:13.1,ret:2.4,rating:'AAA',rp:0.2,riskCountry:'Bajo',type:'divisa',profile:'Dólar / Corona Noruega (USD/NOK). Par cambiario asociado a Noruega. Volatilidad anualizada de 13.1%, calificación soberana AAA, riesgo país 0.2%.',gdp:{rating:'AAA',inflation:2.2,total:'—'}},
-  {id:'USDZAR',name:'Dólar / Rand Sudafricano',ticker:'USD/ZAR',country:'Sudáfrica',price:18.42,sigma:18.7,ret:3.8,rating:'BB-',rp:3.1,riskCountry:'Alto',type:'divisa',profile:'Dólar / Rand Sudafricano (USD/ZAR). Par cambiario asociado a Sudáfrica. Volatilidad anualizada de 18.7%, calificación soberana BB-, riesgo país 3.1%.',gdp:{rating:'BB-',inflation:5.1,total:'—'}},
-  {id:'USDTRY',name:'Dólar / Lira Turca',ticker:'USD/TRY',country:'Turquía',price:32.18,sigma:28.4,ret:8.2,rating:'B',rp:4.8,riskCountry:'Muy alto',type:'divisa',profile:'Dólar / Lira Turca (USD/TRY). Par cambiario asociado a Turquía. Volatilidad anualizada de 28.4%, calificación soberana B, riesgo país 4.8%.',gdp:{rating:'B',inflation:6.8,total:'—'}},
-  {id:'USDCLP',name:'Dólar / Peso Chileno',ticker:'USD/CLP',country:'Chile',price:948.0,sigma:14.2,ret:2.8,rating:'A',rp:1.2,riskCountry:'Moderado',type:'divisa',profile:'Dólar / Peso Chileno (USD/CLP). Par cambiario asociado a Chile. Volatilidad anualizada de 14.2%, calificación soberana A, riesgo país 1.2%.',gdp:{rating:'A',inflation:3.2,total:'—'}},
-  {id:'USDPEN',name:'Dólar / Sol Peruano',ticker:'USD/PEN',country:'Perú',price:3.74,sigma:9.8,ret:2.1,rating:'BBB',rp:1.7,riskCountry:'Moderado',type:'divisa',profile:'Dólar / Sol Peruano (USD/PEN). Par cambiario asociado a Perú. Volatilidad anualizada de 9.8%, calificación soberana BBB, riesgo país 1.7%.',gdp:{rating:'BBB',inflation:3.7,total:'—'}},
-  {id:'EURGBP',name:'Euro / Libra Esterlina',ticker:'EUR/GBP',country:'Eurozona',price:0.852,sigma:7.8,ret:1.4,rating:'AA',rp:0.3,riskCountry:'Bajo',type:'divisa',profile:'Euro / Libra Esterlina (EUR/GBP). Par cambiario asociado a Eurozona. Volatilidad anualizada de 7.8%, calificación soberana AA, riesgo país 0.3%.',gdp:{rating:'AA',inflation:2.3,total:'—'}},
-  {id:'EURJPY',name:'Euro / Yen Japonés',ticker:'EUR/JPY',country:'Eurozona',price:163.2,sigma:9.4,ret:1.8,rating:'AA',rp:0.3,riskCountry:'Bajo',type:'divisa',profile:'Euro / Yen Japonés (EUR/JPY). Par cambiario asociado a Eurozona. Volatilidad anualizada de 9.4%, calificación soberana AA, riesgo país 0.3%.',gdp:{rating:'AA',inflation:2.3,total:'—'}},
-  {id:'EURCHF',name:'Euro / Franco Suizo',ticker:'EUR/CHF',country:'Eurozona',price:0.954,sigma:6.8,ret:1.1,rating:'AAA',rp:0.2,riskCountry:'Bajo',type:'divisa',profile:'Euro / Franco Suizo (EUR/CHF). Par cambiario asociado a Eurozona. Volatilidad anualizada de 6.8%, calificación soberana AAA, riesgo país 0.2%.',gdp:{rating:'AAA',inflation:2.2,total:'—'}},
-  {id:'GBPJPY',name:'Libra / Yen Japonés',ticker:'GBP/JPY',country:'Reino Unido',price:191.4,sigma:11.2,ret:2.2,rating:'AA',rp:0.4,riskCountry:'Bajo',type:'divisa',profile:'Libra / Yen Japonés (GBP/JPY). Par cambiario asociado a Reino Unido. Volatilidad anualizada de 11.2%, calificación soberana AA, riesgo país 0.4%.',gdp:{rating:'AA',inflation:2.4,total:'—'}},
-  {id:'AUDJPY',name:'Dólar Australiano / Yen',ticker:'AUD/JPY',country:'Australia',price:98.7,sigma:12.8,ret:2.6,rating:'AA',rp:0.5,riskCountry:'Moderado',type:'divisa',profile:'Dólar Australiano / Yen (AUD/JPY). Par cambiario asociado a Australia. Volatilidad anualizada de 12.8%, calificación soberana AA, riesgo país 0.5%.',gdp:{rating:'AA',inflation:2.5,total:'—'}},
-  {id:'USDMXN2',name:'Dólar / Peso Mexicano',ticker:'USD/MXN',country:'México',price:17.08,sigma:13.4,ret:2.9,rating:'BBB',rp:1.6,riskCountry:'Moderado',type:'divisa',profile:'Dólar / Peso Mexicano (USD/MXN). Par cambiario asociado a México. Volatilidad anualizada de 13.4%, calificación soberana BBB, riesgo país 1.6%.',gdp:{rating:'BBB',inflation:3.6,total:'—'}},
-  {id:'USDPLN',name:'Dólar / Zloty Polaco',ticker:'USD/PLN',country:'Polonia',price:3.94,sigma:12.1,ret:2.4,rating:'A-',rp:0.9,riskCountry:'Moderado',type:'divisa',profile:'Dólar / Zloty Polaco (USD/PLN). Par cambiario asociado a Polonia. Volatilidad anualizada de 12.1%, calificación soberana A-, riesgo país 0.9%.',gdp:{rating:'A-',inflation:2.9,total:'—'}},
-  {id:'USDTHB',name:'Dólar / Baht Tailandés',ticker:'USD/THB',country:'Tailandia',price:36.2,sigma:7.4,ret:1.6,rating:'BBB+',rp:1.1,riskCountry:'Moderado',type:'divisa',profile:'Dólar / Baht Tailandés (USD/THB). Par cambiario asociado a Tailandia. Volatilidad anualizada de 7.4%, calificación soberana BBB+, riesgo país 1.1%.',gdp:{rating:'BBB+',inflation:3.1,total:'—'}},
-  {id:'USDKRW',name:'Dólar / Won Coreano',ticker:'USD/KRW',country:'Corea del Sur',price:1342.0,sigma:9.8,ret:2.0,rating:'AA',rp:0.7,riskCountry:'Moderado',type:'divisa',profile:'Dólar / Won Coreano (USD/KRW). Par cambiario asociado a Corea del Sur. Volatilidad anualizada de 9.8%, calificación soberana AA, riesgo país 0.7%.',gdp:{rating:'AA',inflation:2.7,total:'—'}}
+  {id:'USDCHF',name:'Dólar / Franco Suizo',ticker:'USD/CHF',country:'Suiza',price:0.882,sigma:8.4,ret:1.2,rating:'AAA',rp:0.1,riskCountry:'Bajo',type:'divisa',rateBase:5.5,rateQuote:1.75,rateDiff:3.75,tradeBalance:-75,profile:'Dólar / Franco Suizo (USD/CHF). Par cambiario asociado a Suiza. Volatilidad anualizada de 8.4%, calificación soberana AAA, riesgo país 0.1%.',gdp:{total:'905',perCapita:'99,100',growth:1.3,inflation:1.4,unemployment:2.0,currency:'Franco suizo (CHF)',mainSectors:'Servicios financieros (74%), Industria farmacéutica, Relojería',outlook:'Refugio de estabilidad. El SNB mantiene política prudente. Baja inflación y moneda fuerte como activo de refugio.',rating:'AAA'}},
+  {id:'USDCAD',name:'Dólar / Dólar Canadiense',ticker:'USD/CAD',country:'Canadá',price:1.365,sigma:9.1,ret:1.8,rating:'AAA',rp:0.2,riskCountry:'Bajo',type:'divisa',rateBase:5.5,rateQuote:5.0,rateDiff:0.5,tradeBalance:54,profile:'Dólar / Dólar Canadiense (USD/CAD). Par cambiario asociado a Canadá. Volatilidad anualizada de 9.1%, calificación soberana AAA, riesgo país 0.2%.',gdp:{total:'2,140',perCapita:'53,200',growth:1.1,inflation:3.4,unemployment:5.8,currency:'Dólar canadiense (CAD)',mainSectors:'Energía, Servicios (70%), Manufactura, Minería',outlook:'Economía ligada a materias primas y a EE.UU. El Banco de Canadá inicia distensión monetaria.',rating:'AAA'}},
+  {id:'AUDUSD',name:'Dólar Australiano / Dólar',ticker:'AUD/USD',country:'Australia',price:0.658,sigma:11.2,ret:2.4,rating:'AAA',rp:0.3,riskCountry:'Bajo',type:'divisa',rateBase:5.5,rateQuote:4.35,rateDiff:1.15,tradeBalance:-38,profile:'Dólar Australiano / Dólar (AUD/USD). Par cambiario asociado a Australia. Volatilidad anualizada de 11.2%, calificación soberana AAA, riesgo país 0.3%.',gdp:{total:'1,690',perCapita:'64,500',growth:1.5,inflation:4.1,unemployment:3.9,currency:'Dólar australiano (AUD)',mainSectors:'Minería, Servicios (65%), Agricultura, Educación',outlook:'Fuerte exposición a commodities y a China. El RBA mantiene tasas elevadas por inflación persistente.',rating:'AAA'}},
+  {id:'NZDUSD',name:'Dólar Neozelandés / Dólar',ticker:'NZD/USD',country:'Nueva Zelanda',price:0.612,sigma:11.8,ret:2.6,rating:'AA',rp:0.4,riskCountry:'Bajo',type:'divisa',rateBase:5.5,rateQuote:5.5,rateDiff:0.0,tradeBalance:-65,profile:'Dólar Neozelandés / Dólar (NZD/USD). Par cambiario asociado a Nueva Zelanda. Volatilidad anualizada de 11.8%, calificación soberana AA, riesgo país 0.4%.',gdp:{total:'250',perCapita:'48,500',growth:0.6,inflation:4.7,unemployment:4.0,currency:'Dólar neozelandés (NZD)',mainSectors:'Agricultura, Turismo, Servicios',outlook:'Economía pequeña y abierta, sensible a lácteos y turismo. Tasas altas para contener inflación.',rating:'AA+'}},
+  {id:'USDCNY',name:'Dólar / Yuan Chino',ticker:'USD/CNY',country:'China',price:7.24,sigma:6.8,ret:1.4,rating:'A+',rp:0.6,riskCountry:'Moderado',type:'divisa',rateBase:5.5,rateQuote:3.45,rateDiff:2.05,tradeBalance:38,profile:'Dólar / Yuan Chino (USD/CNY). Par cambiario asociado a China. Volatilidad anualizada de 6.8%, calificación soberana A+, riesgo país 0.6%.',gdp:{total:'17,790',perCapita:'12,600',growth:5.2,inflation:0.2,unemployment:5.2,currency:'Yuan renminbi (CNY)',mainSectors:'Manufactura (38%), Servicios (54%), Tecnología',outlook:'Crecimiento moderado con presión deflacionaria. Estímulos para sostener la demanda interna y el sector inmobiliario.',rating:'A+'}},
+  {id:'USDINR',name:'Dólar / Rupia India',ticker:'USD/INR',country:'India',price:83.4,sigma:7.2,ret:2.1,rating:'BBB-',rp:1.5,riskCountry:'Moderado',type:'divisa',rateBase:5.5,rateQuote:6.5,rateDiff:-1.0,tradeBalance:47,profile:'Dólar / Rupia India (USD/INR). Par cambiario asociado a India. Volatilidad anualizada de 7.2%, calificación soberana BBB-, riesgo país 1.5%.',gdp:{total:'3,730',perCapita:'2,600',growth:7.0,inflation:5.1,unemployment:7.1,currency:'Rupia india (INR)',mainSectors:'Servicios TI, Manufactura, Agricultura',outlook:'Economía de mayor crecimiento entre las grandes. Demografía favorable e inversión en infraestructura.',rating:'BBB-'}},
+  {id:'USDSGD',name:'Dólar / Dólar Singapur',ticker:'USD/SGD',country:'Singapur',price:1.348,sigma:6.4,ret:1.1,rating:'AAA',rp:0.1,riskCountry:'Bajo',type:'divisa',rateBase:5.5,rateQuote:3.5,rateDiff:2.0,tradeBalance:-63,profile:'Dólar / Dólar Singapur (USD/SGD). Par cambiario asociado a Singapur. Volatilidad anualizada de 6.4%, calificación soberana AAA, riesgo país 0.1%.',gdp:{total:'500',perCapita:'84,500',growth:1.1,inflation:3.7,unemployment:2.0,currency:'Dólar de Singapur (SGD)',mainSectors:'Servicios financieros, Comercio, Tecnología',outlook:'Centro financiero y comercial. Política monetaria gestionada vía tipo de cambio. Estabilidad y rating elevado.',rating:'AAA'}},
+  {id:'USDHKD',name:'Dólar / Dólar Hong Kong',ticker:'USD/HKD',country:'Hong Kong',price:7.81,sigma:2.1,ret:0.4,rating:'AA+',rp:0.3,riskCountry:'Bajo',type:'divisa',rateBase:5.5,rateQuote:3.0,rateDiff:2.5,tradeBalance:1,profile:'Dólar / Dólar Hong Kong (USD/HKD). Par cambiario asociado a Hong Kong. Volatilidad anualizada de 2.1%, calificación soberana AA+, riesgo país 0.3%.',gdp:{total:'380',perCapita:'50,700',growth:2.5,inflation:1.8,unemployment:3.0,currency:'Dólar de Hong Kong (HKD)',mainSectors:'Servicios financieros, Comercio, Logística',outlook:'Centro financiero anclado al dólar (peg). Sensible a flujos con China continental.',rating:'AA+'}},
+  {id:'USDSEK',name:'Dólar / Corona Sueca',ticker:'USD/SEK',country:'Suecia',price:10.62,sigma:12.4,ret:2.2,rating:'AAA',rp:0.2,riskCountry:'Bajo',type:'divisa',rateBase:5.5,rateQuote:4.0,rateDiff:1.5,tradeBalance:-90,profile:'Dólar / Corona Sueca (USD/SEK). Par cambiario asociado a Suecia. Volatilidad anualizada de 12.4%, calificación soberana AAA, riesgo país 0.2%.',gdp:{total:'600',perCapita:'56,300',growth:0.2,inflation:4.1,unemployment:7.7,currency:'Corona sueca (SEK)',mainSectors:'Manufactura, Servicios, Tecnología',outlook:'Economía exportadora afectada por el sector inmobiliario. El Riksbank evalúa flexibilización.',rating:'AAA'}},
+  {id:'USDNOK',name:'Dólar / Corona Noruega',ticker:'USD/NOK',country:'Noruega',price:10.88,sigma:13.1,ret:2.4,rating:'AAA',rp:0.2,riskCountry:'Bajo',type:'divisa',rateBase:5.5,rateQuote:4.5,rateDiff:1.0,tradeBalance:-72,profile:'Dólar / Corona Noruega (USD/NOK). Par cambiario asociado a Noruega. Volatilidad anualizada de 13.1%, calificación soberana AAA, riesgo país 0.2%.',gdp:{total:'485',perCapita:'89,200',growth:1.1,inflation:4.8,unemployment:3.6,currency:'Corona noruega (NOK)',mainSectors:'Petróleo y gas, Pesca, Servicios',outlook:'Superávit por hidrocarburos y fondo soberano. El Norges Bank mantiene tasas restrictivas.',rating:'AAA'}},
+  {id:'USDZAR',name:'Dólar / Rand Sudafricano',ticker:'USD/ZAR',country:'Sudáfrica',price:18.42,sigma:18.7,ret:3.8,rating:'BB-',rp:3.1,riskCountry:'Alto',type:'divisa',rateBase:5.5,rateQuote:8.25,rateDiff:-2.75,tradeBalance:-96,profile:'Dólar / Rand Sudafricano (USD/ZAR). Par cambiario asociado a Sudáfrica. Volatilidad anualizada de 18.7%, calificación soberana BB-, riesgo país 3.1%.',gdp:{total:'400',perCapita:'6,500',growth:0.9,inflation:5.3,unemployment:32.1,currency:'Rand sudafricano (ZAR)',mainSectors:'Minería, Servicios financieros, Manufactura',outlook:'Crecimiento débil, desempleo estructural alto y restricciones energéticas. Riesgo país elevado.',rating:'BB-'}},
+  {id:'USDTRY',name:'Dólar / Lira Turca',ticker:'USD/TRY',country:'Turquía',price:32.18,sigma:28.4,ret:8.2,rating:'B',rp:4.8,riskCountry:'Muy alto',type:'divisa',rateBase:5.5,rateQuote:45.0,rateDiff:-39.5,tradeBalance:-97,profile:'Dólar / Lira Turca (USD/TRY). Par cambiario asociado a Turquía. Volatilidad anualizada de 28.4%, calificación soberana B, riesgo país 4.8%.',gdp:{total:'1,110',perCapita:'13,000',growth:4.5,inflation:64.8,unemployment:9.4,currency:'Lira turca (TRY)',mainSectors:'Manufactura, Turismo, Agricultura',outlook:'Inflación muy elevada tras años de política heterodoxa. Giro reciente hacia ortodoxia monetaria con tasas altas.',rating:'B'}},
+  {id:'USDCLP',name:'Dólar / Peso Chileno',ticker:'USD/CLP',country:'Chile',price:948.0,sigma:14.2,ret:2.8,rating:'A',rp:1.2,riskCountry:'Moderado',type:'divisa',rateBase:5.5,rateQuote:3.0,rateDiff:2.5,tradeBalance:-32,profile:'Dólar / Peso Chileno (USD/CLP). Par cambiario asociado a Chile. Volatilidad anualizada de 14.2%, calificación soberana A, riesgo país 1.2%.',gdp:{total:'—',perCapita:'—',growth:1.5,inflation:3.0,unemployment:5.0,currency:'Moneda local',mainSectors:'Servicios, Industria, Agricultura',outlook:'Datos macroeconómicos de referencia con fines educativos.',rating:'BBB'}},
+  {id:'USDPEN',name:'Dólar / Sol Peruano',ticker:'USD/PEN',country:'Perú',price:3.74,sigma:9.8,ret:2.1,rating:'BBB',rp:1.7,riskCountry:'Moderado',type:'divisa',rateBase:5.5,rateQuote:3.0,rateDiff:2.5,tradeBalance:-57,profile:'Dólar / Sol Peruano (USD/PEN). Par cambiario asociado a Perú. Volatilidad anualizada de 9.8%, calificación soberana BBB, riesgo país 1.7%.',gdp:{total:'—',perCapita:'—',growth:1.5,inflation:3.0,unemployment:5.0,currency:'Moneda local',mainSectors:'Servicios, Industria, Agricultura',outlook:'Datos macroeconómicos de referencia con fines educativos.',rating:'BBB'}},
+  {id:'EURGBP',name:'Euro / Libra Esterlina',ticker:'EUR/GBP',country:'Eurozona',price:0.852,sigma:7.8,ret:1.4,rating:'AA',rp:0.3,riskCountry:'Bajo',type:'divisa',rateBase:5.5,rateQuote:3.0,rateDiff:2.5,tradeBalance:71,profile:'Euro / Libra Esterlina (EUR/GBP). Par cambiario asociado a Eurozona. Volatilidad anualizada de 7.8%, calificación soberana AA, riesgo país 0.3%.',gdp:{total:'—',perCapita:'—',growth:1.5,inflation:3.0,unemployment:5.0,currency:'Moneda local',mainSectors:'Servicios, Industria, Agricultura',outlook:'Datos macroeconómicos de referencia con fines educativos.',rating:'BBB'}},
+  {id:'EURJPY',name:'Euro / Yen Japonés',ticker:'EUR/JPY',country:'Eurozona',price:163.2,sigma:9.4,ret:1.8,rating:'AA',rp:0.3,riskCountry:'Bajo',type:'divisa',rateBase:5.5,rateQuote:3.0,rateDiff:2.5,tradeBalance:92,profile:'Euro / Yen Japonés (EUR/JPY). Par cambiario asociado a Eurozona. Volatilidad anualizada de 9.4%, calificación soberana AA, riesgo país 0.3%.',gdp:{total:'—',perCapita:'—',growth:1.5,inflation:3.0,unemployment:5.0,currency:'Moneda local',mainSectors:'Servicios, Industria, Agricultura',outlook:'Datos macroeconómicos de referencia con fines educativos.',rating:'BBB'}},
+  {id:'EURCHF',name:'Euro / Franco Suizo',ticker:'EUR/CHF',country:'Eurozona',price:0.954,sigma:6.8,ret:1.1,rating:'AAA',rp:0.2,riskCountry:'Bajo',type:'divisa',rateBase:5.5,rateQuote:3.0,rateDiff:2.5,tradeBalance:82,profile:'Euro / Franco Suizo (EUR/CHF). Par cambiario asociado a Eurozona. Volatilidad anualizada de 6.8%, calificación soberana AAA, riesgo país 0.2%.',gdp:{total:'—',perCapita:'—',growth:1.5,inflation:3.0,unemployment:5.0,currency:'Moneda local',mainSectors:'Servicios, Industria, Agricultura',outlook:'Datos macroeconómicos de referencia con fines educativos.',rating:'BBB'}},
+  {id:'GBPJPY',name:'Libra / Yen Japonés',ticker:'GBP/JPY',country:'Reino Unido',price:191.4,sigma:11.2,ret:2.2,rating:'AA',rp:0.4,riskCountry:'Bajo',type:'divisa',rateBase:5.5,rateQuote:5.25,rateDiff:0.25,tradeBalance:51,profile:'Libra / Yen Japonés (GBP/JPY). Par cambiario asociado a Reino Unido. Volatilidad anualizada de 11.2%, calificación soberana AA, riesgo país 0.4%.',gdp:{total:'3,340',perCapita:'49,100',growth:0.5,inflation:3.4,unemployment:4.2,currency:'Libra esterlina (GBP)',mainSectors:'Servicios financieros, Manufactura, Servicios',outlook:'Recuperación post-Brexit lenta. El BoE mantiene tasas restrictivas con inflación persistente en servicios.',rating:'AA-'}},
+  {id:'AUDJPY',name:'Dólar Australiano / Yen',ticker:'AUD/JPY',country:'Australia',price:98.7,sigma:12.8,ret:2.6,rating:'AA',rp:0.5,riskCountry:'Moderado',type:'divisa',rateBase:5.5,rateQuote:4.35,rateDiff:1.15,tradeBalance:70,profile:'Dólar Australiano / Yen (AUD/JPY). Par cambiario asociado a Australia. Volatilidad anualizada de 12.8%, calificación soberana AA, riesgo país 0.5%.',gdp:{total:'1,690',perCapita:'64,500',growth:1.5,inflation:4.1,unemployment:3.9,currency:'Dólar australiano (AUD)',mainSectors:'Minería, Servicios (65%), Agricultura, Educación',outlook:'Fuerte exposición a commodities y a China. El RBA mantiene tasas elevadas por inflación persistente.',rating:'AAA'}},
+  {id:'USDMXN2',name:'Dólar / Peso Mexicano',ticker:'USD/MXN',country:'México',price:17.08,sigma:13.4,ret:2.9,rating:'BBB',rp:1.6,riskCountry:'Moderado',type:'divisa',rateBase:5.5,rateQuote:11.25,rateDiff:-5.75,tradeBalance:-54,profile:'Dólar / Peso Mexicano (USD/MXN). Par cambiario asociado a México. Volatilidad anualizada de 13.4%, calificación soberana BBB, riesgo país 1.6%.',gdp:{total:'1,790',perCapita:'13,800',growth:3.2,inflation:4.7,unemployment:2.8,currency:'Peso mexicano (MXN)',mainSectors:'Manufactura, Servicios, Remesas, Energía',outlook:'Beneficiario del nearshoring. Banxico mantiene tasas altas; peso fuerte por diferencial de tasas con EE.UU.',rating:'BBB'}},
+  {id:'USDPLN',name:'Dólar / Zloty Polaco',ticker:'USD/PLN',country:'Polonia',price:3.94,sigma:12.1,ret:2.4,rating:'A-',rp:0.9,riskCountry:'Moderado',type:'divisa',rateBase:5.5,rateQuote:3.0,rateDiff:2.5,tradeBalance:58,profile:'Dólar / Zloty Polaco (USD/PLN). Par cambiario asociado a Polonia. Volatilidad anualizada de 12.1%, calificación soberana A-, riesgo país 0.9%.',gdp:{total:'810',perCapita:'21,500',growth:2.7,inflation:6.2,unemployment:2.9,currency:'Esloti polaco (PLN)',mainSectors:'Manufactura, Servicios, Agricultura',outlook:'Crecimiento sólido en Europa Central. Convergencia con la UE; inflación en descenso.',rating:'A-'}},
+  {id:'USDTHB',name:'Dólar / Baht Tailandés',ticker:'USD/THB',country:'Tailandia',price:36.2,sigma:7.4,ret:1.6,rating:'BBB+',rp:1.1,riskCountry:'Moderado',type:'divisa',rateBase:5.5,rateQuote:3.0,rateDiff:2.5,tradeBalance:88,profile:'Dólar / Baht Tailandés (USD/THB). Par cambiario asociado a Tailandia. Volatilidad anualizada de 7.4%, calificación soberana BBB+, riesgo país 1.1%.',gdp:{total:'510',perCapita:'7,300',growth:1.9,inflation:1.3,unemployment:1.0,currency:'Baht tailandés (THB)',mainSectors:'Turismo, Manufactura, Agricultura',outlook:'Recuperación apoyada en turismo. Baja inflación; exposición a la demanda regional.',rating:'BBB+'}},
+  {id:'USDKRW',name:'Dólar / Won Coreano',ticker:'USD/KRW',country:'Corea del Sur',price:1342.0,sigma:9.8,ret:2.0,rating:'AA',rp:0.7,riskCountry:'Moderado',type:'divisa',rateBase:5.5,rateQuote:3.5,rateDiff:2.0,tradeBalance:-1,profile:'Dólar / Won Coreano (USD/KRW). Par cambiario asociado a Corea del Sur. Volatilidad anualizada de 9.8%, calificación soberana AA, riesgo país 0.7%.',gdp:{total:'1,710',perCapita:'33,100',growth:1.4,inflation:3.6,unemployment:2.8,currency:'Won surcoreano (KRW)',mainSectors:'Tecnología, Manufactura, Exportaciones',outlook:'Economía exportadora de semiconductores y automóviles. Sensible al ciclo tecnológico global.',rating:'AA'}}
 ];
 
 // ── FUTUROS ──
 const ALL_FUTURES=[
-  {id:'CL1',name:'Petróleo Crudo WTI',ticker:'CL1!',sector:'Energía',country:'Global',price:78.4,beta:1.45,sigma:32.8,ret:8.2,rating:'N/A',dividend:0,type:'futuro',
+  {id:'CL1',name:'Petróleo Crudo WTI',ticker:'CL1!',sector:'Energía',country:'Global',price:78.4,beta:1.45,sigma:32.8,ret:8.2,rating:'N/A',dividend:0,type:'futuro',spot:77.224,basis:1.176,openInterest:229,curveState:'Contango',expiry:'Trimestral',
    profile:'Contrato de futuros del crudo West Texas Intermediate (WTI), referencia de petróleo en América. Cotiza en el NYMEX (CME Group). El precio refleja oferta/demanda global, decisiones de la OPEP+ y tensiones geopolíticas en Medio Oriente. Contrato estándar: 1,000 barriles.',
    specs:{exchange:'NYMEX/CME',contractSize:'1,000 barriles',tickSize:'$0.01/barril',margin:'$5,000–$7,000 aprox.',settlement:'Entrega física',expiryNote:'Mes próximo al vencimiento'}
   },
-  {id:'GC1',name:'Oro',ticker:'GC1!',sector:'Metales preciosos',country:'Global',price:2345.0,beta:0.18,sigma:14.2,ret:6.1,rating:'N/A',dividend:0,type:'futuro',
+  {id:'GC1',name:'Oro',ticker:'GC1!',sector:'Metales preciosos',country:'Global',price:2345.0,beta:0.18,sigma:14.2,ret:6.1,rating:'N/A',dividend:0,type:'futuro',spot:2373.14,basis:-28.14,openInterest:498,curveState:'Backwardation',expiry:'Trimestral',
    profile:'Contrato de futuros del oro en el COMEX (CME Group). El oro actúa como reserva de valor y activo refugio. Su precio sube en contextos de incertidumbre geopolítica, inflación elevada y debilidad del dólar. Los bancos centrales son los mayores compradores institucionales.',
    specs:{exchange:'COMEX/CME',contractSize:'100 onzas troy',tickSize:'$0.10/onza',margin:'$9,000–$12,000 aprox.',settlement:'Entrega física o cash',expiryNote:'Feb, Apr, Jun, Aug, Oct, Dec'}
   },
-  {id:'ES1',name:'S&P 500 E-mini',ticker:'ES1!',sector:'Índices',country:'EE.UU.',price:5248.0,beta:1.0,sigma:18.6,ret:10.2,rating:'N/A',dividend:0,type:'futuro',
+  {id:'ES1',name:'S&P 500 E-mini',ticker:'ES1!',sector:'Índices',country:'EE.UU.',price:5248.0,beta:1.0,sigma:18.6,ret:10.2,rating:'N/A',dividend:0,type:'futuro',spot:5169.28,basis:78.72,openInterest:917,curveState:'Contango',expiry:'Trimestral',
    profile:'Futuro sobre el índice S&P 500, que representa las 500 mayores empresas cotizadas en EE.UU. Es el contrato de futuros de índices más negociado del mundo. Se utiliza para cobertura de carteras de renta variable y como indicador del sentimiento del mercado bursátil americano.',
    specs:{exchange:'CME Group',contractSize:'$50 × S&P 500',tickSize:'0.25 puntos ($12.50)',margin:'$12,000–$15,000 aprox.',settlement:'Cash (liquidación en efectivo)',expiryNote:'Mar, Jun, Sep, Dic'}
   },
-  {id:'ZW1',name:'Trigo CBOT',ticker:'ZW1!',sector:'Agrícola',country:'Global',price:584.5,beta:0.52,sigma:28.4,ret:4.8,rating:'N/A',dividend:0,type:'futuro',
+  {id:'ZW1',name:'Trigo CBOT',ticker:'ZW1!',sector:'Agrícola',country:'Global',price:584.5,beta:0.52,sigma:28.4,ret:4.8,rating:'N/A',dividend:0,type:'futuro',spot:591.514,basis:-7.014,openInterest:478,curveState:'Backwardation',expiry:'Trimestral',
    profile:'Futuro sobre trigo blando de invierno en el CBOT (CME Group). Referencia para el mercado global de granos. El precio es altamente sensible a condiciones climáticas, producción de EE.UU., Ucrania y Rusia, y a la demanda de países importadores como Egipto y China.',
    specs:{exchange:'CBOT/CME',contractSize:'5,000 bushels',tickSize:'1/4 centavo/bushel ($12.50)',margin:'$1,500–$2,500 aprox.',settlement:'Entrega física',expiryNote:'Mar, May, Jul, Sep, Dic'}
   },
-  {id:'6E1',name:'Euro FX Futuro',ticker:'6E1!',sector:'Divisas',country:'Eurozona',price:1.082,beta:0.38,sigma:8.4,ret:3.7,rating:'N/A',dividend:0,type:'futuro',
+  {id:'6E1',name:'Euro FX Futuro',ticker:'6E1!',sector:'Divisas',country:'Eurozona',price:1.082,beta:0.38,sigma:8.4,ret:3.7,rating:'N/A',dividend:0,type:'futuro',spot:1.0658,basis:0.0162,openInterest:547,curveState:'Contango',expiry:'Trimestral',
    profile:'Contrato de futuros sobre el tipo de cambio EUR/USD en el CME. Se utiliza para cobertura cambiaria por importadores, exportadores y gestores de fondos con exposición al euro. Es el contrato de futuros de divisas más negociado del mundo.',
    specs:{exchange:'CME Group',contractSize:'125,000 euros',tickSize:'$0.00005/EUR ($6.25)',margin:'$2,000–$3,500 aprox.',settlement:'Entrega física de euros',expiryNote:'Mar, Jun, Sep, Dic'}
   },
-  {id:'BTC1',name:'Bitcoin CME',ticker:'BTC1!',sector:'Criptoactivos',country:'Global',price:67500,beta:2.85,sigma:72.4,ret:42.0,rating:'N/A',dividend:0,type:'futuro',
+  {id:'BTC1',name:'Bitcoin CME',ticker:'BTC1!',sector:'Criptoactivos',country:'Global',price:67500,beta:2.85,sigma:72.4,ret:42.0,rating:'N/A',dividend:0,type:'futuro',spot:68310.0,basis:-810.0,openInterest:791,curveState:'Backwardation',expiry:'Trimestral',
    profile:'Contrato de futuros sobre Bitcoin regulado en el CME Group. Permite exposición al precio del BTC sin custodia directa. Alta volatilidad y liquidez creciente. Utilizado por institucionales para cobertura y especulación. Aprobación de ETFs spot en 2024 impulsó adopción institucional.',
    specs:{exchange:'CME Group',contractSize:'5 BTC',tickSize:'$5/BTC ($25/contrato)',margin:'$50,000–$80,000 aprox.',settlement:'Cash (precio de referencia CF Benchmarks)',expiryNote:'Mensual y trimestral'}
   },
-  {id:'NG1',name:'Futuro Gas Natural',ticker:'NG1!',sector:'Energía',price:2.84,sigma:42.8,ret:7.2,type:'futuro',profile:'Futuro Gas Natural (NG1!). Contrato de futuros del sector energía. Volatilidad anualizada de 42.8%, retorno esperado 7.2%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'HG1',name:'Futuro Cobre',ticker:'HG1!',sector:'Materiales',price:4.28,sigma:26.4,ret:8.1,type:'futuro',profile:'Futuro Cobre (HG1!). Contrato de futuros del sector materiales. Volatilidad anualizada de 26.4%, retorno esperado 8.1%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'SI1',name:'Futuro Plata',ticker:'SI1!',sector:'Materiales',price:29.4,sigma:31.2,ret:7.8,type:'futuro',profile:'Futuro Plata (SI1!). Contrato de futuros del sector materiales. Volatilidad anualizada de 31.2%, retorno esperado 7.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'PL1',name:'Futuro Platino',ticker:'PL1!',sector:'Materiales',price:968.0,sigma:28.6,ret:6.4,type:'futuro',profile:'Futuro Platino (PL1!). Contrato de futuros del sector materiales. Volatilidad anualizada de 28.6%, retorno esperado 6.4%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'ZC1',name:'Futuro Maíz',ticker:'ZC1!',sector:'Agrícola',price:442.5,sigma:24.1,ret:5.2,type:'futuro',profile:'Futuro Maíz (ZC1!). Contrato de futuros del sector agrícola. Volatilidad anualizada de 24.1%, retorno esperado 5.2%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'ZS1',name:'Futuro Soja',ticker:'ZS1!',sector:'Agrícola',price:1184.0,sigma:22.8,ret:5.8,type:'futuro',profile:'Futuro Soja (ZS1!). Contrato de futuros del sector agrícola. Volatilidad anualizada de 22.8%, retorno esperado 5.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'KC1',name:'Futuro Café',ticker:'KC1!',sector:'Agrícola',price:238.5,sigma:34.2,ret:6.9,type:'futuro',profile:'Futuro Café (KC1!). Contrato de futuros del sector agrícola. Volatilidad anualizada de 34.2%, retorno esperado 6.9%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'SB1',name:'Futuro Azúcar',ticker:'SB1!',sector:'Agrícola',price:19.8,sigma:29.4,ret:5.4,type:'futuro',profile:'Futuro Azúcar (SB1!). Contrato de futuros del sector agrícola. Volatilidad anualizada de 29.4%, retorno esperado 5.4%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'CT1',name:'Futuro Algodón',ticker:'CT1!',sector:'Agrícola',price:78.2,sigma:27.1,ret:4.8,type:'futuro',profile:'Futuro Algodón (CT1!). Contrato de futuros del sector agrícola. Volatilidad anualizada de 27.1%, retorno esperado 4.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'CC1',name:'Futuro Cacao',ticker:'CC1!',sector:'Agrícola',price:7842.0,sigma:38.6,ret:7.1,type:'futuro',profile:'Futuro Cacao (CC1!). Contrato de futuros del sector agrícola. Volatilidad anualizada de 38.6%, retorno esperado 7.1%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'NQ1',name:'Futuro Nasdaq 100',ticker:'NQ1!',sector:'Índices',price:18420.0,sigma:21.4,ret:11.2,type:'futuro',profile:'Futuro Nasdaq 100 (NQ1!). Contrato de futuros del sector índices. Volatilidad anualizada de 21.4%, retorno esperado 11.2%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'YM1',name:'Futuro Dow Jones',ticker:'YM1!',sector:'Índices',price:39250.0,sigma:16.8,ret:8.4,type:'futuro',profile:'Futuro Dow Jones (YM1!). Contrato de futuros del sector índices. Volatilidad anualizada de 16.8%, retorno esperado 8.4%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'RTY1',name:'Futuro Russell 2000',ticker:'RTY1!',sector:'Índices',price:2042.0,sigma:23.8,ret:9.1,type:'futuro',profile:'Futuro Russell 2000 (RTY1!). Contrato de futuros del sector índices. Volatilidad anualizada de 23.8%, retorno esperado 9.1%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'DAX1',name:'Futuro DAX 40',ticker:'DAX1!',sector:'Índices',price:18180.0,sigma:18.4,ret:9.8,type:'futuro',profile:'Futuro DAX 40 (DAX1!). Contrato de futuros del sector índices. Volatilidad anualizada de 18.4%, retorno esperado 9.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'FTSE1',name:'Futuro FTSE 100',ticker:'FTSE1!',sector:'Índices',price:8124.0,sigma:15.2,ret:7.6,type:'futuro',profile:'Futuro FTSE 100 (FTSE1!). Contrato de futuros del sector índices. Volatilidad anualizada de 15.2%, retorno esperado 7.6%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'N225',name:'Futuro Nikkei 225',ticker:'N225!',sector:'Índices',price:38420.0,sigma:19.8,ret:9.4,type:'futuro',profile:'Futuro Nikkei 225 (N225!). Contrato de futuros del sector índices. Volatilidad anualizada de 19.8%, retorno esperado 9.4%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'ETH1',name:'Futuro Ethereum',ticker:'ETH1!',sector:'Cripto',price:3284.0,sigma:58.4,ret:14.2,type:'futuro',profile:'Futuro Ethereum (ETH1!). Contrato de futuros del sector cripto. Volatilidad anualizada de 58.4%, retorno esperado 14.2%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'ZB1',name:'Futuro Bono T 30Y',ticker:'ZB1!',sector:'Renta Fija',price:118.4,sigma:9.8,ret:3.2,type:'futuro',profile:'Futuro Bono T 30Y (ZB1!). Contrato de futuros del sector renta fija. Volatilidad anualizada de 9.8%, retorno esperado 3.2%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'ZN1',name:'Futuro Nota T 10Y',ticker:'ZN1!',sector:'Renta Fija',price:110.2,sigma:6.4,ret:2.8,type:'futuro',profile:'Futuro Nota T 10Y (ZN1!). Contrato de futuros del sector renta fija. Volatilidad anualizada de 6.4%, retorno esperado 2.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'6J1',name:'Futuro Yen Japonés',ticker:'6J1!',sector:'Divisas',price:0.00642,sigma:9.2,ret:1.8,type:'futuro',profile:'Futuro Yen Japonés (6J1!). Contrato de futuros del sector divisas. Volatilidad anualizada de 9.2%, retorno esperado 1.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'6B1',name:'Futuro Libra Esterlina',ticker:'6B1!',sector:'Divisas',price:1.272,sigma:8.8,ret:2.1,type:'futuro',profile:'Futuro Libra Esterlina (6B1!). Contrato de futuros del sector divisas. Volatilidad anualizada de 8.8%, retorno esperado 2.1%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'6C1',name:'Futuro Dólar Canadiense',ticker:'6C1!',sector:'Divisas',price:0.732,sigma:8.4,ret:1.9,type:'futuro',profile:'Futuro Dólar Canadiense (6C1!). Contrato de futuros del sector divisas. Volatilidad anualizada de 8.4%, retorno esperado 1.9%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'RB1',name:'Futuro Gasolina',ticker:'RB1!',sector:'Energía',price:2.42,sigma:34.8,ret:6.8,type:'futuro',profile:'Futuro Gasolina (RB1!). Contrato de futuros del sector energía. Volatilidad anualizada de 34.8%, retorno esperado 6.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
-  {id:'HO1',name:'Futuro Diésel',ticker:'HO1!',sector:'Energía',price:2.68,sigma:32.4,ret:6.4,type:'futuro',profile:'Futuro Diésel (HO1!). Contrato de futuros del sector energía. Volatilidad anualizada de 32.4%, retorno esperado 6.4%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}}
+  {id:'NG1',name:'Futuro Gas Natural',ticker:'NG1!',sector:'Energía',price:2.84,sigma:42.8,ret:7.2,type:'futuro',spot:2.8741,basis:-0.0341,openInterest:670,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro Gas Natural (NG1!). Contrato de futuros del sector energía. Volatilidad anualizada de 42.8%, retorno esperado 7.2%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'HG1',name:'Futuro Cobre',ticker:'HG1!',sector:'Materiales',price:4.28,sigma:26.4,ret:8.1,type:'futuro',spot:4.2158,basis:0.0642,openInterest:151,curveState:'Contango',expiry:'Trimestral',profile:'Futuro Cobre (HG1!). Contrato de futuros del sector materiales. Volatilidad anualizada de 26.4%, retorno esperado 8.1%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'SI1',name:'Futuro Plata',ticker:'SI1!',sector:'Materiales',price:29.4,sigma:31.2,ret:7.8,type:'futuro',spot:28.959,basis:0.441,openInterest:800,curveState:'Contango',expiry:'Trimestral',profile:'Futuro Plata (SI1!). Contrato de futuros del sector materiales. Volatilidad anualizada de 31.2%, retorno esperado 7.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'PL1',name:'Futuro Platino',ticker:'PL1!',sector:'Materiales',price:968.0,sigma:28.6,ret:6.4,type:'futuro',spot:953.48,basis:14.52,openInterest:642,curveState:'Contango',expiry:'Trimestral',profile:'Futuro Platino (PL1!). Contrato de futuros del sector materiales. Volatilidad anualizada de 28.6%, retorno esperado 6.4%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'ZC1',name:'Futuro Maíz',ticker:'ZC1!',sector:'Agrícola',price:442.5,sigma:24.1,ret:5.2,type:'futuro',spot:447.81,basis:-5.31,openInterest:593,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro Maíz (ZC1!). Contrato de futuros del sector agrícola. Volatilidad anualizada de 24.1%, retorno esperado 5.2%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'ZS1',name:'Futuro Soja',ticker:'ZS1!',sector:'Agrícola',price:1184.0,sigma:22.8,ret:5.8,type:'futuro',spot:1198.208,basis:-14.208,openInterest:574,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro Soja (ZS1!). Contrato de futuros del sector agrícola. Volatilidad anualizada de 22.8%, retorno esperado 5.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'KC1',name:'Futuro Café',ticker:'KC1!',sector:'Agrícola',price:238.5,sigma:34.2,ret:6.9,type:'futuro',spot:234.9225,basis:3.5775,openInterest:311,curveState:'Contango',expiry:'Trimestral',profile:'Futuro Café (KC1!). Contrato de futuros del sector agrícola. Volatilidad anualizada de 34.2%, retorno esperado 6.9%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'SB1',name:'Futuro Azúcar',ticker:'SB1!',sector:'Agrícola',price:19.8,sigma:29.4,ret:5.4,type:'futuro',spot:19.503,basis:0.297,openInterest:729,curveState:'Contango',expiry:'Trimestral',profile:'Futuro Azúcar (SB1!). Contrato de futuros del sector agrícola. Volatilidad anualizada de 29.4%, retorno esperado 5.4%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'CT1',name:'Futuro Algodón',ticker:'CT1!',sector:'Agrícola',price:78.2,sigma:27.1,ret:4.8,type:'futuro',spot:79.1384,basis:-0.9384,openInterest:269,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro Algodón (CT1!). Contrato de futuros del sector agrícola. Volatilidad anualizada de 27.1%, retorno esperado 4.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'CC1',name:'Futuro Cacao',ticker:'CC1!',sector:'Agrícola',price:7842.0,sigma:38.6,ret:7.1,type:'futuro',spot:7724.37,basis:117.63,openInterest:618,curveState:'Contango',expiry:'Trimestral',profile:'Futuro Cacao (CC1!). Contrato de futuros del sector agrícola. Volatilidad anualizada de 38.6%, retorno esperado 7.1%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'NQ1',name:'Futuro Nasdaq 100',ticker:'NQ1!',sector:'Índices',price:18420.0,sigma:21.4,ret:11.2,type:'futuro',spot:18641.04,basis:-221.04,openInterest:684,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro Nasdaq 100 (NQ1!). Contrato de futuros del sector índices. Volatilidad anualizada de 21.4%, retorno esperado 11.2%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'YM1',name:'Futuro Dow Jones',ticker:'YM1!',sector:'Índices',price:39250.0,sigma:16.8,ret:8.4,type:'futuro',spot:38661.25,basis:588.75,openInterest:439,curveState:'Contango',expiry:'Trimestral',profile:'Futuro Dow Jones (YM1!). Contrato de futuros del sector índices. Volatilidad anualizada de 16.8%, retorno esperado 8.4%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'RTY1',name:'Futuro Russell 2000',ticker:'RTY1!',sector:'Índices',price:2042.0,sigma:23.8,ret:9.1,type:'futuro',spot:2066.504,basis:-24.504,openInterest:298,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro Russell 2000 (RTY1!). Contrato de futuros del sector índices. Volatilidad anualizada de 23.8%, retorno esperado 9.1%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'DAX1',name:'Futuro DAX 40',ticker:'DAX1!',sector:'Índices',price:18180.0,sigma:18.4,ret:9.8,type:'futuro',spot:17907.3,basis:272.7,openInterest:137,curveState:'Contango',expiry:'Trimestral',profile:'Futuro DAX 40 (DAX1!). Contrato de futuros del sector índices. Volatilidad anualizada de 18.4%, retorno esperado 9.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'FTSE1',name:'Futuro FTSE 100',ticker:'FTSE1!',sector:'Índices',price:8124.0,sigma:15.2,ret:7.6,type:'futuro',spot:8221.488,basis:-97.488,openInterest:984,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro FTSE 100 (FTSE1!). Contrato de futuros del sector índices. Volatilidad anualizada de 15.2%, retorno esperado 7.6%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'N225',name:'Futuro Nikkei 225',ticker:'N225!',sector:'Índices',price:38420.0,sigma:19.8,ret:9.4,type:'futuro',spot:37843.7,basis:576.3,openInterest:528,curveState:'Contango',expiry:'Trimestral',profile:'Futuro Nikkei 225 (N225!). Contrato de futuros del sector índices. Volatilidad anualizada de 19.8%, retorno esperado 9.4%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'ETH1',name:'Futuro Ethereum',ticker:'ETH1!',sector:'Cripto',price:3284.0,sigma:58.4,ret:14.2,type:'futuro',spot:3323.408,basis:-39.408,openInterest:969,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro Ethereum (ETH1!). Contrato de futuros del sector cripto. Volatilidad anualizada de 58.4%, retorno esperado 14.2%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'ZB1',name:'Futuro Bono T 30Y',ticker:'ZB1!',sector:'Renta Fija',price:118.4,sigma:9.8,ret:3.2,type:'futuro',spot:116.624,basis:1.776,openInterest:937,curveState:'Contango',expiry:'Trimestral',profile:'Futuro Bono T 30Y (ZB1!). Contrato de futuros del sector renta fija. Volatilidad anualizada de 9.8%, retorno esperado 3.2%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'ZN1',name:'Futuro Nota T 10Y',ticker:'ZN1!',sector:'Renta Fija',price:110.2,sigma:6.4,ret:2.8,type:'futuro',spot:111.5224,basis:-1.3224,openInterest:368,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro Nota T 10Y (ZN1!). Contrato de futuros del sector renta fija. Volatilidad anualizada de 6.4%, retorno esperado 2.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'6J1',name:'Futuro Yen Japonés',ticker:'6J1!',sector:'Divisas',price:0.00642,sigma:9.2,ret:1.8,type:'futuro',spot:0.0063,basis:0.0001,openInterest:431,curveState:'Contango',expiry:'Trimestral',profile:'Futuro Yen Japonés (6J1!). Contrato de futuros del sector divisas. Volatilidad anualizada de 9.2%, retorno esperado 1.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'6B1',name:'Futuro Libra Esterlina',ticker:'6B1!',sector:'Divisas',price:1.272,sigma:8.8,ret:2.1,type:'futuro',spot:1.2873,basis:-0.0153,openInterest:278,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro Libra Esterlina (6B1!). Contrato de futuros del sector divisas. Volatilidad anualizada de 8.8%, retorno esperado 2.1%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'6C1',name:'Futuro Dólar Canadiense',ticker:'6C1!',sector:'Divisas',price:0.732,sigma:8.4,ret:1.9,type:'futuro',spot:0.7408,basis:-0.0088,openInterest:281,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro Dólar Canadiense (6C1!). Contrato de futuros del sector divisas. Volatilidad anualizada de 8.4%, retorno esperado 1.9%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'RB1',name:'Futuro Gasolina',ticker:'RB1!',sector:'Energía',price:2.42,sigma:34.8,ret:6.8,type:'futuro',spot:2.3837,basis:0.0363,openInterest:422,curveState:'Contango',expiry:'Trimestral',profile:'Futuro Gasolina (RB1!). Contrato de futuros del sector energía. Volatilidad anualizada de 34.8%, retorno esperado 6.8%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}},
+  {id:'HO1',name:'Futuro Diésel',ticker:'HO1!',sector:'Energía',price:2.68,sigma:32.4,ret:6.4,type:'futuro',spot:2.7122,basis:-0.0322,openInterest:797,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro Diésel (HO1!). Contrato de futuros del sector energía. Volatilidad anualizada de 32.4%, retorno esperado 6.4%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}}
 ];
 
 // ── DERIVADOS ──
 const ALL_DERIVATIVES=[
-  {id:'AAPL-CALL',name:'AAPL Call Option',ticker:'AAPL 200C',sector:'Opciones / Acciones',country:'EE.UU.',price:8.45,beta:1.9,sigma:38.2,ret:18.5,rating:'N/A',dividend:0,type:'derivado',
+  {id:'AAPL-CALL',name:'AAPL Call Option',ticker:'AAPL 200C',sector:'Opciones / Acciones',country:'EE.UU.',price:8.45,beta:1.9,sigma:38.2,ret:18.5,rating:'N/A',dividend:0,type:'derivado',delta:0.48,gamma:0.04,theta:-0.12,vega:0.18,impliedVol:28.4,strike:200,intrinsic:5.07,
    profile:'Opción de compra (Call) sobre acciones de Apple Inc. con precio de ejercicio (strike) de $200. Otorga el derecho, no la obligación, de comprar 100 acciones de AAPL a $200 hasta la fecha de vencimiento. Prima actual: $8.45/acción.',
    specs:{underlying:'Apple Inc. (AAPL)',type:'Call (opción de compra)',strike:'$200.00',expiry:'Próximo vencimiento mensual',premium:'$8.45 / acción',contractSize:'100 acciones',delta:'0.48',gamma:'0.04',theta:'-0.12 ($/día)',iv:'28.4% (volatilidad implícita)'}
   },
-  {id:'IRS-USD',name:'Interest Rate Swap USD',ticker:'IRS-5Y-USD',sector:'Swaps / Tasas',country:'EE.UU.',price:4.85,beta:0.12,sigma:5.8,ret:4.85,rating:'N/A',dividend:0,type:'derivado',
+  {id:'IRS-USD',name:'Interest Rate Swap USD',ticker:'IRS-5Y-USD',sector:'Swaps / Tasas',country:'EE.UU.',price:4.85,beta:0.12,sigma:5.8,ret:4.85,rating:'N/A',dividend:0,type:'derivado',delta:0.84,gamma:0.09,theta:-0.24,vega:0.39,impliedVol:14.8,strike:4.61,intrinsic:2.91,
    profile:'Contrato de Swap de Tasas de Interés (IRS) a 5 años en dólares. Una parte paga una tasa fija del 4.85% y recibe SOFR (tasa flotante). Instrumento utilizado por bancos, corporaciones y fondos para gestionar el riesgo de tasas de interés en sus carteras de deuda.',
    specs:{type:'Interest Rate Swap (IRS)',maturity:'5 años',payLeg:'Tasa fija 4.85% (anual)',receiveLeg:'SOFR + spread (flotante)',notional:'$1,000,000 (nocional de referencia)',settlement:'Neto trimestral',counterpartyRisk:'Mitigado por CCP (LCH/CME)',market:'OTC / Mercado extrabursátil'}
   },
-  {id:'CDS-COL',name:'CDS Colombia 5Y',ticker:'CDS-COL-5Y',sector:'Credit Default Swap',country:'Colombia',price:250,beta:0.65,sigma:18.4,ret:6.2,rating:'N/A',dividend:0,type:'derivado',
+  {id:'CDS-COL',name:'CDS Colombia 5Y',ticker:'CDS-COL-5Y',sector:'Credit Default Swap',country:'Colombia',price:250,beta:0.65,sigma:18.4,ret:6.2,rating:'N/A',dividend:0,type:'derivado',delta:0.72,gamma:0.07,theta:-0.22,vega:0.17,impliedVol:25.4,strike:250.0,intrinsic:150.0,
    profile:'Credit Default Swap (CDS) soberano de Colombia a 5 años. El comprador paga 250 puntos base anuales y recibe protección ante un evento de crédito (impago soberano). Es el instrumento de referencia para medir el riesgo crediticio soberano de Colombia en los mercados internacionales.',
    specs:{type:'Credit Default Swap (CDS)',reference:'República de Colombia',maturity:'5 años',spread:'250 puntos base/año',notional:'$10,000,000 (estándar)',trigger:'Impago, reestructuración o moratoria soberana',settlement:'Físico o cash (subasta ISDA)',market:'OTC / ISDA estándar'}
   },
-  {id:'USD-FWD',name:'Forward USD/COP',ticker:'FWDUSDCOP-3M',sector:'Forwards / Divisas',country:'Colombia',price:4050,beta:0.72,sigma:19.2,ret:6.5,rating:'N/A',dividend:0,type:'derivado',
+  {id:'USD-FWD',name:'Forward USD/COP',ticker:'FWDUSDCOP-3M',sector:'Forwards / Divisas',country:'Colombia',price:4050,beta:0.72,sigma:19.2,ret:6.5,rating:'N/A',dividend:0,type:'derivado',delta:0.66,gamma:0.05,theta:-0.16,vega:0.11,impliedVol:20.2,strike:4293.0,intrinsic:2430.0,
    profile:'Contrato forward de tipo de cambio USD/COP a 3 meses. Permite fijar hoy el tipo de cambio al que se comprará o venderá un monto de dólares en 3 meses. Ampliamente usado por importadores y exportadores colombianos para cobertura del riesgo cambiario sin necesidad de desembolso inicial.',
    specs:{type:'Forward cambiario (FX Forward)',currency:'USD/COP',maturity:'90 días (3 meses)',forwardRate:'4,050 COP/USD',spotRate:'3,948 COP/USD',points:'102 puntos forward',notional:'$500,000 USD (estándar mínimo)',settlement:'Entrega física o NDF (non-deliverable)'}
   },
-  {id:'CLO-UST',name:'CLO Investment Grade',ticker:'CLO-IG-AAA',sector:'Estructurados / CLO',country:'EE.UU.',price:98.2,beta:0.28,sigma:9.4,ret:6.8,rating:'AAA',dividend:0,type:'derivado',
+  {id:'CLO-UST',name:'CLO Investment Grade',ticker:'CLO-IG-AAA',sector:'Estructurados / CLO',country:'EE.UU.',price:98.2,beta:0.28,sigma:9.4,ret:6.8,rating:'AAA',dividend:0,type:'derivado',delta:0.64,gamma:0.09,theta:-0.24,vega:0.29,impliedVol:18.4,strike:89.36,intrinsic:58.92,
    profile:'Collateralized Loan Obligation (CLO) de tramo senior con calificación AAA. Instrumento de crédito estructurado que empaqueta una cartera diversificada de préstamos corporativos. El tramo AAA tiene prioridad en el cobro y ofrece protección ante impagos en la cartera subyacente.',
    specs:{type:'CLO — Tramo Senior AAA',underlying:'Cartera de ~150 préstamos corporativos',tranche:'Senior (AAA)',coupon:'SOFR + 130 bps',maturity:'10 años (período reinversión: 5 años)',collateral:'Préstamos corporativos diversificados',manager:'Gestora institucional especializada',minimumInvestment:'$250,000 USD'}
   },
-  {id:'FRA-EUR',name:'FRA EUR 3×6',ticker:'FRA-3X6-EUR',sector:'FRA / Tasas',country:'Eurozona',price:3.85,beta:0.08,sigma:4.2,ret:3.85,rating:'N/A',dividend:0,type:'derivado',
+  {id:'FRA-EUR',name:'FRA EUR 3×6',ticker:'FRA-3X6-EUR',sector:'FRA / Tasas',country:'Eurozona',price:3.85,beta:0.08,sigma:4.2,ret:3.85,rating:'N/A',dividend:0,type:'derivado',delta:0.76,gamma:0.03,theta:-0.06,vega:0.11,impliedVol:-4.8,strike:3.62,intrinsic:2.31,
    profile:'Forward Rate Agreement (FRA) en euros a período 3×6: acuerdo sobre la tasa de interés aplicable al período que comienza en 3 meses y termina en 6 meses. El comprador se protege ante una subida de tasas EURIBOR. Instrumento fundamental en la gestión de riesgo de tasas a corto plazo.',
    specs:{type:'Forward Rate Agreement (FRA)',currency:'EUR',period:'3×6 (3 meses → 6 meses)',contractRate:'3.85% anual',reference:'EURIBOR 3 meses',notional:'€5,000,000 (estándar)',settlement:'Al inicio del período de referencia (cash)',market:'OTC / interbancario'}
   },
-  {id:'MSFT-CALL',name:'Opción Call Microsoft',ticker:'MSFT-C',sector:'Opciones',price:12.4,sigma:38.2,ret:11.4,type:'derivado',profile:'Opción Call Microsoft (MSFT-C). Instrumento derivado tipo opciones. Volatilidad anualizada de 38.2%, retorno esperado 11.4%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'TSLA-PUT',name:'Opción Put Tesla',ticker:'TSLA-P',sector:'Opciones',price:18.6,sigma:52.4,ret:9.8,type:'derivado',profile:'Opción Put Tesla (TSLA-P). Instrumento derivado tipo opciones. Volatilidad anualizada de 52.4%, retorno esperado 9.8%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'NVDA-CALL',name:'Opción Call NVIDIA',ticker:'NVDA-C',sector:'Opciones',price:24.8,sigma:48.7,ret:13.2,type:'derivado',profile:'Opción Call NVIDIA (NVDA-C). Instrumento derivado tipo opciones. Volatilidad anualizada de 48.7%, retorno esperado 13.2%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'SPX-PUT',name:'Opción Put S&P 500',ticker:'SPX-P',sector:'Opciones',price:42.5,sigma:28.4,ret:7.4,type:'derivado',profile:'Opción Put S&P 500 (SPX-P). Instrumento derivado tipo opciones. Volatilidad anualizada de 28.4%, retorno esperado 7.4%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'IRS-EUR',name:'Swap Tasa Interés EUR',ticker:'IRS-EUR',sector:'Swaps',price:100.2,sigma:8.4,ret:4.2,type:'derivado',profile:'Swap Tasa Interés EUR (IRS-EUR). Instrumento derivado tipo swaps. Volatilidad anualizada de 8.4%, retorno esperado 4.2%.',specs:{type:'Swaps',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'IRS-GBP',name:'Swap Tasa Interés GBP',ticker:'IRS-GBP',sector:'Swaps',price:99.8,sigma:9.1,ret:4.4,type:'derivado',profile:'Swap Tasa Interés GBP (IRS-GBP). Instrumento derivado tipo swaps. Volatilidad anualizada de 9.1%, retorno esperado 4.4%.',specs:{type:'Swaps',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'CDS-ARG',name:'CDS Argentina',ticker:'CDS-ARG',sector:'Crédito',price:62.4,sigma:42.8,ret:8.6,type:'derivado',profile:'CDS Argentina (CDS-ARG). Instrumento derivado tipo crédito. Volatilidad anualizada de 42.8%, retorno esperado 8.6%.',specs:{type:'Crédito',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'CDS-BRA',name:'CDS Brasil',ticker:'CDS-BRA',sector:'Crédito',price:84.2,sigma:28.4,ret:6.8,type:'derivado',profile:'CDS Brasil (CDS-BRA). Instrumento derivado tipo crédito. Volatilidad anualizada de 28.4%, retorno esperado 6.8%.',specs:{type:'Crédito',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'CDS-TUR',name:'CDS Turquía',ticker:'CDS-TUR',sector:'Crédito',price:58.7,sigma:46.2,ret:9.1,type:'derivado',profile:'CDS Turquía (CDS-TUR). Instrumento derivado tipo crédito. Volatilidad anualizada de 46.2%, retorno esperado 9.1%.',specs:{type:'Crédito',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'FWD-EUR',name:'Forward EUR/USD',ticker:'FWD-EUR',sector:'Forwards',price:1.082,sigma:9.2,ret:2.4,type:'derivado',profile:'Forward EUR/USD (FWD-EUR). Instrumento derivado tipo forwards. Volatilidad anualizada de 9.2%, retorno esperado 2.4%.',specs:{type:'Forwards',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'FWD-JPY',name:'Forward USD/JPY',ticker:'FWD-JPY',sector:'Forwards',price:151.4,sigma:10.4,ret:2.6,type:'derivado',profile:'Forward USD/JPY (FWD-JPY). Instrumento derivado tipo forwards. Volatilidad anualizada de 10.4%, retorno esperado 2.6%.',specs:{type:'Forwards',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'FRA-USD',name:'FRA Dólar 3x6',ticker:'FRA-USD',sector:'Forwards',price:98.4,sigma:6.8,ret:3.4,type:'derivado',profile:'FRA Dólar 3x6 (FRA-USD). Instrumento derivado tipo forwards. Volatilidad anualizada de 6.8%, retorno esperado 3.4%.',specs:{type:'Forwards',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'CLO-EUR',name:'CLO Europeo AAA',ticker:'CLO-EUR',sector:'Estructurados',price:99.1,sigma:12.4,ret:5.2,type:'derivado',profile:'CLO Europeo AAA (CLO-EUR). Instrumento derivado tipo estructurados. Volatilidad anualizada de 12.4%, retorno esperado 5.2%.',specs:{type:'Estructurados',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'MBS-US',name:'MBS Estadounidense',ticker:'MBS-US',sector:'Estructurados',price:97.8,sigma:11.2,ret:4.8,type:'derivado',profile:'MBS Estadounidense (MBS-US). Instrumento derivado tipo estructurados. Volatilidad anualizada de 11.2%, retorno esperado 4.8%.',specs:{type:'Estructurados',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'ABS-AUTO',name:'ABS Préstamos Auto',ticker:'ABS-AUT',sector:'Estructurados',price:98.6,sigma:9.8,ret:4.4,type:'derivado',profile:'ABS Préstamos Auto (ABS-AUT). Instrumento derivado tipo estructurados. Volatilidad anualizada de 9.8%, retorno esperado 4.4%.',specs:{type:'Estructurados',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'VIX-CALL',name:'Opción Call VIX',ticker:'VIX-C',sector:'Opciones',price:8.4,sigma:68.4,ret:6.2,type:'derivado',profile:'Opción Call VIX (VIX-C). Instrumento derivado tipo opciones. Volatilidad anualizada de 68.4%, retorno esperado 6.2%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'GOLD-CALL',name:'Opción Call Oro',ticker:'GOLD-C',sector:'Opciones',price:32.6,sigma:24.8,ret:8.4,type:'derivado',profile:'Opción Call Oro (GOLD-C). Instrumento derivado tipo opciones. Volatilidad anualizada de 24.8%, retorno esperado 8.4%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'OIL-PUT',name:'Opción Put Petróleo',ticker:'OIL-P',sector:'Opciones',price:4.82,sigma:38.4,ret:5.8,type:'derivado',profile:'Opción Put Petróleo (OIL-P). Instrumento derivado tipo opciones. Volatilidad anualizada de 38.4%, retorno esperado 5.8%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'TRS-EQ',name:'Total Return Swap Equity',ticker:'TRS-EQ',sector:'Swaps',price:101.4,sigma:22.4,ret:9.2,type:'derivado',profile:'Total Return Swap Equity (TRS-EQ). Instrumento derivado tipo swaps. Volatilidad anualizada de 22.4%, retorno esperado 9.2%.',specs:{type:'Swaps',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'VARSWAP',name:'Swap de Varianza',ticker:'VAR-SW',sector:'Swaps',price:98.2,sigma:32.8,ret:7.4,type:'derivado',profile:'Swap de Varianza (VAR-SW). Instrumento derivado tipo swaps. Volatilidad anualizada de 32.8%, retorno esperado 7.4%.',specs:{type:'Swaps',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'CAP-USD',name:'Cap Tasa USD',ticker:'CAP-USD',sector:'Opciones',price:2.84,sigma:18.4,ret:4.2,type:'derivado',profile:'Cap Tasa USD (CAP-USD). Instrumento derivado tipo opciones. Volatilidad anualizada de 18.4%, retorno esperado 4.2%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'FLOOR-EUR',name:'Floor Tasa EUR',ticker:'FLR-EUR',sector:'Opciones',price:2.42,sigma:16.8,ret:3.8,type:'derivado',profile:'Floor Tasa EUR (FLR-EUR). Instrumento derivado tipo opciones. Volatilidad anualizada de 16.8%, retorno esperado 3.8%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'BARRIER-SPX',name:'Opción Barrera S&P',ticker:'BAR-SPX',sector:'Opciones',price:18.4,sigma:34.2,ret:8.8,type:'derivado',profile:'Opción Barrera S&P (BAR-SPX). Instrumento derivado tipo opciones. Volatilidad anualizada de 34.2%, retorno esperado 8.8%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'CONVERT-AAPL',name:'Bono Convertible Apple',ticker:'CONV-AAPL',sector:'Estructurados',price:104.2,sigma:18.6,ret:7.2,type:'derivado',profile:'Bono Convertible Apple (CONV-AAPL). Instrumento derivado tipo estructurados. Volatilidad anualizada de 18.6%, retorno esperado 7.2%.',specs:{type:'Estructurados',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}}
+  {id:'MSFT-CALL',name:'Opción Call Microsoft',ticker:'MSFT-C',sector:'Opciones',price:12.4,sigma:38.2,ret:11.4,type:'derivado',delta:0.36,gamma:0.07,theta:-0.06,vega:0.31,impliedVol:29.2,strike:11.16,intrinsic:7.44,profile:'Opción Call Microsoft (MSFT-C). Instrumento derivado tipo opciones. Volatilidad anualizada de 38.2%, retorno esperado 11.4%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'TSLA-PUT',name:'Opción Put Tesla',ticker:'TSLA-P',sector:'Opciones',price:18.6,sigma:52.4,ret:9.8,type:'derivado',delta:0.75,gamma:0.06,theta:-0.05,vega:0.3,impliedVol:42.4,strike:17.67,intrinsic:11.16,profile:'Opción Put Tesla (TSLA-P). Instrumento derivado tipo opciones. Volatilidad anualizada de 52.4%, retorno esperado 9.8%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'NVDA-CALL',name:'Opción Call NVIDIA',ticker:'NVDA-C',sector:'Opciones',price:24.8,sigma:48.7,ret:13.2,type:'derivado',delta:0.43,gamma:0.02,theta:-0.13,vega:0.38,impliedVol:46.7,strike:22.57,intrinsic:14.88,profile:'Opción Call NVIDIA (NVDA-C). Instrumento derivado tipo opciones. Volatilidad anualizada de 48.7%, retorno esperado 13.2%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'SPX-PUT',name:'Opción Put S&P 500',ticker:'SPX-P',sector:'Opciones',price:42.5,sigma:28.4,ret:7.4,type:'derivado',delta:0.73,gamma:0.04,theta:-0.23,vega:0.28,impliedVol:36.4,strike:42.08,intrinsic:25.5,profile:'Opción Put S&P 500 (SPX-P). Instrumento derivado tipo opciones. Volatilidad anualizada de 28.4%, retorno esperado 7.4%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'IRS-EUR',name:'Swap Tasa Interés EUR',ticker:'IRS-EUR',sector:'Swaps',price:100.2,sigma:8.4,ret:4.2,type:'derivado',delta:0.5,gamma:0.03,theta:-0.1,vega:0.15,impliedVol:3.4,strike:110.22,intrinsic:60.12,profile:'Swap Tasa Interés EUR (IRS-EUR). Instrumento derivado tipo swaps. Volatilidad anualizada de 8.4%, retorno esperado 4.2%.',specs:{type:'Swaps',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'IRS-GBP',name:'Swap Tasa Interés GBP',ticker:'IRS-GBP',sector:'Swaps',price:99.8,sigma:9.1,ret:4.4,type:'derivado',delta:0.49,gamma:0.04,theta:-0.19,vega:0.24,impliedVol:13.1,strike:106.79,intrinsic:59.88,profile:'Swap Tasa Interés GBP (IRS-GBP). Instrumento derivado tipo swaps. Volatilidad anualizada de 9.1%, retorno esperado 4.4%.',specs:{type:'Swaps',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'CDS-ARG',name:'CDS Argentina',ticker:'CDS-ARG',sector:'Crédito',price:62.4,sigma:42.8,ret:8.6,type:'derivado',delta:0.37,gamma:0.02,theta:-0.17,vega:0.12,impliedVol:44.8,strike:61.15,intrinsic:37.44,profile:'CDS Argentina (CDS-ARG). Instrumento derivado tipo crédito. Volatilidad anualizada de 42.8%, retorno esperado 8.6%.',specs:{type:'Crédito',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'CDS-BRA',name:'CDS Brasil',ticker:'CDS-BRA',sector:'Crédito',price:84.2,sigma:28.4,ret:6.8,type:'derivado',delta:0.44,gamma:0.07,theta:-0.14,vega:0.29,impliedVol:27.4,strike:76.62,intrinsic:50.52,profile:'CDS Brasil (CDS-BRA). Instrumento derivado tipo crédito. Volatilidad anualizada de 28.4%, retorno esperado 6.8%.',specs:{type:'Crédito',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'CDS-TUR',name:'CDS Turquía',ticker:'CDS-TUR',sector:'Crédito',price:58.7,sigma:46.2,ret:9.1,type:'derivado',delta:0.37,gamma:0.06,theta:-0.17,vega:0.32,impliedVol:48.2,strike:56.94,intrinsic:35.22,profile:'CDS Turquía (CDS-TUR). Instrumento derivado tipo crédito. Volatilidad anualizada de 46.2%, retorno esperado 9.1%.',specs:{type:'Crédito',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'FWD-EUR',name:'Forward EUR/USD',ticker:'FWD-EUR',sector:'Forwards',price:1.082,sigma:9.2,ret:2.4,type:'derivado',delta:0.69,gamma:0.02,theta:-0.09,vega:0.24,impliedVol:3.2,strike:1.06,intrinsic:0.65,profile:'Forward EUR/USD (FWD-EUR). Instrumento derivado tipo forwards. Volatilidad anualizada de 9.2%, retorno esperado 2.4%.',specs:{type:'Forwards',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'FWD-JPY',name:'Forward USD/JPY',ticker:'FWD-JPY',sector:'Forwards',price:151.4,sigma:10.4,ret:2.6,type:'derivado',delta:0.37,gamma:0.08,theta:-0.07,vega:0.12,impliedVol:2.4,strike:148.37,intrinsic:90.84,profile:'Forward USD/JPY (FWD-JPY). Instrumento derivado tipo forwards. Volatilidad anualizada de 10.4%, retorno esperado 2.6%.',specs:{type:'Forwards',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'FRA-USD',name:'FRA Dólar 3x6',ticker:'FRA-USD',sector:'Forwards',price:98.4,sigma:6.8,ret:3.4,type:'derivado',delta:0.5,gamma:0.07,theta:-0.1,vega:0.35,impliedVol:1.8,strike:89.54,intrinsic:59.04,profile:'FRA Dólar 3x6 (FRA-USD). Instrumento derivado tipo forwards. Volatilidad anualizada de 6.8%, retorno esperado 3.4%.',specs:{type:'Forwards',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'CLO-EUR',name:'CLO Europeo AAA',ticker:'CLO-EUR',sector:'Estructurados',price:99.1,sigma:12.4,ret:5.2,type:'derivado',delta:0.64,gamma:0.05,theta:-0.24,vega:0.39,impliedVol:21.4,strike:94.14,intrinsic:59.46,profile:'CLO Europeo AAA (CLO-EUR). Instrumento derivado tipo estructurados. Volatilidad anualizada de 12.4%, retorno esperado 5.2%.',specs:{type:'Estructurados',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'MBS-US',name:'MBS Estadounidense',ticker:'MBS-US',sector:'Estructurados',price:97.8,sigma:11.2,ret:4.8,type:'derivado',delta:0.59,gamma:0.06,theta:-0.09,vega:0.24,impliedVol:5.2,strike:92.91,intrinsic:58.68,profile:'MBS Estadounidense (MBS-US). Instrumento derivado tipo estructurados. Volatilidad anualizada de 11.2%, retorno esperado 4.8%.',specs:{type:'Estructurados',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'ABS-AUTO',name:'ABS Préstamos Auto',ticker:'ABS-AUT',sector:'Estructurados',price:98.6,sigma:9.8,ret:4.4,type:'derivado',delta:0.56,gamma:0.03,theta:-0.06,vega:0.11,impliedVol:0.8,strike:92.68,intrinsic:59.16,profile:'ABS Préstamos Auto (ABS-AUT). Instrumento derivado tipo estructurados. Volatilidad anualizada de 9.8%, retorno esperado 4.4%.',specs:{type:'Estructurados',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'VIX-CALL',name:'Opción Call VIX',ticker:'VIX-C',sector:'Opciones',price:8.4,sigma:68.4,ret:6.2,type:'derivado',delta:0.82,gamma:0.03,theta:-0.22,vega:0.37,impliedVol:75.4,strike:8.57,intrinsic:5.04,profile:'Opción Call VIX (VIX-C). Instrumento derivado tipo opciones. Volatilidad anualizada de 68.4%, retorno esperado 6.2%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'GOLD-CALL',name:'Opción Call Oro',ticker:'GOLD-C',sector:'Opciones',price:32.6,sigma:24.8,ret:8.4,type:'derivado',delta:0.8,gamma:0.05,theta:-0.2,vega:0.35,impliedVol:29.8,strike:33.58,intrinsic:19.56,profile:'Opción Call Oro (GOLD-C). Instrumento derivado tipo opciones. Volatilidad anualizada de 24.8%, retorno esperado 8.4%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'OIL-PUT',name:'Opción Put Petróleo',ticker:'OIL-P',sector:'Opciones',price:4.82,sigma:38.4,ret:5.8,type:'derivado',delta:0.4,gamma:0.05,theta:-0.2,vega:0.35,impliedVol:43.4,strike:4.96,intrinsic:2.89,profile:'Opción Put Petróleo (OIL-P). Instrumento derivado tipo opciones. Volatilidad anualizada de 38.4%, retorno esperado 5.8%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'TRS-EQ',name:'Total Return Swap Equity',ticker:'TRS-EQ',sector:'Swaps',price:101.4,sigma:22.4,ret:9.2,type:'derivado',delta:0.73,gamma:0.06,theta:-0.13,vega:0.28,impliedVol:20.4,strike:100.39,intrinsic:60.84,profile:'Total Return Swap Equity (TRS-EQ). Instrumento derivado tipo swaps. Volatilidad anualizada de 22.4%, retorno esperado 9.2%.',specs:{type:'Swaps',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'VARSWAP',name:'Swap de Varianza',ticker:'VAR-SW',sector:'Swaps',price:98.2,sigma:32.8,ret:7.4,type:'derivado',delta:0.61,gamma:0.06,theta:-0.21,vega:0.16,impliedVol:38.8,strike:91.33,intrinsic:58.92,profile:'Swap de Varianza (VAR-SW). Instrumento derivado tipo swaps. Volatilidad anualizada de 32.8%, retorno esperado 7.4%.',specs:{type:'Swaps',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'CAP-USD',name:'Cap Tasa USD',ticker:'CAP-USD',sector:'Opciones',price:2.84,sigma:18.4,ret:4.2,type:'derivado',delta:0.67,gamma:0.08,theta:-0.07,vega:0.32,impliedVol:10.4,strike:2.58,intrinsic:1.7,profile:'Cap Tasa USD (CAP-USD). Instrumento derivado tipo opciones. Volatilidad anualizada de 18.4%, retorno esperado 4.2%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'FLOOR-EUR',name:'Floor Tasa EUR',ticker:'FLR-EUR',sector:'Opciones',price:2.42,sigma:16.8,ret:3.8,type:'derivado',delta:0.69,gamma:0.06,theta:-0.09,vega:0.24,impliedVol:10.8,strike:2.23,intrinsic:1.45,profile:'Floor Tasa EUR (FLR-EUR). Instrumento derivado tipo opciones. Volatilidad anualizada de 16.8%, retorno esperado 3.8%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'BARRIER-SPX',name:'Opción Barrera S&P',ticker:'BAR-SPX',sector:'Opciones',price:18.4,sigma:34.2,ret:8.8,type:'derivado',delta:0.61,gamma:0.02,theta:-0.21,vega:0.36,impliedVol:40.2,strike:19.69,intrinsic:11.04,profile:'Opción Barrera S&P (BAR-SPX). Instrumento derivado tipo opciones. Volatilidad anualizada de 34.2%, retorno esperado 8.8%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'CONVERT-AAPL',name:'Bono Convertible Apple',ticker:'CONV-AAPL',sector:'Estructurados',price:104.2,sigma:18.6,ret:7.2,type:'derivado',delta:0.83,gamma:0.08,theta:-0.23,vega:0.18,impliedVol:26.6,strike:108.37,intrinsic:62.52,profile:'Bono Convertible Apple (CONV-AAPL). Instrumento derivado tipo estructurados. Volatilidad anualizada de 18.6%, retorno esperado 7.2%.',specs:{type:'Estructurados',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}}
 ];
 
 // ═══════════════════ STATE ═══════════════════
@@ -1797,6 +2286,7 @@ function goPage(p){
   if(p==='laboratorio'){renderLabHistory();renderLabPicker();}
   if(p==='resultados-lab')renderResultsLab();
   if(p==='profesor')renderTeacher();
+  if(p==='noticias')renderNewsCenter();
   // Close mobile drawer on navigation
   if(window.innerWidth<=768)closeMobileSidebar();
 }
@@ -2390,7 +2880,7 @@ function renderAnalysis(id,type){
   ].map(r=>`<tr><td>${r[0]}</td><td class="mono">${r[1]}</td><td class="mono" style="color:var(--t3);">${r[2]}</td><td>${r[3]}</td></tr>`).join('');
 
   // ── Remove previous extra panels ──
-  ['an-financials','an-gdp','an-specs','an-bond-doc'].forEach(id=>{const el=document.getElementById(id);if(el)el.remove();});
+  ['an-financials','an-gdp','an-specs','an-bond-doc','an-fut-mkt','an-deriv-greeks','an-cashflow'].forEach(id=>{const el=document.getElementById(id);if(el)el.remove();});
   const body=document.getElementById('analysis-body');
 
   // ── ESTADOS FINANCIEROS (acciones) ──
@@ -2497,9 +2987,10 @@ function renderAnalysis(id,type){
     let durNum=0,durDen=0;
     for(let t=1;t<=years;t++){const cf=t===years?(coupon+nominal):coupon;const pv=cf/Math.pow(1+ytm/100,t);durNum+=t*pv;durDen+=pv;}
     const macDur=(durDen>0?durNum/durDen:years).toFixed(2);
-    const modDur=(macDur/(1+ytm/100)).toFixed(2);
+    const modDurNum=macDur/(1+ytm/100);
+    const modDur=modDurNum.toFixed(2);
     // DV01 (basis point value)
-    const dv01=(modDur*p2*0.0001).toFixed(4);
+    const dv01=(modDurNum*p2*0.0001).toFixed(4);
     // Cash flows
     const cfs=[];
     for(let t=1;t<=Math.min(years,10);t++){cfs.push({year:t,cf:t===years?coupon+nominal:coupon,pv:+((t===years?coupon+nominal:coupon)/Math.pow(1+ytm/100,t)).toFixed(2)});}
@@ -2533,7 +3024,7 @@ function renderAnalysis(id,type){
               ['Base de cálculo','30/360'],
               ['Riesgo de reinversión',ytm>6?'Moderado':'Bajo'],
               ['Riesgo de crédito','EMBI spread: '+(asset.rp||0)+'%'],
-              ['Convexidad',((modDur*modDur+modDur)*0.01).toFixed(3)],
+              ['Convexidad',((modDurNum*modDurNum+modDurNum)*0.01).toFixed(3)],
             ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);"><span style="color:var(--t2);">${l}</span><span class="mono">${v}</span></div>`).join('')}
           </div>
           <div>
@@ -2552,7 +3043,7 @@ function renderAnalysis(id,type){
           </div>
         </div>
         <div class="info-box ${asset.rp<2?'success':asset.rp<6?'warn':'danger'}" style="margin-top:14px;">
-          <b>Análisis de riesgo-rendimiento:</b> El bono ${asset.name} ofrece un rendimiento (YTM) de <b>${ytm.toFixed(2)}%</b> anual con duración modificada de <b>${modDur} años</b>. Por cada incremento de 100 puntos base en tasas, el precio sufriría una caída estimada de <b>${(modDur).toFixed(1)}%</b>. La calificación <b>${asset.rating}</b> refleja ${asset.rating.startsWith('A')?'un bajo riesgo de incumplimiento con fuerte capacidad de pago':asset.rating.startsWith('BB')?'riesgo especulativo moderado':'alto riesgo especulativo — requiere análisis detallado del emisor'}.
+          <b>Análisis de riesgo-rendimiento:</b> El bono ${asset.name} ofrece un rendimiento (YTM) de <b>${ytm.toFixed(2)}%</b> anual con duración modificada de <b>${modDur} años</b>. Por cada incremento de 100 puntos base en tasas, el precio sufriría una caída estimada de <b>${modDurNum.toFixed(1)}%</b>. La calificación <b>${asset.rating}</b> refleja ${asset.rating.startsWith('A')?'un bajo riesgo de incumplimiento con fuerte capacidad de pago':asset.rating.startsWith('BB')?'riesgo especulativo moderado':'alto riesgo especulativo — requiere análisis detallado del emisor'}.
         </div>
       </div>`;
     body.appendChild(divEl);
@@ -2621,6 +3112,63 @@ function renderAnalysis(id,type){
         </div>
       </div>`;
     body.appendChild(div);
+  }
+
+  // ── ANÁLISIS DE MERCADO DE FUTUROS (spot, base, curva) ──
+  if(type==='futuro'&&asset.spot!=null){
+    const fut=document.createElement('div');
+    fut.id='an-fut-mkt';
+    fut.style.marginTop='14px';
+    const basePos=asset.basis>=0;
+    fut.innerHTML=`
+      <div class="card">
+        <div class="card-title"><i class="ti ti-chart-dots" style="color:var(--green);"></i> Análisis de Mercado — ${asset.name}</div>
+        <p style="font-size:11px;color:var(--t3);margin-bottom:12px;">Relación entre el precio del futuro y el precio al contado (spot) · Datos representativos con fines educativos</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;">
+          ${[
+            ['Precio del futuro','$'+fmt(asset.currentPrice||asset.price),''],
+            ['Precio spot','$'+fmt(asset.spot),''],
+            ['Base (futuro − spot)',(basePos?'+':'')+asset.basis.toFixed(4),basePos?'r':'g'],
+            ['Estado de la curva',asset.curveState,asset.curveState==='Contango'?'a':'g'],
+            ['Interés abierto',asset.openInterest.toLocaleString('es-PA')+' K',''],
+            ['Vencimiento',asset.expiry||'Trimestral',''],
+          ].map(([l,v,c])=>`<div class="metric"><div class="metric-label">${l}</div><div class="metric-val ${c}" style="font-size:15px;">${v}</div></div>`).join('')}
+        </div>
+        <div class="info-box ${asset.curveState==='Contango'?'warn':'success'}" style="margin:0;">
+          <b>${asset.curveState}:</b> ${asset.curveState==='Contango'
+            ? 'El precio del futuro está por encima del spot. El mercado anticipa costos de almacenamiento o expectativas alcistas; mantener posiciones largas implica un costo de acarreo (roll negativo) al renovar el contrato.'
+            : 'El precio del futuro está por debajo del spot (backwardation). Suele indicar escasez actual del subyacente o fuerte demanda inmediata; favorece a los tenedores de posiciones largas al renovar (roll positivo).'}
+        </div>
+      </div>`;
+    body.appendChild(fut);
+  }
+
+  // ── ANÁLISIS DE OPCIONES / GRIEGAS (derivados) ──
+  if(type==='derivado'&&asset.delta!=null){
+    const der=document.createElement('div');
+    der.id='an-deriv-greeks';
+    der.style.marginTop='14px';
+    const moneyness=asset.strike&&asset.currentPrice?((asset.currentPrice||asset.price)/asset.strike):1;
+    const estado=moneyness>1.02?'Dentro del dinero (ITM)':moneyness<0.98?'Fuera del dinero (OTM)':'En el dinero (ATM)';
+    der.innerHTML=`
+      <div class="card">
+        <div class="card-title"><i class="ti ti-diamonds" style="color:var(--accent2);"></i> Análisis de Sensibilidades (Griegas) — ${asset.name}</div>
+        <p style="font-size:11px;color:var(--t3);margin-bottom:12px;">Sensibilidades del derivado a las variables de mercado · Datos representativos con fines educativos</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
+          ${[
+            ['Delta (Δ)',asset.delta.toFixed(2),'g','Sensibilidad al precio del subyacente'],
+            ['Gamma (Γ)',asset.gamma.toFixed(3),'a','Variación del delta'],
+            ['Theta (Θ)',asset.theta.toFixed(3),'r','Decaimiento temporal diario'],
+            ['Vega (ν)',asset.vega.toFixed(2),'','Sensibilidad a la volatilidad'],
+            ['Volatilidad implícita',asset.impliedVol.toFixed(1)+'%','a','IV del contrato'],
+            ['Precio de ejercicio','$'+fmt(asset.strike),'','Strike'],
+          ].map(([l,v,c,t])=>`<div class="metric" title="${t}"><div class="metric-label">${l}</div><div class="metric-val ${c}" style="font-size:15px;">${v}</div></div>`).join('')}
+        </div>
+        <div class="info-box" style="margin:0;">
+          <b>Situación del contrato — ${estado}:</b> Un delta de <b>${asset.delta.toFixed(2)}</b> implica que el derivado se mueve aproximadamente <b>$${(asset.delta).toFixed(2)}</b> por cada $1 de movimiento del subyacente. El theta de <b>${asset.theta.toFixed(3)}</b> refleja la pérdida de valor temporal por día; la volatilidad implícita de <b>${asset.impliedVol.toFixed(1)}%</b> es el principal determinante de la prima.
+        </div>
+      </div>`;
+    body.appendChild(der);
   }
 }
 
@@ -4189,6 +4737,8 @@ function tickPrices() {
   if (portPage && portPage.classList.contains('active')) renderPortfolio();
   const anPage = document.getElementById('page-analisis');
   if (anPage && anPage.classList.contains('active')) { try { renderAnalysisGrid(); } catch(e){} }
+  const newsPage = document.getElementById('page-noticias');
+  if (newsPage && newsPage.classList.contains('active')) { try { renderNewsCenter(); } catch(e){} }
   autosave();
 }
 
@@ -5190,6 +5740,58 @@ function renderNewsFeed(){
 function markNewsRead(id){
   const item=newsFeed.find(n=>n.id===id);
   if(item&&item.unread){item.unread=false;newsUnreadCount=Math.max(0,newsUnreadCount-1);renderNewsFeed();}
+}
+
+// ══════════════════════════════════════════════════
+// CENTRO DE NOTICIAS — página dedicada estilo portal financiero
+// ══════════════════════════════════════════════════
+let newsCategory='all';
+
+// Resuelve la categoría de una noticia a partir de su ticker (busca el activo).
+function newsCategoryOf(item){
+  if(!item.ticker || item.ticker==='—') return 'general';
+  const a=allAssets().find(x=>x.ticker===item.ticker);
+  return a ? a.type : 'general';
+}
+
+const CAT_LABELS={accion:'Acciones',bono:'Bonos',divisa:'Divisas',futuro:'Futuros',derivado:'Derivados',general:'General'};
+
+function setNewsCategory(cat,btn){
+  newsCategory=cat;
+  document.querySelectorAll('.news-class-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderNewsCenter();
+}
+
+function renderNewsCenter(){
+  const el=document.getElementById('news-center');
+  if(!el)return;
+  const items = newsFeed.filter(item=>{
+    if(newsCategory==='all') return true;
+    return newsCategoryOf(item)===newsCategory;
+  });
+  if(items.length===0){
+    el.innerHTML=`<div class="news-empty"><i class="ti ti-broadcast" style="font-size:32px;display:block;margin-bottom:10px;opacity:.4;"></i>${
+      newsFeed.length===0
+        ? 'Abre una sesión de mercado para recibir noticias en tiempo real.'
+        : 'No hay noticias en esta categoría todavía. Las noticias se generan durante la sesión de mercado.'
+    }</div>`;
+    return;
+  }
+  el.innerHTML=items.map(item=>{
+    const cat=newsCategoryOf(item);
+    const typeLabel=item.type==='bull'?'Alcista':item.type==='bear'?'Bajista':'Neutral';
+    return `<div class="news-art ${item.type}">
+      <div class="news-art-meta">
+        <span class="news-art-tag ${item.type}">${typeLabel}</span>
+        ${item.ticker&&item.ticker!=='—'?`<span class="news-art-ticker">${item.ticker}</span>`:''}
+        <span class="news-art-cat">${CAT_LABELS[cat]||'General'}</span>
+        <span class="news-art-time">${item.time}</span>
+      </div>
+      <div class="news-art-headline">${item.headline}</div>
+      <div class="news-art-body">${item.body}</div>
+    </div>`;
+  }).join('');
 }
 
 // ══════════════════════════════════════════════════
