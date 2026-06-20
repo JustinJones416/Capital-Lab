@@ -50,6 +50,19 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .wf-btn.active{background:rgba(0,196,255,.12);color:var(--accent2);}
 .wl-body{flex:1;overflow-y:auto;padding:4px 0;}
 .wl-section{padding:5px 10px 2px;}
+.prof-detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;padding:20px;overflow-y:auto;}
+.prof-detail-overlay.open{display:flex;align-items:flex-start;justify-content:center;}
+.prof-detail-modal{background:var(--c1);border:1px solid var(--c4);border-radius:var(--r3);max-width:920px;width:100%;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.prof-detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 20px;border-bottom:1px solid var(--c4);position:sticky;top:0;background:var(--c1);border-radius:var(--r3) var(--r3) 0 0;z-index:2;}
+.prof-detail-title{font-size:18px;font-weight:600;color:var(--t1);font-family:var(--font-head);}
+.prof-detail-sub{font-size:11px;color:var(--t3);margin-top:3px;}
+.prof-detail-close{background:var(--c3);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);width:32px;height:32px;cursor:pointer;font-size:14px;flex-shrink:0;}
+.prof-detail-close:hover{border-color:var(--red);color:var(--red);}
+.prof-detail-body{padding:18px 20px;}
+.prof-detail-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:18px;}
+.prof-chart-box{height:240px;margin-bottom:18px;}
+.prof-section-lbl{font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 10px;}
+@media(max-width:768px){.prof-detail-overlay{padding:0;}.prof-detail-modal{border-radius:0;min-height:100vh;}.prof-chart-box{height:200px;}}
 .news-classes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
 .news-class-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);color:var(--t2);font-size:12px;font-weight:500;font-family:var(--font-body);cursor:pointer;transition:all .15s;}
 .news-class-btn:hover{border-color:var(--accent2);color:var(--t1);}
@@ -1216,6 +1229,22 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   <div id="prof-empty" style="text-align:center;padding:40px 20px;color:var(--t3);font-size:13px;">
     <i class="ti ti-users" style="font-size:32px;display:block;margin-bottom:10px;opacity:.5;"></i>
     Aún no has importado estudiantes. Usa "Importar estudiante(s)" para comenzar.
+  </div>
+  <!-- Modal de detalle del estudiante -->
+  <div id="prof-detail-overlay" class="prof-detail-overlay" onclick="if(event.target===this)closeStudentDetail()">
+    <div class="prof-detail-modal">
+      <div class="prof-detail-head">
+        <div>
+          <div id="prof-detail-name" class="prof-detail-title">Estudiante</div>
+          <div id="prof-detail-sub" class="prof-detail-sub"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn" onclick="exportStudentCSV()" title="Exportar análisis individual a CSV"><i class="ti ti-file-spreadsheet"></i> CSV</button>
+          <button class="prof-detail-close" onclick="closeStudentDetail()" title="Cerrar">✕</button>
+        </div>
+      </div>
+      <div id="prof-detail-body" class="prof-detail-body"></div>
+    </div>
   </div>
 </div>
 
@@ -6131,13 +6160,40 @@ function exportForTeacher(){
     student = (student||'').trim();
     if(!student){ notify('Debes ingresar un nombre para exportar','error'); return; }
     const m = computeStudentMetrics();
+    // Muestreo de la curva de patrimonio: hasta 60 puntos equiespaciados para mantener
+    // el archivo ligero sin perder la forma de la trayectoria.
+    const navSampled = (()=>{
+      if(!Array.isArray(navHistory) || navHistory.length===0) return [];
+      const N=navHistory.length, MAX=60;
+      if(N<=MAX) return navHistory.map(p=>({t:p.t, value:p.value, invested:p.invested}));
+      const step=N/MAX, out=[];
+      for(let i=0;i<N;i+=step){ const p=navHistory[Math.floor(i)]; out.push({t:p.t, value:p.value, invested:p.invested}); }
+      out.push(navHistory[N-1]); // siempre incluir el último
+      return out;
+    })();
+    // Detalle de cartera con P&L por posición.
+    const holdingsDetail = portfolio.map(p=>{
+      const cur=p.currentPrice||p.buyPrice;
+      const val=cur*p.qty;
+      const pnl=(cur-p.buyPrice)*p.qty;
+      const pnlPct=p.buyPrice>0?((cur-p.buyPrice)/p.buyPrice*100):0;
+      return { ticker:p.ticker, name:p.name, type:p.type, qty:p.qty,
+               buyPrice:+(p.buyPrice||0).toFixed(2), currentPrice:+cur.toFixed(2),
+               value:+val.toFixed(2), pnl:+pnl.toFixed(2), pnlPct:+pnlPct.toFixed(2) };
+    });
     const payload = {
       _capitallab_student: true,          // marcador de validación
-      version: 'CapitalLab Student v1',
+      version: 'CapitalLab Student v2',   // v2: incluye datos de progreso
       student,
       metrics: m,
-      // Composición resumida de la cartera (sin datos internos sensibles).
-      holdings: portfolio.map(p=>({ticker:p.ticker, type:p.type, qty:p.qty})),
+      holdings: portfolio.map(p=>({ticker:p.ticker, type:p.type, qty:p.qty})), // compatibilidad v1
+      holdingsDetail,                     // cartera con P&L por posición
+      txHistory: txHistory.slice(0,300),  // libro de operaciones (tope de seguridad)
+      navHistory: navSampled,             // curva de patrimonio muestreada
+      labHistory: Array.isArray(labHistory)? labHistory.slice(0,20).map(h=>({
+        date:h.date, strategy:h.strategy, finalValue:h.finalValue,
+        achieved:h.achieved, target:h.target, passed:h.passed
+      })):[],
       exportedAt: new Date().toLocaleString('es-PA'),
     };
     const blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
@@ -6174,6 +6230,12 @@ function importStudent(event){
             sigma: +m.sigma||0, var95: +m.var95||0,
             txCount: +m.txCount||0, posCount: +m.posCount||0,
             portVal: +m.portVal||0, capital: +m.capital||0,
+            // Datos de progreso (v2). Si el archivo es v1, quedan vacíos y la vista de detalle lo indica.
+            holdingsDetail: Array.isArray(data.holdingsDetail)? data.holdingsDetail : [],
+            txLog: Array.isArray(data.txHistory)? data.txHistory : [],
+            navCurve: Array.isArray(data.navHistory)? data.navHistory : [],
+            labRuns: Array.isArray(data.labHistory)? data.labHistory : [],
+            version: data.version||'v1',
             importedAt: new Date().toLocaleString('es-PA'),
           };
           if(existing>=0) teacherRoster[existing]=entry; else teacherRoster.push(entry);
@@ -6255,7 +6317,10 @@ function renderTeacher(){
     const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
     return `<tr>
       <td><span class="prof-rank ${rankClass}">${medal}</span></td>
-      <td style="font-weight:500;">${r.student}<div style="font-size:9px;color:var(--t3);">${r.importedAt}</div></td>
+      <td style="font-weight:500;cursor:pointer;" onclick="openStudentDetail('${r.student.replace(/'/g,"\\'")}')" title="Ver progreso detallado">
+        <span style="color:var(--accent2);text-decoration:underline dotted;">${r.student}</span>
+        <div style="font-size:9px;color:var(--t3);">${r.importedAt}${r.version&&r.version.indexOf('v2')<0?' · datos básicos':''}</div>
+      </td>
       <td class="mono ${r.retPct>=0?'g':'r'}" style="text-align:right;">${r.retPct>=0?'+':''}${r.retPct.toFixed(2)}%</td>
       <td class="mono ${r.sharpe>0.5?'g':r.sharpe>0?'a':'r'}" style="text-align:right;">${r.sharpe.toFixed(2)}</td>
       <td class="mono ${r.pnl>=0?'g':'r'}" style="text-align:right;">${r.pnl>=0?'+$':'-$'}${fmt(Math.abs(r.pnl))}</td>
@@ -6263,7 +6328,10 @@ function renderTeacher(){
       <td class="mono r" style="text-align:right;">$${fmt(r.var95)}</td>
       <td class="mono" style="text-align:right;">${r.txCount}</td>
       <td class="mono" style="text-align:right;">${r.posCount}</td>
-      <td style="text-align:right;"><span onclick="removeStudent('${r.student.replace(/'/g,"\\'")}')" title="Quitar" style="cursor:pointer;color:var(--red);font-size:15px;">×</span></td>
+      <td style="text-align:right;white-space:nowrap;">
+        <span onclick="openStudentDetail('${r.student.replace(/'/g,"\\'")}')" title="Ver detalle" style="cursor:pointer;color:var(--accent2);font-size:15px;margin-right:8px;">⊙</span>
+        <span onclick="removeStudent('${r.student.replace(/'/g,"\\'")}')" title="Quitar" style="cursor:pointer;color:var(--red);font-size:15px;">×</span>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -6272,6 +6340,163 @@ function removeStudent(name){
   teacherRoster = teacherRoster.filter(r=>r.student!==name);
   saveTeacherRoster();
   renderTeacher();
+}
+
+// ── VISTA DE DETALLE DEL ESTUDIANTE ──
+let profDetailChart = null;
+let profDetailCurrent = null;   // estudiante actualmente abierto (para exportar)
+
+function openStudentDetail(name){
+  const r = teacherRoster.find(s=>s.student===name);
+  if(!r){ notify('Estudiante no encontrado','error'); return; }
+  profDetailCurrent = r;
+  document.getElementById('prof-detail-name').textContent = r.student;
+  const esV2 = r.version && r.version.indexOf('v2')>=0;
+  document.getElementById('prof-detail-sub').textContent =
+    'Importado el '+r.importedAt + (esV2?'' : ' · Archivo de versión básica: sin datos de progreso detallado');
+
+  // KPIs resumen
+  const kpis = [
+    ['Retorno', (r.retPct>=0?'+':'')+r.retPct.toFixed(2)+'%', r.retPct>=0?'g':'r'],
+    ['Ratio Sharpe', r.sharpe.toFixed(2), r.sharpe>0.5?'g':r.sharpe>0?'a':'r'],
+    ['P&L neto', (r.pnl>=0?'+$':'-$')+fmt(Math.abs(r.pnl)), r.pnl>=0?'g':'r'],
+    ['Volatilidad σ', r.sigma.toFixed(1)+'%', 'a'],
+    ['VaR 95%', '$'+fmt(r.var95), 'r'],
+    ['Operaciones', r.txCount, ''],
+    ['Posiciones', r.posCount, ''],
+    ['Capital efectivo', '$'+fmt(r.capital), ''],
+  ].map(([l,v,c])=>`<div class="metric"><div class="metric-label">${l}</div><div class="metric-val ${c}" style="font-size:16px;">${v}</div></div>`).join('');
+
+  let body = `<div class="prof-detail-kpis">${kpis}</div>`;
+
+  if(!esV2){
+    body += `<div class="info-box warn">Este estudiante exportó con una versión anterior del simulador que no incluye el historial detallado. Solo se muestran las métricas resumen. Pídele que vuelva a exportar con la versión actual para ver su progreso completo.</div>`;
+    document.getElementById('prof-detail-body').innerHTML = body;
+    document.getElementById('prof-detail-overlay').classList.add('open');
+    return;
+  }
+
+  // Curva de patrimonio
+  body += `<div class="prof-section-lbl">Evolución del patrimonio</div>
+    <div class="prof-chart-box"><canvas id="prof-nav-chart"></canvas></div>`;
+
+  // Cartera detallada
+  if(r.holdingsDetail && r.holdingsDetail.length){
+    body += `<div class="prof-section-lbl">Composición de la cartera (P&L por posición)</div>
+      <div style="overflow-x:auto;"><table>
+        <thead><tr><th>Activo</th><th>Tipo</th><th style="text-align:right;">Cant.</th><th style="text-align:right;">Precio compra</th><th style="text-align:right;">Precio actual</th><th style="text-align:right;">Valor</th><th style="text-align:right;">P&L</th></tr></thead>
+        <tbody>${r.holdingsDetail.map(h=>`<tr>
+          <td style="font-weight:500;">${h.ticker}</td>
+          <td style="font-size:11px;color:var(--t3);">${({accion:'Acción',bono:'Bono',divisa:'Divisa',futuro:'Futuro',derivado:'Derivado'})[h.type]||h.type}</td>
+          <td class="mono" style="text-align:right;">${h.qty}</td>
+          <td class="mono" style="text-align:right;">$${fmt(h.buyPrice)}</td>
+          <td class="mono" style="text-align:right;">$${fmt(h.currentPrice)}</td>
+          <td class="mono" style="text-align:right;">$${fmt(h.value)}</td>
+          <td class="mono ${h.pnl>=0?'g':'r'}" style="text-align:right;">${h.pnl>=0?'+':''}${h.pnlPct.toFixed(1)}%</td>
+        </tr>`).join('')}</tbody></table></div>`;
+  } else {
+    body += `<div class="prof-section-lbl">Composición de la cartera</div><div class="info-box">El estudiante cerró la sesión sin posiciones abiertas.</div>`;
+  }
+
+  // Libro de operaciones
+  if(r.txLog && r.txLog.length){
+    const show = r.txLog.slice(0,50);
+    body += `<div class="prof-section-lbl">Libro de operaciones (${r.txLog.length} total${r.txLog.length>50?', mostrando 50 más recientes':''})</div>
+      <div style="overflow-x:auto;"><table>
+        <thead><tr><th>Hora</th><th>Operación</th><th>Activo</th><th style="text-align:right;">Cant.</th><th style="text-align:right;">Precio</th><th style="text-align:right;">Comisión</th></tr></thead>
+        <tbody>${show.map(t=>`<tr>
+          <td style="font-size:11px;">${t.date||'—'}</td>
+          <td><span class="badge ${t.action==='Compra'?'badge-green':t.action==='Liquidación'?'badge-red':'badge-blue'}">${t.action||'—'}</span></td>
+          <td>${t.name||t.ticker||'—'}</td>
+          <td class="mono" style="text-align:right;">${t.qty!=null?t.qty:'—'}</td>
+          <td class="mono" style="text-align:right;">${t.price?'$'+fmt(t.price):'—'}</td>
+          <td class="mono" style="text-align:right;">${t.fee?'$'+fmt(t.fee):'—'}</td>
+        </tr>`).join('')}</tbody></table></div>`;
+  } else {
+    body += `<div class="prof-section-lbl">Libro de operaciones</div><div class="info-box">Sin operaciones registradas.</div>`;
+  }
+
+  // Simulaciones del laboratorio
+  if(r.labRuns && r.labRuns.length){
+    body += `<div class="prof-section-lbl">Simulaciones del laboratorio (${r.labRuns.length})</div>
+      <div style="overflow-x:auto;"><table>
+        <thead><tr><th>Fecha</th><th>Estrategia</th><th style="text-align:right;">Meta</th><th style="text-align:right;">Logrado</th><th style="text-align:right;">Resultado</th></tr></thead>
+        <tbody>${r.labRuns.map(l=>`<tr>
+          <td style="font-size:11px;">${l.date||'—'}</td>
+          <td>${l.strategy||'—'}</td>
+          <td class="mono" style="text-align:right;">${l.target!=null?l.target+'%':'—'}</td>
+          <td class="mono ${(l.achieved||0)>=0?'g':'r'}" style="text-align:right;">${l.achieved!=null?(l.achieved>=0?'+':'')+(+l.achieved).toFixed(1)+'%':'—'}</td>
+          <td><span class="badge ${l.passed?'badge-green':'badge-amber'}">${l.passed?'Aprobado':'No alcanzó'}</span></td>
+        </tr>`).join('')}</tbody></table></div>`;
+  }
+
+  document.getElementById('prof-detail-body').innerHTML = body;
+  document.getElementById('prof-detail-overlay').classList.add('open');
+
+  // Dibujar la curva de patrimonio (tras renderizar el canvas)
+  if(profDetailChart){ profDetailChart.destroy(); profDetailChart=null; }
+  if(r.navCurve && r.navCurve.length>=2 && typeof Chart!=='undefined'){
+    const c=document.getElementById('prof-nav-chart');
+    if(c){
+      const labels=r.navCurve.map((p,i)=>{ const d=new Date(p.t); return isNaN(d)?('#'+i):d.toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'}); });
+      profDetailChart=new Chart(c,{type:'line',data:{labels,datasets:[
+        {label:'Patrimonio (NAV)',data:r.navCurve.map(p=>p.value),borderColor:'#00c4ff',backgroundColor:'rgba(0,196,255,.08)',tension:.3,fill:true,pointRadius:0,borderWidth:2},
+        {label:'Capital invertido',data:r.navCurve.map(p=>p.invested),borderColor:'rgba(255,180,0,.5)',borderDash:[5,4],fill:false,pointRadius:0,borderWidth:1.5},
+      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#7a8ab0',font:{size:10}}}},scales:{x:{ticks:{color:'#3d4d72',font:{size:10},maxTicksLimit:8},grid:{color:'rgba(255,255,255,.03)'}},y:{ticks:{color:'#3d4d72',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k'},grid:{color:'rgba(255,255,255,.03)'}}}}});
+    }
+  } else {
+    const box=document.querySelector('.prof-chart-box');
+    if(box) box.innerHTML='<div class="info-box" style="margin:0;">No hay suficientes datos de evolución para graficar (el estudiante operó poco o la sesión fue muy corta).</div>';
+  }
+}
+
+function closeStudentDetail(){
+  document.getElementById('prof-detail-overlay').classList.remove('open');
+  if(profDetailChart){ profDetailChart.destroy(); profDetailChart=null; }
+  profDetailCurrent=null;
+}
+
+// Exporta el análisis individual del estudiante abierto a CSV.
+function exportStudentCSV(){
+  const r=profDetailCurrent;
+  if(!r){ notify('No hay estudiante seleccionado','error'); return; }
+  const lines=[
+    'CapitalLab — Análisis Individual de Estudiante',
+    'Estudiante:,"'+r.student+'"',
+    'Importado:,'+r.importedAt,
+    '',
+    'MÉTRICAS DE DESEMPEÑO',
+    'Retorno (%),'+r.retPct.toFixed(2),
+    'Ratio Sharpe,'+r.sharpe.toFixed(2),
+    'P&L neto (USD),'+r.pnl.toFixed(2),
+    'Volatilidad (%),'+r.sigma.toFixed(2),
+    'VaR 95% (USD),'+r.var95.toFixed(2),
+    'Operaciones,'+r.txCount,
+    'Posiciones,'+r.posCount,
+    'Valor cartera (USD),'+r.portVal.toFixed(2),
+    'Capital efectivo (USD),'+r.capital.toFixed(2),
+  ];
+  if(r.holdingsDetail && r.holdingsDetail.length){
+    lines.push('', 'COMPOSICIÓN DE CARTERA',
+      'Activo,Tipo,Cantidad,Precio compra,Precio actual,Valor,P&L USD,P&L %');
+    r.holdingsDetail.forEach(h=>lines.push(
+      `"${h.ticker}",${h.type},${h.qty},${h.buyPrice},${h.currentPrice},${h.value},${h.pnl},${h.pnlPct}`));
+  }
+  if(r.txLog && r.txLog.length){
+    lines.push('', 'LIBRO DE OPERACIONES',
+      'Hora,Operación,Activo,Tipo,Cantidad,Precio,Comisión');
+    r.txLog.forEach(t=>lines.push(
+      `"${t.date||''}",${t.action||''},"${t.name||t.ticker||''}",${t.type||''},${t.qty!=null?t.qty:''},${t.price||''},${t.fee||''}`));
+  }
+  const csv='\ufeff'+lines.join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const safe=r.student.replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,40);
+  a.href=url; a.download=`CapitalLab_analisis_${safe}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  notify('Análisis individual exportado a CSV ✓');
 }
 
 function exportTeacherCSV(){
