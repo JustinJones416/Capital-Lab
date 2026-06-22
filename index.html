@@ -100,6 +100,10 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .prof-rank-3{background:rgba(205,127,50,.18);color:#cd7f32;}
 .prof-rank-n{background:var(--c3);color:var(--t3);}
 @media(max-width:480px){.prof-sort{margin-left:0;width:100%;}.prof-toolbar .btn{flex:1;justify-content:center;}}
+.prof-group-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);cursor:pointer;user-select:none;}
+.prof-group-toggle input{accent-color:var(--accent2);cursor:pointer;}
+.prof-group-hdr{background:var(--c3);font-weight:600;color:var(--accent2);font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
+.prof-group-hdr td{padding:8px 10px;}
 .an-classes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
 .an-class-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);color:var(--t2);font-size:12px;font-weight:500;font-family:var(--font-body);cursor:pointer;transition:all .15s;}
 .an-class-btn:hover{border-color:var(--accent2);color:var(--t1);}
@@ -1220,6 +1224,15 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <option value="pnl">Ganancia/Pérdida ($)</option>
       </select>
     </div>
+    <div class="prof-sort">
+      <span style="font-size:11px;color:var(--t3);">Sección:</span>
+      <select id="prof-section-sel" onchange="setSectionFilter(this.value)">
+        <option value="all">Todas</option>
+      </select>
+    </div>
+    <label class="prof-group-toggle" title="Agrupar la tabla por grupo">
+      <input type="checkbox" id="prof-group-chk" onchange="toggleGroupView(this.checked)"> Agrupar por grupo
+    </label>
   </div>
 
   <div id="prof-stats" class="prof-stats"></div>
@@ -2074,6 +2087,8 @@ let activePortfolioIdx=-1;  // -1 = current (unsaved) session
 // ── MODO PROFESOR (estado aislado: no toca portfolio/capital del estudiante) ──
 let teacherRoster=[];       // [{student, retPct, sharpe, pnl, sigma, var95, txCount, posCount, portVal, capital, importedAt}]
 let teacherSortKey='retPct'; // criterio de clasificación: retPct | sharpe | pnl
+let teacherSectionFilter='all'; // filtro por sección/materia
+let teacherGroupView=false;     // agrupar la tabla por grupo
 const TEACHER_KEY='capitallab_teacher_v1'; // persistencia separada del progreso del estudiante
 // ── News feed ──
 let newsFeed=[];            // [{time, headline, body, type:'bull'|'bear'|'neutral', ticker, unread}]
@@ -6234,6 +6249,12 @@ function exportForTeacher(){
     if(student===null) return;            // canceló
     student = (student||'').trim();
     if(!student){ notify('Debes ingresar un nombre para exportar','error'); return; }
+    let section = prompt('Sección o materia (ej. "Mercado Financiero"):','');
+    if(section===null) return;            // canceló
+    section = (section||'').trim();
+    let group = prompt('Grupo (opcional — deja en blanco si no aplica):','');
+    if(group===null) group='';            // canceló el grupo: lo dejamos vacío, no abortamos
+    group = (group||'').trim();
     const m = computeStudentMetrics();
     // Muestreo de la curva de patrimonio: hasta 60 puntos equiespaciados para mantener
     // el archivo ligero sin perder la forma de la trayectoria.
@@ -6260,6 +6281,8 @@ function exportForTeacher(){
       _capitallab_student: true,          // marcador de validación
       version: 'CapitalLab Student v2',   // v2: incluye datos de progreso
       student,
+      section,                            // sección/materia (ej. "Mercado Financiero")
+      group,                              // grupo (opcional)
       metrics: m,
       holdings: portfolio.map(p=>({ticker:p.ticker, type:p.type, qty:p.qty})), // compatibilidad v1
       holdingsDetail,                     // cartera con P&L por posición
@@ -6301,6 +6324,8 @@ function importStudent(event){
           const existing = teacherRoster.findIndex(r=>r.student.toLowerCase()===data.student.toLowerCase());
           const entry = {
             student: data.student,
+            section: (data.section||'').trim(),   // sección/materia
+            group: (data.group||'').trim(),       // grupo (opcional)
             retPct: +m.retPct||0, sharpe: +m.sharpe||0, pnl: +m.pnl||0,
             sigma: +m.sigma||0, var95: +m.var95||0,
             txCount: +m.txCount||0, posCount: +m.posCount||0,
@@ -6334,6 +6359,8 @@ function importStudent(event){
 }
 
 function setTeacherSort(key){ teacherSortKey=key; renderTeacher(); }
+function setSectionFilter(sec){ teacherSectionFilter=sec; renderTeacher(); }
+function toggleGroupView(on){ teacherGroupView=!!on; renderTeacher(); }
 
 function clearRoster(){
   if(teacherRoster.length===0) return;
@@ -6359,18 +6386,36 @@ function renderTeacher(){
   empty.style.display='none';
   card.style.display='block';
 
+  // Poblar el selector de secciones con las secciones presentes en el roster.
+  const sections = [...new Set(teacherRoster.map(r=>(r.section||'').trim()).filter(Boolean))].sort();
+  const secSel = document.getElementById('prof-section-sel');
+  if(secSel){
+    const current = teacherSectionFilter;
+    secSel.innerHTML = '<option value="all">Todas</option>' +
+      sections.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${s}</option>`).join('');
+    // Mantener la selección si aún existe; si no, volver a "all".
+    secSel.value = (current==='all'||sections.includes(current))?current:'all';
+    teacherSectionFilter = secSel.value;
+  }
+
+  // Aplicar filtro por sección.
+  let roster = teacherRoster.slice();
+  if(teacherSectionFilter!=='all'){
+    roster = roster.filter(r=>(r.section||'').trim()===teacherSectionFilter);
+  }
+
   // Ordena según el criterio seleccionado (descendente: mejor primero).
-  const sorted = teacherRoster.slice().sort((a,b)=>(b[teacherSortKey]||0)-(a[teacherSortKey]||0));
+  const sorted = roster.sort((a,b)=>(b[teacherSortKey]||0)-(a[teacherSortKey]||0));
 
   // Estadísticas de grupo
   const n = sorted.length;
-  const avg = k => sorted.reduce((s,r)=>s+(r[k]||0),0)/n;
+  const avg = k => n? sorted.reduce((s,r)=>s+(r[k]||0),0)/n : 0;
   const best = sorted[0];
   statsEl.innerHTML = [
     ['Estudiantes', n, ''],
     ['Retorno promedio', avg('retPct').toFixed(2)+'%', avg('retPct')>=0?'g':'r'],
     ['Sharpe promedio', avg('sharpe').toFixed(2), ''],
-    ['Mejor desempeño', best.student, 'g'],
+    ['Mejor desempeño', best?best.student:'—', 'g'],
   ].map(([l,v,c])=>`<div class="prof-stat-card"><div class="prof-stat-lbl">${l}</div><div class="prof-stat-val ${c}">${v}</div></div>`).join('');
 
   // Tabla de clasificación
@@ -6378,6 +6423,7 @@ function renderTeacher(){
   const tbody = document.querySelector('#prof-table tbody');
   thead.innerHTML = `<tr>
     <th>#</th><th>Estudiante</th>
+    <th>Sección</th><th>Grupo</th>
     <th style="text-align:right;">Retorno</th>
     <th style="text-align:right;">Sharpe</th>
     <th style="text-align:right;">P&L</th>
@@ -6387,15 +6433,20 @@ function renderTeacher(){
     <th style="text-align:right;">Posic.</th>
     <th></th>
   </tr>`;
-  tbody.innerHTML = sorted.map((r,i)=>{
-    const rankClass = i===0?'prof-rank-1':i===1?'prof-rank-2':i===2?'prof-rank-3':'prof-rank-n';
-    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+
+  // Genera una fila de estudiante (posición visual 'pos' 1-based para la medalla).
+  const rowHtml = (r,pos)=>{
+    const rankClass = pos===1?'prof-rank-1':pos===2?'prof-rank-2':pos===3?'prof-rank-3':'prof-rank-n';
+    const medal = pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':pos;
+    const esc = r.student.replace(/'/g,"\\'");
     return `<tr>
       <td><span class="prof-rank ${rankClass}">${medal}</span></td>
-      <td style="font-weight:500;cursor:pointer;" onclick="openStudentDetail('${r.student.replace(/'/g,"\\'")}')" title="Ver progreso detallado">
+      <td style="font-weight:500;cursor:pointer;" onclick="openStudentDetail('${esc}')" title="Ver progreso detallado">
         <span style="color:var(--accent2);text-decoration:underline dotted;">${r.student}</span>
         <div style="font-size:9px;color:var(--t3);">${r.importedAt}${r.version&&r.version.indexOf('v2')<0?' · datos básicos':''}</div>
       </td>
+      <td style="font-size:11px;">${r.section||'—'}</td>
+      <td style="font-size:11px;">${r.group||'—'}</td>
       <td class="mono ${r.retPct>=0?'g':'r'}" style="text-align:right;">${r.retPct>=0?'+':''}${r.retPct.toFixed(2)}%</td>
       <td class="mono ${r.sharpe>0.5?'g':r.sharpe>0?'a':'r'}" style="text-align:right;">${r.sharpe.toFixed(2)}</td>
       <td class="mono ${r.pnl>=0?'g':'r'}" style="text-align:right;">${r.pnl>=0?'+$':'-$'}${fmt(Math.abs(r.pnl))}</td>
@@ -6404,11 +6455,25 @@ function renderTeacher(){
       <td class="mono" style="text-align:right;">${r.txCount}</td>
       <td class="mono" style="text-align:right;">${r.posCount}</td>
       <td style="text-align:right;white-space:nowrap;">
-        <span onclick="openStudentDetail('${r.student.replace(/'/g,"\\'")}')" title="Ver detalle" style="cursor:pointer;color:var(--accent2);font-size:15px;margin-right:8px;">⊙</span>
-        <span onclick="removeStudent('${r.student.replace(/'/g,"\\'")}')" title="Quitar" style="cursor:pointer;color:var(--red);font-size:15px;">×</span>
+        <span onclick="openStudentDetail('${esc}')" title="Ver detalle" style="cursor:pointer;color:var(--accent2);font-size:15px;margin-right:8px;">⊙</span>
+        <span onclick="removeStudent('${esc}')" title="Quitar" style="cursor:pointer;color:var(--red);font-size:15px;">×</span>
       </td>
     </tr>`;
-  }).join('');
+  };
+
+  if(teacherGroupView){
+    // Agrupar por grupo (los sin grupo van a "Sin grupo"), cada grupo con su propio ranking.
+    const groups = {};
+    sorted.forEach(r=>{ const g=(r.group||'').trim()||'Sin grupo'; (groups[g]=groups[g]||[]).push(r); });
+    const groupNames = Object.keys(groups).sort((a,b)=> a==='Sin grupo'?1 : b==='Sin grupo'?-1 : a.localeCompare(b));
+    tbody.innerHTML = groupNames.map(g=>{
+      const header = `<tr class="prof-group-hdr"><td colspan="12"><i class="ti ti-users-group"></i> Grupo: ${g} (${groups[g].length})</td></tr>`;
+      const rows = groups[g].map((r,i)=>rowHtml(r,i+1)).join('');
+      return header+rows;
+    }).join('');
+  } else {
+    tbody.innerHTML = sorted.map((r,i)=>rowHtml(r,i+1)).join('');
+  }
 }
 
 function removeStudent(name){
@@ -6427,8 +6492,9 @@ function openStudentDetail(name){
   profDetailCurrent = r;
   document.getElementById('prof-detail-name').textContent = r.student;
   const esV2 = r.version && r.version.indexOf('v2')>=0;
+  const secGrp = [r.section?('Sección: '+r.section):'', r.group?('Grupo: '+r.group):''].filter(Boolean).join(' · ');
   document.getElementById('prof-detail-sub').textContent =
-    'Importado el '+r.importedAt + (esV2?'' : ' · Archivo de versión básica: sin datos de progreso detallado');
+    (secGrp?secGrp+' · ':'') + 'Importado el '+r.importedAt + (esV2?'' : ' · Archivo de versión básica: sin datos de progreso detallado');
 
   // KPIs resumen
   const kpis = [
@@ -6538,6 +6604,8 @@ function exportStudentCSV(){
   const lines=[
     'CapitalLab — Análisis Individual de Estudiante',
     'Estudiante:,"'+r.student+'"',
+    'Sección:,"'+(r.section||'—')+'"',
+    'Grupo:,"'+(r.group||'—')+'"',
     'Importado:,'+r.importedAt,
     '',
     'MÉTRICAS DE DESEMPEÑO',
@@ -6591,7 +6659,10 @@ function exportStudentPDF(){
     <div class="kpi"><div class="kpi-lbl">Capital efectivo</div><div class="kpi-val" style="font-size:11pt;">$${fmt(r.capital)}</div></div>
   </div>`;
 
-  let inner = `<div class="section-title">Análisis de desempeño — ${r.student}</div>${kpis}`;
+  const secGrpLine = [r.section?('Sección: '+r.section):'', r.group?('Grupo: '+r.group):''].filter(Boolean).join(' · ');
+  let inner = `<div class="section-title">Análisis de desempeño — ${r.student}</div>`;
+  if(secGrpLine) inner += `<div style="font-size:9pt;color:#555;margin-bottom:8px;">${secGrpLine}</div>`;
+  inner += kpis;
 
   if(!esV2){
     inner += `<div class="info-box">Este estudiante exportó con una versión anterior del simulador. El reporte incluye únicamente las métricas resumen, sin historial detallado de progreso.</div>`;
@@ -6711,13 +6782,15 @@ function exportTeacherPDF(){
     </div>
     <div class="section-title">Clasificación de estudiantes — ordenado por ${crit}</div>
     <table>
-      <thead><tr><th>#</th><th>Estudiante</th><th class="r">Retorno</th><th class="r">Sharpe</th><th class="r">P&L</th><th class="r">Volat.</th><th class="r">VaR 95%</th><th class="r">Oper.</th><th class="r">Posic.</th></tr></thead>
+      <thead><tr><th>#</th><th>Estudiante</th><th>Sección</th><th>Grupo</th><th class="r">Retorno</th><th class="r">Sharpe</th><th class="r">P&L</th><th class="r">Volat.</th><th class="r">VaR 95%</th><th class="r">Oper.</th><th class="r">Posic.</th></tr></thead>
       <tbody>${sorted.map((r,i)=>{
         const rc=i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'';
         const medal=i===0?'1.°':i===1?'2.°':i===2?'3.°':(i+1);
         return `<tr>
           <td class="medal ${rc}">${medal}</td>
           <td class="txt">${r.student}</td>
+          <td class="txt">${r.section||'—'}</td>
+          <td class="txt">${r.group||'—'}</td>
           <td class="r ${r.retPct>=0?'g':'r-clr'}">${r.retPct>=0?'+':''}${r.retPct.toFixed(2)}%</td>
           <td class="r">${r.sharpe.toFixed(2)}</td>
           <td class="r ${r.pnl>=0?'g':'r-clr'}">${r.pnl>=0?'+':'-'}$${fmt(Math.abs(r.pnl))}</td>
@@ -6735,9 +6808,9 @@ function exportTeacherPDF(){
 function exportTeacherCSV(){
   if(teacherRoster.length===0){ notify('No hay estudiantes para exportar','error'); return; }
   const sorted = teacherRoster.slice().sort((a,b)=>(b[teacherSortKey]||0)-(a[teacherSortKey]||0));
-  const headers = ['Posición','Estudiante','Retorno (%)','Ratio Sharpe','P&L (USD)','Volatilidad (%)','VaR 95% (USD)','Operaciones','Posiciones','Valor cartera (USD)','Capital (USD)','Importado'];
+  const headers = ['Posición','Estudiante','Sección','Grupo','Retorno (%)','Ratio Sharpe','P&L (USD)','Volatilidad (%)','VaR 95% (USD)','Operaciones','Posiciones','Valor cartera (USD)','Capital (USD)','Importado'];
   const rows = sorted.map((r,i)=>[
-    i+1, '"'+r.student+'"', r.retPct.toFixed(2), r.sharpe.toFixed(2), r.pnl.toFixed(2),
+    i+1, '"'+r.student+'"', '"'+(r.section||'')+'"', '"'+(r.group||'')+'"', r.retPct.toFixed(2), r.sharpe.toFixed(2), r.pnl.toFixed(2),
     r.sigma.toFixed(2), r.var95.toFixed(2), r.txCount, r.posCount,
     r.portVal.toFixed(2), r.capital.toFixed(2), '"'+r.importedAt+'"'
   ].join(','));
