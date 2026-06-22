@@ -51,7 +51,7 @@ Los estudiantes pueden experimentar rentabilidad, riesgo, pérdidas parciales, c
 | **Riesgo expandido** | El balance puede volverse negativo (margen hasta −$25,000); se puede perder todo el capital |
 | **Índice sintético CL-30** | Índice equiponderado de mercado, base 1,000 puntos |
 | **Múltiples carteras** | Hasta 3 estrategias guardadas simultáneamente para comparación |
-| **Modo Profesor** | Recopilación e importación de carteras de estudiantes con tabla de clasificación y exportación a CSV |
+| **Modo Profesor** | Recopilación e importación de carteras de estudiantes (con nombre, sección y grupo), tabla de clasificación con filtro por sección y agrupación opcional por grupo, vista de progreso individual y exportación a CSV y PDF |
 | **Análisis por clase de activo** | Navegación por pestañas (Acciones, Bonos, Divisas, Futuros, Derivados) con grilla de tarjetas |
 | **Laboratorio Monte Carlo** | El docente asigna capital, horizonte y meta; simulación de miles de trayectorias con distribución de resultados |
 | **Exportación de datos** | Libro de operaciones a CSV (compatible con Excel, con BOM), respaldo en JSON y reporte en PDF |
@@ -204,7 +204,6 @@ Proyecto desarrollado por estudiantes de la **Licenciatura en Finanzas y Banca**
 | Justin Jones |
 | Dustin Jones |
 | Emanuel Iturriaga |
-| Fabián Montenegro |
 
 ---
 

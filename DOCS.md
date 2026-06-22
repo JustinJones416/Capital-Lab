@@ -1,6 +1,6 @@
 # CapitalLab — Documentación Técnica
 
-**Versión:** 1.1
+**Versión:** 1.2
 **Última actualización:** Junio 2026
 **Tipo de proyecto:** Aplicación web de archivo único (SPA)
 **Tecnologías:** HTML5 · CSS puro · JavaScript puro (ES6+)
@@ -218,8 +218,10 @@ let newsUnreadCount = 0;
 ### Modo Profesor (estado aislado)
 
 ```javascript
-let teacherRoster   = []; // [{ student, retPct, sharpe, pnl, sigma, var95, txCount, posCount, portVal, capital, importedAt }]
-let teacherSortKey  = 'retPct'; // criterio de clasificación: retPct | sharpe | pnl
+let teacherRoster   = []; // [{ student, section, group, retPct, sharpe, pnl, sigma, var95, txCount, posCount, portVal, capital, holdingsDetail, txLog, navCurve, labRuns, version, importedAt }]
+let teacherSortKey  = 'retPct';     // criterio de clasificación: retPct | sharpe | pnl
+let teacherSectionFilter = 'all';   // filtro por sección/materia
+let teacherGroupView = false;       // agrupar la tabla de ranking por grupo
 ```
 
 ### Laboratorio
@@ -893,13 +895,21 @@ Serializa las métricas del estudiante a un archivo JSON para su entrega al doce
 ```javascript
 {
   _capitallab_student: true,     // marcador de validación
-  version: 'CapitalLab Student v1',
+  version: 'CapitalLab Student v2',
   student: 'Nombre completo',
+  section: 'Mercado Financiero', // sección o materia (texto libre)
+  group: 'Grupo A',              // grupo (opcional; puede ir vacío)
   metrics: { retPct, sharpe, pnl, sigma, var95, txCount, posCount, portVal, capital },
-  holdings: [{ ticker, type, qty }],   // sin datos internos de precios
+  holdings: [{ ticker, type, qty }],          // resumen (compatibilidad v1)
+  holdingsDetail: [{ ticker, name, type, qty, buyPrice, currentPrice, value, pnl, pnlPct }],
+  txHistory: [ /* libro de operaciones, hasta 300 */ ],
+  navHistory: [ /* curva de patrimonio muestreada, hasta 60 puntos */ ],
+  labHistory: [ /* simulaciones del laboratorio, hasta 20 */ ],
   exportedAt: 'cadena local',
 }
 ```
+
+Al exportar, el estudiante ingresa su **nombre**, su **sección/materia** (por ejemplo, "Mercado Financiero") y opcionalmente su **grupo**. La sección y el grupo permiten al docente filtrar y organizar la lista de estudiantes.
 
 ---
 
@@ -913,18 +923,29 @@ El modo profesor es un **módulo separado y aislado** dentro del mismo archivo. 
 Estudiante:
   1. Completa su sesión
   2. Pulsa "Para profesor" en la barra superior
-  3. Ingresa su nombre → se descarga el archivo: CapitalLab_estudiante_{nombre}.json
+  3. Ingresa su nombre, su sección/materia y opcionalmente su grupo
+     → se descarga el archivo: CapitalLab_estudiante_{nombre}.json
 
 Profesor:
   1. Abre el mismo CapitalLab.html
   2. Navega al Modo Profesor
   3. Importa uno o varios archivos JSON de estudiantes
      (la validación rechaza automáticamente los archivos que no son exports válidos)
-  4. renderTeacher() muestra la tabla de clasificación ordenada
+  4. renderTeacher() muestra la tabla de clasificación con columnas de Sección y Grupo
   5. Puede ordenar por: retPct | sharpe | pnl
-  6. Ve estadísticas de grupo (total, retorno y Sharpe promedio, mejor desempeño)
-  7. Puede exportar la lista completa a CSV (exportTeacherCSV)
+  6. Puede filtrar por sección (setSectionFilter) para ver una materia a la vez
+  7. Puede activar "Agrupar por grupo" (toggleGroupView): la tabla se divide en
+     sub-rankings por grupo; los estudiantes sin grupo se agrupan bajo "Sin grupo"
+  8. Ve estadísticas del conjunto filtrado (total, retorno y Sharpe promedio, mejor desempeño)
+  9. Puede abrir el detalle de progreso de cada estudiante (openStudentDetail)
+ 10. Puede exportar a CSV o PDF: el ranking completo (exportTeacherCSV / exportTeacherPDF)
+     o el análisis individual del estudiante abierto (exportStudentCSV / exportStudentPDF).
+     Todas las exportaciones incluyen sección y grupo.
 ```
+
+### Filtro y Agrupación
+
+El estado `teacherSectionFilter` controla qué sección se muestra (`'all'` = todas). El selector de secciones se puebla automáticamente con las secciones presentes en la lista importada. El estado `teacherGroupView` (booleano, activable/desactivable con la casilla "Agrupar por grupo") determina si la tabla se renderiza como un ranking único o dividida en sub-rankings por grupo, cada uno con su propia numeración y medallas.
 
 ### Validación de Importación
 
@@ -1021,4 +1042,4 @@ O abre el archivo en Chrome DevTools y revisa la consola en busca de errores de 
 ---
 
 *Documentación Técnica de CapitalLab — Universidad de Panamá, Facultad de Economía, 2026*
-*Autores: Justin Jones, Dustin Jones, Emanuel Iturriaga, Fabián Montenegro*
+*Autores: Justin Jones, Dustin Jones, Emanuel Iturriaga*
