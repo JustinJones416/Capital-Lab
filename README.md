@@ -27,6 +27,8 @@ El objetivo es cerrar la brecha entre la teoría del aula y la práctica: en lug
 
 El simulador arranca con un capital virtual de **$50,000** y abre una "sesión de mercado" durante la cual los precios se mueven en tiempo real. El estudiante decide qué comprar, cuándo vender y cómo equilibrar su cartera. Al final puede revisar sus resultados, sus métricas de riesgo y su evolución.
 
+Esta edición de servicio social se enfoca en **tres mercados** (Acciones, Bonos y Divisas), ideal para una introducción clara a la gestión de carteras sin la complejidad de los instrumentos derivados.
+
 ---
 
 ## Qué puedes hacer en el simulador
@@ -51,15 +53,13 @@ El simulador arranca con un capital virtual de **$50,000** y abre una "sesión d
 
 ## Mercados y activos
 
-La versión completa cubre **5 mercados** con 150 activos (30 por categoría):
+Esta edición cubre **3 mercados** con 90 activos (30 por categoría):
 
 | Mercado | Descripción |
 |---|---|
 | **Acciones** | Renta variable con beta, dividendos, volatilidad y estados financieros (resultados, balance y flujo de efectivo) |
 | **Bonos** | Soberanos y corporativos con cupón, rendimiento al vencimiento (YTM), duración y convexidad |
-| **Divisas** | Pares Forex con indicadores macroeconómicos (PIB, inflación, tasas de banco central) |
-| **Futuros** | Energía, metales, índices, granos y criptoactivos, con precio spot, base y estado de la curva |
-| **Derivados** | Opciones y estructurados con griegas (delta, gamma, theta, vega), strike y volatilidad implícita |
+| **Divisas** | Pares Forex con indicadores macroeconómicos completos (PIB, inflación, tasas de banco central) |
 
 ---
 
@@ -69,9 +69,9 @@ Una vez que abres el archivo (ver [Cómo instalar y abrir el archivo](#cómo-ins
 
 1. **Abre el mercado.** En la página *Mercado*, pulsa **"Abrir mercado"**. Comienza la sesión y los precios empiezan a moverse cada 5 segundos.
 
-2. **Elige un activo.** Usa el *Watchlist* (panel lateral izquierdo) para buscar y seleccionar un activo. Puedes filtrar por tipo (Acciones, Bonos, FX, Futuros, Derivados) y ordenar por mayores alzas o bajas.
+2. **Elige un activo.** Usa el *Watchlist* (panel lateral izquierdo) para buscar y seleccionar un activo. Puedes filtrar por tipo (Acciones, Bonos, FX) y ordenar por mayores alzas o bajas.
 
-3. **Analiza antes de invertir.** En la página *Análisis* revisa el perfil del activo: su riesgo, rentabilidad esperada, estados financieros (acciones), rendimiento y duración (bonos), datos macro (divisas), etc.
+3. **Analiza antes de invertir.** En la página *Análisis* revisa el perfil del activo: su riesgo, rentabilidad esperada, estados financieros (acciones), rendimiento y duración (bonos), datos macro (divisas).
 
 4. **Compra.** En el panel de operación del activo, ingresa la cantidad y pulsa **Comprar**. Verás el costo estimado (incluye comisión y spread). Si quieres, puedes colocar una **orden límite** o un **stop-loss** en vez de comprar al instante.
 
@@ -114,7 +114,7 @@ CapitalLab es un **único archivo HTML** que se abre directamente en cualquier n
 
 ### Opción 1 — Abrir con doble clic (la más sencilla)
 
-1. Guarda el archivo `CapitalLab.html` en tu computadora (por ejemplo, en el Escritorio o en Descargas).
+1. Guarda el archivo `CapitalLab_3Mercados.html` en tu computadora (por ejemplo, en el Escritorio o en Descargas).
 2. Haz **doble clic** sobre el archivo.
 3. Se abrirá en tu navegador predeterminado (Chrome, Edge, Firefox o Safari). ¡Listo para usar!
 
@@ -122,20 +122,20 @@ CapitalLab es un **único archivo HTML** que se abre directamente en cualquier n
 
 1. Abre tu navegador (Chrome, Firefox, Edge o Safari).
 2. Pulsa `Ctrl + O` (en Windows/Linux) o `Cmd + O` (en Mac).
-3. Busca y selecciona el archivo `CapitalLab.html`.
+3. Busca y selecciona el archivo `CapitalLab_3Mercados.html`.
 4. El simulador se abrirá en una pestaña nueva.
 
 ### Opción 3 — Arrastrar al navegador
 
 1. Abre una ventana nueva del navegador.
-2. **Arrastra** el archivo `CapitalLab.html` desde su carpeta hasta la pestaña del navegador y suéltalo.
+2. **Arrastra** el archivo `CapitalLab_3Mercados.html` desde su carpeta hasta la pestaña del navegador y suéltalo.
 
 ### En el celular o tablet
 
-1. Guarda el archivo `CapitalLab.html` en el dispositivo (por ejemplo, en la app *Archivos*).
+1. Guarda el archivo `CapitalLab_3Mercados.html` en el dispositivo (por ejemplo, en la app *Archivos*).
 2. Ábrelo con el navegador (Chrome en Android, Safari en iPhone/iPad). Algunos dispositivos requieren abrirlo desde un gestor de archivos y elegir "Abrir con" → navegador.
 
-> **Importante:** guarda siempre una copia del archivo `CapitalLab.html` en tu computadora o en un respaldo (USB, Google Drive). Mientras tengas el archivo, podrás usar el simulador en cualquier momento, con o sin internet.
+> **Importante:** guarda siempre una copia del archivo `CapitalLab_3Mercados.html` en tu computadora o en un respaldo (USB, Google Drive). Mientras tengas el archivo, podrás usar el simulador en cualquier momento, con o sin internet.
 
 ---
 
@@ -167,6 +167,7 @@ Proyecto desarrollado por estudiantes de la **Licenciatura en Finanzas y Banca**
 | Justin Jones |
 | Dustin Jones |
 | Emanuel Iturriaga |
+| Fabián Montenegro |
 
 ---
 
