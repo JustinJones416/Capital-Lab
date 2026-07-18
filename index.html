@@ -2050,6 +2050,7 @@ async function mostrarInfoSesion(){
               ? '<span class="nav-badge" style="background:var(--accent2);color:#031320;">Activa</span>'
               : `<button class="btn btn-sm" onclick="cambiarSesionActiva('${s.id}','${s.nombre.replace(/'/g,"\\'")}','${s.codigo}')">Cambiar</button>`}
             ${esDocente ? `<button class="btn btn-sm" title="${s.activa===false?'Reactivar sesión':'Archivar sesión'}" onclick="alternarArchivadoSesion('${s.id}',${s.activa===false})"><i class="ti ti-${s.activa===false?'archive-off':'archive'}"></i></button>` : ''}
+            ${esDocente ? `<button class="btn btn-sm" title="Eliminar sesión" style="color:var(--red);" onclick="eliminarSesionClase('${s.id}','${s.nombre.replace(/'/g,"\\'")}')"><i class="ti ti-trash"></i></button>` : ''}
           </div>
         </div>`).join('');
     } catch(e){
@@ -2127,6 +2128,34 @@ async function alternarArchivadoSesion(sesionId, reactivar){
     if(window._recargarListaSesionesActual) window._recargarListaSesionesActual();
   } catch(e){
     notify('No se pudo actualizar la sesión: ' + (e.message||e), 'error');
+  }
+}
+
+// Elimina una sesión de clase por completo: se lleva consigo a todos los
+// estudiantes inscritos, sus carteras, calificaciones, anuncios y asistencia
+// de esa sesión. Es irreversible, por eso pide confirmación doble: primero
+// una advertencia clara, y después escribir el nombre exacto de la sesión.
+async function eliminarSesionClase(sesionId, sesionNombre){
+  if(!sb || !currentUser) return;
+  const primeraConfirmacion = confirm(
+    `¿Eliminar por completo "${sesionNombre}"?\n\nEsto borra para siempre a todos los estudiantes inscritos de esta sesión, sus carteras, calificaciones, anuncios y asistencia. No se puede deshacer.`
+  );
+  if(!primeraConfirmacion) return;
+  const escrito = prompt(`Para confirmar, escribe exactamente el nombre de la sesión:\n\n${sesionNombre}`);
+  if(escrito !== sesionNombre){
+    if(escrito !== null) notify('El nombre no coincide. No se eliminó la sesión.', 'error');
+    return;
+  }
+  try {
+    if(sesionId === currentUser.sesion_id){
+      currentUser.sesion_id = null; currentUser.sesion_nombre = ''; currentUser.sesion_codigo = '';
+    }
+    const { error } = await sb.from('sesiones_clase').delete().eq('id', sesionId);
+    if(error) throw error;
+    notify('Sesión eliminada.', 'success');
+    if(window._recargarListaSesionesActual) window._recargarListaSesionesActual();
+  } catch(e){
+    notify('No se pudo eliminar la sesión: ' + (e.message||e), 'error');
   }
 }
 
