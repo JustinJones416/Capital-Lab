@@ -830,6 +830,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <div class="user-chip" id="user-chip" style="display:none;">
       <span class="role-badge" id="user-role-badge">—</span>
       <span class="chip-name" id="user-name-label">—</span>
+      <button onclick="mostrarNotificaciones()" title="Notificaciones" style="position:relative;"><i class="ti ti-bell" style="font-size:12px;"></i><span id="notif-dot" style="display:none;position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--accent2);"></span></button>
       <button onclick="mostrarInfoSesion()" title="Ver mi sesión de clase"><i class="ti ti-info-circle" style="font-size:12px;"></i></button>
       <button onclick="authLogout()" title="Cerrar sesión"><i class="ti ti-logout" style="font-size:12px;"></i></button>
     </div>
@@ -1415,6 +1416,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <span id="prof-cloud-live-dot" title="Actualización en vivo activa" style="width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);display:none;"></span>
         <button class="btn btn-sm" onclick="cargarRosterProfesor(true)"><i class="ti ti-refresh"></i> Actualizar ahora</button>
         <button class="btn btn-sm" onclick="exportarInformeSalonPDF()"><i class="ti ti-file-type-pdf"></i> Exportar informe del salón</button>
+        <button class="btn btn-sm" onclick="abrirTomaAsistencia()"><i class="ti ti-clipboard-check"></i> Tomar asistencia</button>
       </div>
     </div>
     <div class="card-sub" id="prof-cloud-sesion-info">Cargando información de tu sesión…</div>
@@ -1775,6 +1777,7 @@ async function authLoadProfileAndEnter(){
   const navProfesor = document.getElementById('nav-profesor');
   if(navProfesor) navProfesor.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
   if(typeof initApp === 'function') initApp();
+  actualizarBadgeNotificaciones();
 
   if(perfil._codigoRecienGenerado){
     setTimeout(()=>mostrarCodigoSesionPostLogin(perfil._codigoRecienGenerado), 700);
@@ -1844,6 +1847,134 @@ function mostrarCodigoSesionPostLogin(codigo){
 
 // Le recuerda al usuario (sobre todo al estudiante) en qué sesión de clase está
 // y con qué código entró, para que no se pierda si maneja varias clases o cuentas.
+// ══════════════════════════════════════════════════
+// NOTIFICACIONES INTERNAS Y ANUNCIOS — todo dentro de la app, sin correo
+// ══════════════════════════════════════════════════
+// El "visto" se guarda en este navegador (por sesión de clase), no en la
+// nube: es solo para saber si mostrar el puntito, no hace falta más.
+function claveNotifVistas(){
+  return 'capitallab_notif_visto_' + (currentUser?.sesion_id || 'sin-sesion');
+}
+function marcarNotificacionesVistas(){
+  localStorage.setItem(claveNotifVistas(), new Date().toISOString());
+  const dot = document.getElementById('notif-dot');
+  if(dot) dot.style.display = 'none';
+}
+
+async function actualizarBadgeNotificaciones(){
+  if(!sb || !currentUser || guestMode || !currentUser.sesion_id) return;
+  try {
+    const ultimaVista = localStorage.getItem(claveNotifVistas()) || '1970-01-01T00:00:00.000Z';
+    const esDocente = currentUser.rol==='docente' || currentUser.rol==='superadmin';
+    const consultas = [ sb.from('anuncios').select('id,creado_en').eq('sesion_id', currentUser.sesion_id).gt('creado_en', ultimaVista) ];
+    if(!esDocente) consultas.push(sb.from('calificaciones').select('id,creado_en').eq('usuario_id', currentUser.usuario_id).gt('creado_en', ultimaVista));
+    const resultados = await Promise.all(consultas);
+    const hayNuevo = resultados.some(r => r.data && r.data.length>0);
+    const dot = document.getElementById('notif-dot');
+    if(dot) dot.style.display = hayNuevo ? 'block' : 'none';
+  } catch(e){ /* silencioso: el badge es solo un aviso visual, no crítico */ }
+}
+
+async function mostrarNotificaciones(){
+  if(!currentUser) return;
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(4,7,12,.7);display:flex;align-items:center;justify-content:center;padding:20px;';
+
+  if(guestMode || !currentUser.sesion_id){
+    overlay.innerHTML = `<div class="auth-box" style="max-width:380px;"><div class="auth-code-result" style="display:block;"><div class="auth-code-label">Sin sesión</div><div class="auth-hint">${guestMode?'El modo de prueba no tiene anuncios ni notificaciones reales.':'Todavía no perteneces a ninguna sesión de clase.'}</div><button class="auth-submit" style="margin-top:12px;" id="btn-cerrar-notif">Cerrar</button></div></div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#btn-cerrar-notif').onclick = () => overlay.remove();
+    overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+    return;
+  }
+
+  const esDocente = currentUser.rol==='docente' || currentUser.rol==='superadmin';
+  overlay.innerHTML = `
+    <div class="auth-box" style="max-width:440px;max-height:85vh;overflow-y:auto;">
+      <div class="auth-brand" style="font-size:18px;">Notificaciones</div>
+      <div class="auth-sub">${currentUser.sesion_nombre || ''}</div>
+      ${esDocente ? `
+        <div class="auth-field">
+          <label>Publicar un anuncio nuevo</label>
+          <input type="text" id="an-titulo" placeholder="Título del anuncio" style="margin-bottom:8px;">
+          <textarea id="an-cuerpo" placeholder="Mensaje (opcional)" style="width:100%;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);padding:9px 11px;color:var(--t1);font-family:var(--font-body);font-size:13px;min-height:60px;"></textarea>
+          <button class="btn" style="margin-top:8px;width:100%;" id="an-btn-publicar"><i class="ti ti-speakerphone"></i> Publicar anuncio</button>
+        </div>
+        <div class="auth-msg" id="an-msg"></div>
+      ` : ''}
+      <div id="notif-lista" style="margin-top:10px;"><div class="auth-hint">Cargando…</div></div>
+      <button class="btn btn-ghost" style="width:100%;margin-top:12px;" id="btn-cerrar-notif">Cerrar</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#btn-cerrar-notif').onclick = () => overlay.remove();
+  marcarNotificacionesVistas();
+
+  async function cargarFeed(){
+    const cont = overlay.querySelector('#notif-lista');
+    try {
+      const { data: anuncios, error: e1 } = await sb.from('anuncios').select('*').eq('sesion_id', currentUser.sesion_id).order('creado_en',{ascending:false}).limit(15);
+      if(e1) throw e1;
+      let items = (anuncios||[]).map(a => ({ tipo:'anuncio', fecha:a.creado_en, titulo:a.titulo, cuerpo:a.cuerpo, id:a.id }));
+      if(!esDocente){
+        const { data: cals } = await sb.from('calificaciones').select('*').eq('usuario_id', currentUser.usuario_id).order('creado_en',{ascending:false}).limit(15);
+        items = items.concat((cals||[]).map(c => ({ tipo:'calificacion', fecha:c.creado_en, titulo:`Nueva calificación: ${c.titulo}`, cuerpo:c.nota_general!=null?`Nota: ${c.nota_general}/100`:null })));
+      }
+      items.sort((a,b)=> new Date(b.fecha) - new Date(a.fecha));
+      if(!items.length){ cont.innerHTML = '<div class="auth-hint">Todavía no hay anuncios ni novedades en esta sesión.</div>'; return; }
+      cont.innerHTML = items.slice(0,20).map(it => `
+        <div style="padding:10px 0;border-bottom:1px solid var(--c3);">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div style="font-weight:600;font-size:13px;"><i class="ti ti-${it.tipo==='anuncio'?'speakerphone':'certificate'}" style="font-size:12px;color:var(--accent2);margin-right:5px;"></i>${it.titulo}</div>
+            ${esDocente && it.tipo==='anuncio' ? `<button class="btn btn-sm" style="padding:2px 7px;" title="Borrar anuncio" onclick="borrarAnuncio('${it.id}')"><i class="ti ti-trash" style="font-size:11px;"></i></button>` : ''}
+          </div>
+          ${it.cuerpo ? `<div style="font-size:12.5px;color:var(--t2);margin-top:3px;">${it.cuerpo}</div>` : ''}
+          <div style="font-size:10.5px;color:var(--t3);margin-top:4px;">${formatearFechaHora(it.fecha)}</div>
+        </div>`).join('');
+    } catch(e){
+      cont.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
+    }
+  }
+  window._recargarFeedNotificaciones = cargarFeed;
+  cargarFeed();
+
+  if(esDocente){
+    overlay.querySelector('#an-btn-publicar').onclick = async () => {
+      const titulo = overlay.querySelector('#an-titulo').value.trim();
+      const cuerpo = overlay.querySelector('#an-cuerpo').value.trim() || null;
+      const msg = overlay.querySelector('#an-msg');
+      if(!titulo){ msg.className='auth-msg show error'; msg.textContent='Ponle un título al anuncio.'; return; }
+      const btn = overlay.querySelector('#an-btn-publicar');
+      btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Publicando…';
+      try {
+        const { error } = await conTiempoLimite(sb.from('anuncios').insert({
+          sesion_id: currentUser.sesion_id, docente_id: currentUser.auth_id, titulo, cuerpo,
+        }));
+        if(error) throw error;
+        overlay.querySelector('#an-titulo').value=''; overlay.querySelector('#an-cuerpo').value='';
+        notify('Anuncio publicado.', 'success');
+        cargarFeed();
+      } catch(e){
+        msg.className='auth-msg show error'; msg.textContent = 'No se pudo publicar: ' + (e.message||e);
+      } finally {
+        btn.disabled = false; btn.innerHTML = '<i class="ti ti-speakerphone"></i> Publicar anuncio';
+      }
+    };
+  }
+}
+
+async function borrarAnuncio(id){
+  if(!confirm('¿Borrar este anuncio?')) return;
+  try {
+    const { error } = await sb.from('anuncios').delete().eq('id', id);
+    if(error) throw error;
+    notify('Anuncio borrado.', 'success');
+    if(window._recargarFeedNotificaciones) window._recargarFeedNotificaciones();
+  } catch(e){
+    notify('No se pudo borrar: ' + (e.message||e), 'error');
+  }
+}
+
 async function mostrarInfoSesion(){
   if(!currentUser) return;
   const overlay = document.createElement('div');
@@ -1899,29 +2030,33 @@ async function mostrarInfoSesion(){
     try {
       let filas = [];
       if(esDocente){
-        const { data, error } = await sb.from('sesiones_clase').select('id,nombre,codigo').eq('docente_id', currentUser.auth_id).order('creado_en', {ascending:false});
+        const { data, error } = await sb.from('sesiones_clase').select('id,nombre,codigo,activa').eq('docente_id', currentUser.auth_id).order('creado_en', {ascending:false});
         if(error) throw error;
         filas = data || [];
       } else {
-        const { data, error } = await sb.from('inscripciones').select('sesiones_clase(id,nombre,codigo)').eq('usuario_id', currentUser.usuario_id);
+        const { data, error } = await sb.from('inscripciones').select('sesiones_clase(id,nombre,codigo,activa)').eq('usuario_id', currentUser.usuario_id);
         if(error) throw error;
         filas = (data||[]).map(r=>r.sesiones_clase).filter(Boolean);
       }
       if(!filas.length){ cont.innerHTML = '<div class="auth-hint">Todavía no perteneces a ninguna sesión.</div>'; return; }
       cont.innerHTML = filas.map(s => `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--c4);border-radius:var(--r);margin-bottom:8px;${s.id===currentUser.sesion_id?'border-color:var(--accent2);background:rgba(0,196,255,.06);':''}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--c4);border-radius:var(--r);margin-bottom:8px;${s.id===currentUser.sesion_id?'border-color:var(--accent2);background:rgba(0,196,255,.06);':''}${s.activa===false?'opacity:.55;':''}">
           <div style="min-width:0;">
-            <div style="font-weight:600;font-size:13px;">${s.nombre}</div>
+            <div style="font-weight:600;font-size:13px;">${s.nombre} ${s.activa===false?'<span class="nav-badge" style="margin-left:4px;">Archivada</span>':''}</div>
             <div style="font-size:11px;color:var(--t3);font-family:var(--font-mono);">${s.codigo}</div>
           </div>
-          ${s.id===currentUser.sesion_id
-            ? '<span class="nav-badge" style="background:var(--accent2);color:#031320;">Activa</span>'
-            : `<button class="btn btn-sm" onclick="cambiarSesionActiva('${s.id}','${s.nombre.replace(/'/g,"\\'")}','${s.codigo}')">Cambiar</button>`}
+          <div style="display:flex;gap:6px;align-items:center;">
+            ${s.id===currentUser.sesion_id
+              ? '<span class="nav-badge" style="background:var(--accent2);color:#031320;">Activa</span>'
+              : `<button class="btn btn-sm" onclick="cambiarSesionActiva('${s.id}','${s.nombre.replace(/'/g,"\\'")}','${s.codigo}')">Cambiar</button>`}
+            ${esDocente ? `<button class="btn btn-sm" title="${s.activa===false?'Reactivar sesión':'Archivar sesión'}" onclick="alternarArchivadoSesion('${s.id}',${s.activa===false})"><i class="ti ti-${s.activa===false?'archive-off':'archive'}"></i></button>` : ''}
+          </div>
         </div>`).join('');
     } catch(e){
       cont.innerHTML = '<div class="auth-hint">No se pudo cargar la lista: '+(e.message||e)+'</div>';
     }
   }
+  window._recargarListaSesionesActual = cargarListaSesiones;
   cargarListaSesiones();
 
   if(esDocente){
@@ -1976,6 +2111,25 @@ async function mostrarInfoSesion(){
 // Cambia la sesión de clase activa: guarda el cambio en la nube, reinicia el
 // estado local de trading (cada sesión guarda su propio progreso por separado,
 // ver storageKey()) y vuelve a cargar lo que corresponda a la nueva sesión.
+// Archiva o reactiva una sesión de clase propia. Archivar solo bloquea que
+// estudiantes NUEVOS se unan con el código (buscar_sesion_por_codigo exige
+// activa=true); los que ya pertenecen a la sesión conservan su acceso.
+async function alternarArchivadoSesion(sesionId, reactivar){
+  if(!sb || !currentUser) return;
+  const confirmMsg = reactivar
+    ? '¿Reactivar esta sesión? Los estudiantes podrán volver a unirse con el código.'
+    : '¿Archivar esta sesión? Nadie nuevo podrá unirse con el código, pero los estudiantes que ya están adentro conservan su acceso.';
+  if(!confirm(confirmMsg)) return;
+  try {
+    const { error } = await sb.from('sesiones_clase').update({ activa: !!reactivar }).eq('id', sesionId);
+    if(error) throw error;
+    notify(reactivar ? 'Sesión reactivada.' : 'Sesión archivada.', 'success');
+    if(window._recargarListaSesionesActual) window._recargarListaSesionesActual();
+  } catch(e){
+    notify('No se pudo actualizar la sesión: ' + (e.message||e), 'error');
+  }
+}
+
 async function cambiarSesionActiva(sesionId, sesionNombre, sesionCodigo){
   if(!sb || !currentUser || sesionId === currentUser.sesion_id) return;
   try {
@@ -2001,6 +2155,7 @@ async function cambiarSesionActiva(sesionId, sesionNombre, sesionCodigo){
   renderLabHistory(); updateNavCapital();
   if(document.getElementById('page-profesor').classList.contains('active')){ cargarRosterProfesor(); iniciarRealtimeProfesor(); }
   notify(`Cambiaste a: ${sesionNombre}`, 'success');
+  actualizarBadgeNotificaciones();
 }
 
 // Para cuentas creadas directamente desde el panel de Supabase (Authentication →
@@ -2104,6 +2259,76 @@ function formatearFechaHora(iso){
     const d=new Date(iso);
     return d.toLocaleDateString('es-PA',{day:'2-digit',month:'short'}) + ' · ' + d.toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'});
   } catch(e){ return '—'; }
+}
+
+// ── Control de asistencia ──
+async function abrirTomaAsistencia(){
+  if(!sb || !currentUser || !currentUser.sesion_id){ notify('No hay sesión activa.', 'error'); return; }
+  const sesionId = currentUser.sesion_id;
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `
+    <div class="grade-modal" style="max-width:460px;">
+      <h3>Tomar asistencia</h3>
+      <div class="sub">Marca quién estuvo presente en esta jornada.</div>
+      <div class="grade-field">
+        <label>Fecha</label>
+        <input type="date" id="as-fecha" value="${new Date().toISOString().slice(0,10)}">
+      </div>
+      <div id="as-lista" style="margin:12px 0;"><div class="auth-hint">Cargando estudiantes…</div></div>
+      <div class="auth-msg" id="as-msg"></div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-ghost" id="as-cancelar" style="flex:1;">Cerrar</button>
+        <button class="auth-submit" id="as-guardar" style="flex:1;margin-top:0;">Guardar asistencia</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#as-cancelar').onclick = () => overlay.remove();
+
+  async function cargarParaFecha(){
+    const cont = overlay.querySelector('#as-lista');
+    const fecha = overlay.querySelector('#as-fecha').value;
+    cont.innerHTML = '<div class="auth-hint">Cargando estudiantes…</div>';
+    try {
+      const { data: estudiantes, error } = await sb.from('usuarios').select('id,nombre').eq('sesion_id', sesionId).eq('rol','estudiante').order('nombre');
+      if(error) throw error;
+      if(!estudiantes || !estudiantes.length){ cont.innerHTML = '<div class="auth-hint">Todavía no hay estudiantes registrados.</div>'; return; }
+      const { data: existente } = await sb.from('asistencia').select('usuario_id,presente').eq('sesion_id', sesionId).eq('fecha', fecha);
+      const marcados = {}; (existente||[]).forEach(a=>{ marcados[a.usuario_id] = a.presente; });
+      cont.innerHTML = estudiantes.map(e => `
+        <label style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--c3);cursor:pointer;">
+          <span style="font-size:13px;">${e.nombre}</span>
+          <input type="checkbox" data-usuario="${e.id}" class="as-check" ${marcados[e.id]!==false?'checked':''} style="width:18px;height:18px;">
+        </label>`).join('');
+    } catch(e){
+      cont.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
+    }
+  }
+  overlay.querySelector('#as-fecha').onchange = cargarParaFecha;
+  cargarParaFecha();
+
+  overlay.querySelector('#as-guardar').onclick = async () => {
+    const msg = overlay.querySelector('#as-msg');
+    const fecha = overlay.querySelector('#as-fecha').value;
+    const checks = overlay.querySelectorAll('.as-check');
+    if(!checks.length){ msg.className='auth-msg show error'; msg.textContent='No hay estudiantes para registrar.'; return; }
+    const registros = Array.from(checks).map(c => ({
+      sesion_id: sesionId, usuario_id: c.dataset.usuario, docente_id: currentUser.auth_id,
+      fecha, presente: c.checked,
+    }));
+    const btn = overlay.querySelector('#as-guardar');
+    btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Guardando…';
+    try {
+      const { error } = await conTiempoLimite(sb.from('asistencia').upsert(registros, { onConflict: 'sesion_id,usuario_id,fecha' }));
+      if(error) throw error;
+      notify('Asistencia guardada.', 'success');
+      overlay.remove();
+    } catch(e){
+      msg.className='auth-msg show error'; msg.textContent = 'No se pudo guardar: ' + (e.message||e);
+      btn.disabled = false; btn.textContent = 'Guardar asistencia';
+    }
+  };
 }
 
 async function cargarRosterProfesor(esManual){
@@ -2230,11 +2455,13 @@ function detenerRealtimeProfesor(){
 // Reutiliza el motor de PDF ya usado en el resto de la app
 // (pdfStyles / pdfHeader / pdfFooter / openPrintWindow).
 
-function bloqueEstudiantePDF(estNombre, estCorreo, port, calificaciones, labHist){
+function bloqueEstudiantePDF(estNombre, estCorreo, port, calificaciones, labHist, asistencia){
   const retorno = port?.retorno_pct!=null ? Number(port.retorno_pct) : null;
   const retornoClass = retorno===null ? '' : (retorno>=0 ? 'g' : 'r');
   const retornoTxt = retorno!==null ? (retorno>=0?'+':'')+retorno.toFixed(2)+'%' : '—';
   const fmtMoney = v => v!=null ? '$'+Number(v).toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+  const asistPresentes = (asistencia||[]).filter(a=>a.presente).length;
+  const asistTotal = (asistencia||[]).length;
 
   return `
     <div class="section">
@@ -2246,6 +2473,7 @@ function bloqueEstudiantePDF(estNombre, estCorreo, port, calificaciones, labHist
       <div class="kpi"><div class="kpi-lbl">Valor total cartera</div><div class="kpi-val">${fmtMoney(port?.valor_total)}</div></div>
       <div class="kpi"><div class="kpi-lbl">Retorno</div><div class="kpi-val ${retornoClass}">${retornoTxt}</div></div>
       <div class="kpi"><div class="kpi-lbl">Operaciones</div><div class="kpi-val">${port?.num_operaciones ?? 0}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Asistencia</div><div class="kpi-val">${asistTotal?`${asistPresentes}/${asistTotal}`:'—'}</div></div>
     </div>
 
     <div class="section"><div class="section-title" style="font-size:10pt;">Sesiones de Laboratorio</div></div>
@@ -2278,15 +2506,16 @@ async function exportarInformeEstudiantePDF(usuarioId, nombre, sesionId){
   if(!sb){ notify('No hay conexión con la nube para exportar.', 'error'); return; }
   notify('Generando informe…', 'success');
   try {
-    const [{data: usr}, {data: port}, {data: cals}, {data: sesion}] = await Promise.all([
+    const [{data: usr}, {data: port}, {data: cals}, {data: sesion}, {data: asist}] = await Promise.all([
       sb.from('usuarios').select('nombre,correo').eq('id', usuarioId).maybeSingle(),
       sb.from('portafolios').select('*').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).maybeSingle(),
       sb.from('calificaciones').select('*').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).order('creado_en',{ascending:false}),
       sb.from('sesiones_clase').select('nombre').eq('id', sesionId).maybeSingle(),
+      sb.from('asistencia').select('fecha,presente').eq('usuario_id', usuarioId).eq('sesion_id', sesionId),
     ]);
     const nombreFinal = usr?.nombre || nombre;
     const body = pdfHeader(sesion?.nombre || 'Informe del estudiante')
-      + bloqueEstudiantePDF(nombreFinal, usr?.correo, port, cals||[], port?.lab_historial||[])
+      + bloqueEstudiantePDF(nombreFinal, usr?.correo, port, cals||[], port?.lab_historial||[], asist||[])
       + pdfFooter();
     openPrintWindow(body, `Informe — ${nombreFinal}`);
   } catch(e){
@@ -2301,38 +2530,43 @@ async function exportarInformeSalonPDF(){
   notify('Generando informe del salón…', 'success');
   try {
     const sesionId = currentUser.sesion_id;
-    const [{data: sesion}, {data: estudiantes}, {data: ports}, {data: cals}] = await Promise.all([
+    const [{data: sesion}, {data: estudiantes}, {data: ports}, {data: cals}, {data: asistRows}] = await Promise.all([
       sb.from('sesiones_clase').select('nombre,codigo').eq('id', sesionId).maybeSingle(),
       sb.from('usuarios').select('id,nombre,correo').eq('sesion_id', sesionId).eq('rol','estudiante').order('nombre'),
       sb.from('portafolios').select('*').eq('sesion_id', sesionId),
       sb.from('calificaciones').select('*').eq('sesion_id', sesionId).order('creado_en',{ascending:false}),
+      sb.from('asistencia').select('usuario_id,fecha,presente').eq('sesion_id', sesionId),
     ]);
     if(!estudiantes || !estudiantes.length){ notify('Todavía no hay estudiantes registrados en esta sesión.', 'error'); return; }
 
     const portMap = {}; (ports||[]).forEach(p=>{ portMap[p.usuario_id]=p; });
     const calMap = {}; (cals||[]).forEach(c=>{ (calMap[c.usuario_id]=calMap[c.usuario_id]||[]).push(c); });
+    const asistMap = {}; (asistRows||[]).forEach(a=>{ (asistMap[a.usuario_id]=asistMap[a.usuario_id]||[]).push(a); });
 
     const resumenFilas = estudiantes.map(e=>{
       const p = portMap[e.id];
       const retorno = p?.retorno_pct!=null ? Number(p.retorno_pct) : null;
+      const asistE = asistMap[e.id]||[];
+      const asistTxt = asistE.length ? `${asistE.filter(a=>a.presente).length}/${asistE.length}` : '—';
       return `<tr>
         <td>${e.nombre}</td>
         <td class="right">${p?.valor_total!=null?'$'+Number(p.valor_total).toLocaleString('es-PA',{minimumFractionDigits:0,maximumFractionDigits:0}):'—'}</td>
         <td class="right ${retorno===null?'':(retorno>=0?'g':'r')}">${retorno!==null?(retorno>=0?'+':'')+retorno.toFixed(1)+'%':'—'}</td>
         <td class="right">${p?.num_operaciones??0}</td>
+        <td class="right">${asistTxt}</td>
         <td class="right">${(calMap[e.id]||[]).length}</td>
       </tr>`;
     }).join('');
 
     const detalle = estudiantes.map((e,i)=>
       `<div style="${i>0?'page-break-before:always;':''}">` +
-      bloqueEstudiantePDF(e.nombre, e.correo, portMap[e.id], calMap[e.id]||[], portMap[e.id]?.lab_historial||[]) +
+      bloqueEstudiantePDF(e.nombre, e.correo, portMap[e.id], calMap[e.id]||[], portMap[e.id]?.lab_historial||[], asistMap[e.id]||[]) +
       `</div>`
     ).join('');
 
     const body = pdfHeader(sesion?.nombre || 'Informe del salón')
       + `<div class="section"><div class="section-title">Resumen general</div><div class="section-sub">${estudiantes.length} estudiante(s) · Código de sesión: ${sesion?.codigo||'—'}</div></div>`
-      + `<table><tr><th>Estudiante</th><th class="right">Valor cartera</th><th class="right">Retorno</th><th class="right">Operac.</th><th class="right">Calificaciones</th></tr>${resumenFilas}</table>`
+      + `<table><tr><th>Estudiante</th><th class="right">Valor cartera</th><th class="right">Retorno</th><th class="right">Operac.</th><th class="right">Asistencia</th><th class="right">Calificaciones</th></tr>${resumenFilas}</table>`
       + `<div style="page-break-before:always;"></div>`
       + detalle
       + pdfFooter();
@@ -2471,6 +2705,7 @@ function abrirModalCalificar(usuarioId, nombre, sesionId, editando){
       </div>
       <div class="auth-msg" id="gm-msg"></div>
       <div style="display:flex;gap:10px;">
+        ${esEdicion ? `<button class="btn btn-sm" id="gm-borrar" title="Borrar esta calificación" style="flex:0;color:var(--red);"><i class="ti ti-trash"></i></button>` : ''}
         <button class="btn btn-ghost" id="gm-cancelar" style="flex:1;">Cancelar</button>
         <button class="auth-submit" id="gm-guardar" style="flex:1;margin-top:0;">${esEdicion ? 'Guardar cambios' : 'Guardar calificación'}</button>
       </div>
@@ -2496,6 +2731,24 @@ function abrirModalCalificar(usuarioId, nombre, sesionId, editando){
   document.body.appendChild(overlay);
   overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
   overlay.querySelector('#gm-cancelar').onclick = () => overlay.remove();
+  if(esEdicion && overlay.querySelector('#gm-borrar')){
+    overlay.querySelector('#gm-borrar').onclick = async () => {
+      if(!confirm(`¿Borrar la calificación "${editando.titulo}"? Esto no se puede deshacer.`)) return;
+      const btn = overlay.querySelector('#gm-borrar');
+      btn.disabled = true;
+      try {
+        const { error } = await conTiempoLimite(sb.from('calificaciones').delete().eq('id', editando.id));
+        if(error) throw error;
+        overlay.remove();
+        notify('Calificación borrada.', 'success');
+        cargarRosterProfesor();
+      } catch(e){
+        const msg = overlay.querySelector('#gm-msg');
+        msg.className='auth-msg show error'; msg.textContent = 'No se pudo borrar: ' + (e.message||e);
+        btn.disabled = false;
+      }
+    };
+  }
   overlay.querySelector('#gm-guardar').onclick = async () => {
     const msg = overlay.querySelector('#gm-msg');
     const categoria = overlay.querySelector('#gm-categoria').value;
@@ -2543,6 +2796,37 @@ function abrirEdicionCalificacion(usuarioId, nombre, sesionId, calId){
 
 // Botón "Ver" del roster: resumen completo del estudiante sin llenar la
 // tabla principal de columnas — cartera detallada + todas sus calificaciones.
+// Mini-gráfica de línea (SVG) para mostrar la evolución del valor de cartera
+// a lo largo de la sesión, sin depender de ninguna librería externa.
+function graficaEvolucionSVG(puntos){
+  if(!puntos || puntos.length < 2) return '<div class="auth-hint">Todavía no hay suficientes datos para graficar la evolución (se necesitan al menos dos puntos).</div>';
+  const w = 460, h = 120, pad = 8;
+  const valores = puntos.map(p=>p.valor);
+  const min = Math.min(...valores), max = Math.max(...valores);
+  const rango = (max - min) || 1;
+  const xStep = (w - pad*2) / (puntos.length - 1);
+  const coords = puntos.map((p,i) => {
+    const x = pad + i*xStep;
+    const y = h - pad - ((p.valor - min) / rango) * (h - pad*2);
+    return [x,y];
+  });
+  const linea = coords.map(([x,y],i) => (i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)).join(' ');
+  const area = linea + ` L${coords[coords.length-1][0].toFixed(1)},${h-pad} L${coords[0][0].toFixed(1)},${h-pad} Z`;
+  const ultimo = puntos[puntos.length-1];
+  const primero = puntos[0];
+  const subio = ultimo.valor >= primero.valor;
+  const color = subio ? '#00d084' : '#ff4757';
+  return `
+    <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px;display:block;">
+      <path d="${area}" fill="${color}" opacity="0.08"></path>
+      <path d="${linea}" fill="none" stroke="${color}" stroke-width="2"></path>
+    </svg>
+    <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--t3);margin-top:4px;">
+      <span>${formatearFechaHora(primero.fecha)} · $${primero.valor.toLocaleString('es-PA')}</span>
+      <span>${formatearFechaHora(ultimo.fecha)} · $${ultimo.valor.toLocaleString('es-PA')}</span>
+    </div>`;
+}
+
 function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
   const port = profPortafolios[usuarioId] || {};
   const historial = profCalificaciones[usuarioId] || [];
@@ -2577,6 +2861,12 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
         </div>
       </div>
       <div style="font-size:11px;color:var(--t3);margin-bottom:14px;">Última actividad: ${port.ultima_actividad ? formatearFechaHora(port.ultima_actividad) : 'Sin actividad registrada'}</div>
+
+      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Evolución del valor de cartera</div>
+      ${graficaEvolucionSVG(port.valor_historial)}
+
+      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px;border-top:1px solid var(--c4);padding-top:14px;">Asistencia</div>
+      <div id="det-asistencia"><div class="auth-hint">Cargando…</div></div>
 
       <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;border-top:1px solid var(--c4);padding-top:14px;">
         Sesiones de Laboratorio (${labHist.length})
@@ -2619,6 +2909,24 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
   overlay.querySelector('#det-cerrar').onclick = () => overlay.remove();
   overlay.querySelector('#det-exportar').onclick = () => exportarInformeEstudiantePDF(usuarioId, nombreEsc, sesionId);
   overlay.querySelector('#det-calificar').onclick = () => { overlay.remove(); abrirModalCalificar(usuarioId, nombre, sesionId); };
+
+  (async () => {
+    const cont = overlay.querySelector('#det-asistencia');
+    if(!cont) return;
+    try {
+      const { data, error } = await sb.from('asistencia').select('fecha,presente').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).order('fecha',{ascending:false});
+      if(error) throw error;
+      if(!data || !data.length){ cont.innerHTML = '<div class="auth-hint">Todavía no se ha registrado asistencia.</div>'; return; }
+      const presentes = data.filter(a=>a.presente).length;
+      cont.innerHTML = `
+        <div style="font-size:13px;margin-bottom:8px;"><b>${presentes}</b> de <b>${data.length}</b> jornadas registradas</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+          ${data.slice(0,20).map(a=>`<span title="${a.fecha}" style="width:20px;height:20px;border-radius:4px;background:${a.presente?'var(--green)':'var(--red)'};opacity:.8;"></span>`).join('')}
+        </div>`;
+    } catch(e){
+      cont.innerHTML = '<div class="auth-hint">No se pudo cargar la asistencia.</div>';
+    }
+  })();
 }
 
 async function authBoot(){
@@ -6564,6 +6872,28 @@ function saveProgress() {
 // resultado: efectivo, valor total, retorno y cantidad de operaciones.
 let _ultimoSyncNube = 0;
 let _ultimaLongitudTxSincronizada = 0;
+let _ultimoPuntoHistorial = 0;
+
+// Guarda un punto de la evolución del valor de cartera, con un límite propio
+// de una vez cada 3 minutos (no hace falta un punto por cada operación,
+// alcanza con ver la tendencia general a lo largo de la sesión).
+async function registrarPuntoHistorialCartera(valorTotal, retornoPct){
+  if(!sb || !currentUser || !currentUser.usuario_id || !currentUser.sesion_id) return;
+  const ahora = Date.now();
+  if(ahora - _ultimoPuntoHistorial < 180000) return; // 3 minutos
+  _ultimoPuntoHistorial = ahora;
+  try {
+    const { data: fila } = await sb.from('portafolios').select('valor_historial')
+      .eq('usuario_id', currentUser.usuario_id).eq('sesion_id', currentUser.sesion_id).maybeSingle();
+    const historialActual = (fila && Array.isArray(fila.valor_historial)) ? fila.valor_historial : [];
+    const nuevoPunto = { fecha: new Date().toISOString(), valor: Math.round(valorTotal*100)/100, retorno: Math.round(retornoPct*100)/100 };
+    const actualizado = [...historialActual, nuevoPunto].slice(-60); // últimos 60 puntos
+    await sb.from('portafolios').update({ valor_historial: actualizado })
+      .eq('usuario_id', currentUser.usuario_id).eq('sesion_id', currentUser.sesion_id);
+  } catch(e){
+    console.warn('No se pudo registrar el punto de historial de cartera:', e.message);
+  }
+}
 
 function sincronizarProgresoNube(forzar){
   if(!sb || !currentUser || !currentUser.usuario_id || !currentUser.sesion_id || guestMode) return;
@@ -6616,6 +6946,7 @@ function sincronizarProgresoNube(forzar){
       actualizado_en: new Date().toISOString(),
     }, { onConflict: 'usuario_id,sesion_id' }).then(({error})=>{
       if(error) console.warn('No se pudo sincronizar la cartera con la nube:', error.message);
+      else registrarPuntoHistorialCartera(valorTotal, retornoPct);
     });
   } catch(e){
     console.warn('Sincronización con la nube omitida:', e.message);
@@ -8185,7 +8516,7 @@ function openPrintableDoc(title, innerHtml){
     .brand span{color:#0091c2;}
     .hdr-meta{text-align:right;font-size:8.5pt;color:#555;line-height:1.5;}
     .section-title{font-size:12pt;font-weight:700;color:#0b1220;margin:20px 0 10px;padding-bottom:5px;border-bottom:1px solid #e2e2e2;}
-    .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px;}
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:8px;}
     .kpi{background:#f6f8fa;border:1px solid #e6e9ee;border-radius:5px;padding:9px 11px;}
     .kpi-lbl{font-size:7.5pt;color:#777;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;}
     .kpi-val{font-size:13pt;font-weight:700;font-family:'Courier New',monospace;}
