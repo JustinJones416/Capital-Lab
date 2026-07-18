@@ -1385,9 +1385,12 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   <div id="news-center" class="news-center"></div>
 </div>
 <div id="page-calificaciones" class="page">
-  <div class="page-header">
-    <div class="page-title">Calificaciones</div>
-    <div class="page-sub" id="cal-page-sub">Aquí puedes ver tus calificaciones registradas por tu docente.</div>
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <div>
+      <div class="page-title">Calificaciones</div>
+      <div class="page-sub" id="cal-page-sub">Aquí puedes ver tus calificaciones registradas por tu docente.</div>
+    </div>
+    <button class="btn btn-sm" id="cal-btn-exportar" onclick="exportarDesdeCalificaciones()"><i class="ti ti-file-type-pdf"></i> Exportar</button>
   </div>
   <div class="card">
     <div id="cal-lista"><div class="auth-hint">Cargando…</div></div>
@@ -1411,6 +1414,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       <div style="display:flex;gap:8px;align-items:center;">
         <span id="prof-cloud-live-dot" title="Actualización en vivo activa" style="width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);display:none;"></span>
         <button class="btn btn-sm" onclick="cargarRosterProfesor(true)"><i class="ti ti-refresh"></i> Actualizar ahora</button>
+        <button class="btn btn-sm" onclick="exportarInformeSalonPDF()"><i class="ti ti-file-type-pdf"></i> Exportar informe del salón</button>
       </div>
     </div>
     <div class="card-sub" id="prof-cloud-sesion-info">Cargando información de tu sesión…</div>
@@ -2219,7 +2223,136 @@ function detenerRealtimeProfesor(){
   if(dot) dot.style.display = 'none';
 }
 
+// ══════════════════════════════════════════════════
+// EXPORTACIÓN — informe individual y de salón (PDF)
+// ══════════════════════════════════════════════════
+// Reutiliza el motor de PDF ya usado en el resto de la app
+// (pdfStyles / pdfHeader / pdfFooter / openPrintWindow).
+
+function bloqueEstudiantePDF(estNombre, estCorreo, port, calificaciones, labHist){
+  const retorno = port?.retorno_pct!=null ? Number(port.retorno_pct) : null;
+  const retornoClass = retorno===null ? '' : (retorno>=0 ? 'g' : 'r');
+  const retornoTxt = retorno!==null ? (retorno>=0?'+':'')+retorno.toFixed(2)+'%' : '—';
+  const fmtMoney = v => v!=null ? '$'+Number(v).toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+
+  return `
+    <div class="section">
+      <div class="section-title">${estNombre}</div>
+      <div class="section-sub">${estCorreo||''}</div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-lbl">Efectivo disponible</div><div class="kpi-val">${fmtMoney(port?.efectivo_disponible)}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Valor total cartera</div><div class="kpi-val">${fmtMoney(port?.valor_total)}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Retorno</div><div class="kpi-val ${retornoClass}">${retornoTxt}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Operaciones</div><div class="kpi-val">${port?.num_operaciones ?? 0}</div></div>
+    </div>
+
+    <div class="section"><div class="section-title" style="font-size:10pt;">Sesiones de Laboratorio</div></div>
+    ${(labHist&&labHist.length) ? `
+      <table>
+        <tr><th>Fecha</th><th>Estrategia</th><th>Perfil</th><th>Horizonte</th><th>Meta</th><th class="right">Resultado</th><th>Estado</th></tr>
+        ${labHist.map(h=>`<tr>
+          <td>${h.date||'—'}</td><td>${h.strat||'—'}</td><td>${h.perfil||'—'}</td>
+          <td>${h.months?h.months+' meses':'—'}</td><td>${h.target!=null?h.target+'%':'—'}</td>
+          <td class="right ${h.passed?'g':'r'}">${h.achieved!=null?h.achieved+'%':'—'}</td>
+          <td>${h.passed?'Cumplida':'No cumplida'}</td>
+        </tr>`).join('')}
+      </table>
+    ` : `<div class="empty">Sin sesiones de laboratorio registradas.</div>`}
+
+    <div class="section"><div class="section-title" style="font-size:10pt;">Calificaciones y retroalimentación</div></div>
+    ${(calificaciones&&calificaciones.length) ? calificaciones.map(c=>`
+      <div class="info-box ${c.nota_general>=80?'success':c.nota_general<60?'danger':''}">
+        <b>${c.titulo}</b> — ${c.categoria||'General'} — <span class="mono">${c.nota_general??'—'}/100</span><br>
+        ${c.comentario ? `<i>"${c.comentario}"</i><br>` : ''}
+        <span style="color:#999;font-size:7.5pt;">${formatearFechaHora(c.creado_en)}</span>
+      </div>
+    `).join('') : `<div class="empty">Sin calificaciones registradas todavía.</div>`}
+  `;
+}
+
+// Informe de UN estudiante — pensado para descargarlo y enviárselo directamente,
+// incluye su cartera, sus sesiones de laboratorio y toda su retroalimentación.
+async function exportarInformeEstudiantePDF(usuarioId, nombre, sesionId){
+  if(!sb){ notify('No hay conexión con la nube para exportar.', 'error'); return; }
+  notify('Generando informe…', 'success');
+  try {
+    const [{data: usr}, {data: port}, {data: cals}, {data: sesion}] = await Promise.all([
+      sb.from('usuarios').select('nombre,correo').eq('id', usuarioId).maybeSingle(),
+      sb.from('portafolios').select('*').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).maybeSingle(),
+      sb.from('calificaciones').select('*').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).order('creado_en',{ascending:false}),
+      sb.from('sesiones_clase').select('nombre').eq('id', sesionId).maybeSingle(),
+    ]);
+    const nombreFinal = usr?.nombre || nombre;
+    const body = pdfHeader(sesion?.nombre || 'Informe del estudiante')
+      + bloqueEstudiantePDF(nombreFinal, usr?.correo, port, cals||[], port?.lab_historial||[])
+      + pdfFooter();
+    openPrintWindow(body, `Informe — ${nombreFinal}`);
+  } catch(e){
+    notify('No se pudo generar el informe: ' + (e.message||e), 'error');
+  }
+}
+
+// Informe de TODO el salón — un solo documento con cada estudiante en su
+// propia sección, para el archivo del docente o para presentar resultados.
+async function exportarInformeSalonPDF(){
+  if(!sb || !currentUser || !currentUser.sesion_id){ notify('No hay sesión activa para exportar.', 'error'); return; }
+  notify('Generando informe del salón…', 'success');
+  try {
+    const sesionId = currentUser.sesion_id;
+    const [{data: sesion}, {data: estudiantes}, {data: ports}, {data: cals}] = await Promise.all([
+      sb.from('sesiones_clase').select('nombre,codigo').eq('id', sesionId).maybeSingle(),
+      sb.from('usuarios').select('id,nombre,correo').eq('sesion_id', sesionId).eq('rol','estudiante').order('nombre'),
+      sb.from('portafolios').select('*').eq('sesion_id', sesionId),
+      sb.from('calificaciones').select('*').eq('sesion_id', sesionId).order('creado_en',{ascending:false}),
+    ]);
+    if(!estudiantes || !estudiantes.length){ notify('Todavía no hay estudiantes registrados en esta sesión.', 'error'); return; }
+
+    const portMap = {}; (ports||[]).forEach(p=>{ portMap[p.usuario_id]=p; });
+    const calMap = {}; (cals||[]).forEach(c=>{ (calMap[c.usuario_id]=calMap[c.usuario_id]||[]).push(c); });
+
+    const resumenFilas = estudiantes.map(e=>{
+      const p = portMap[e.id];
+      const retorno = p?.retorno_pct!=null ? Number(p.retorno_pct) : null;
+      return `<tr>
+        <td>${e.nombre}</td>
+        <td class="right">${p?.valor_total!=null?'$'+Number(p.valor_total).toLocaleString('es-PA',{minimumFractionDigits:0,maximumFractionDigits:0}):'—'}</td>
+        <td class="right ${retorno===null?'':(retorno>=0?'g':'r')}">${retorno!==null?(retorno>=0?'+':'')+retorno.toFixed(1)+'%':'—'}</td>
+        <td class="right">${p?.num_operaciones??0}</td>
+        <td class="right">${(calMap[e.id]||[]).length}</td>
+      </tr>`;
+    }).join('');
+
+    const detalle = estudiantes.map((e,i)=>
+      `<div style="${i>0?'page-break-before:always;':''}">` +
+      bloqueEstudiantePDF(e.nombre, e.correo, portMap[e.id], calMap[e.id]||[], portMap[e.id]?.lab_historial||[]) +
+      `</div>`
+    ).join('');
+
+    const body = pdfHeader(sesion?.nombre || 'Informe del salón')
+      + `<div class="section"><div class="section-title">Resumen general</div><div class="section-sub">${estudiantes.length} estudiante(s) · Código de sesión: ${sesion?.codigo||'—'}</div></div>`
+      + `<table><tr><th>Estudiante</th><th class="right">Valor cartera</th><th class="right">Retorno</th><th class="right">Operac.</th><th class="right">Calificaciones</th></tr>${resumenFilas}</table>`
+      + `<div style="page-break-before:always;"></div>`
+      + detalle
+      + pdfFooter();
+    openPrintWindow(body, `Informe del salón — ${sesion?.nombre||''}`);
+  } catch(e){
+    notify('No se pudo generar el informe: ' + (e.message||e), 'error');
+  }
+}
+
 // ── Página "Calificaciones" (nav principal) — adaptable por rol ──
+// Botón "Exportar" de la página Calificaciones: cada rol exporta lo suyo.
+function exportarDesdeCalificaciones(){
+  if(!currentUser) return;
+  const esDocente = currentUser.rol==='docente' || currentUser.rol==='superadmin';
+  if(esDocente){
+    exportarInformeSalonPDF();
+  } else {
+    exportarInformeEstudiantePDF(currentUser.usuario_id, currentUser.nombre, currentUser.sesion_id);
+  }
+}
+
 async function renderCalificacionesPage(){
   const cont = document.getElementById('cal-lista');
   const empty = document.getElementById('cal-empty');
@@ -2391,14 +2524,16 @@ function abrirModalCalificar(usuarioId, nombre, sesionId){
 function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
   const port = profPortafolios[usuarioId] || {};
   const historial = profCalificaciones[usuarioId] || [];
+  const labHist = port.lab_historial || [];
   const retorno = port.retorno_pct!=null ? Number(port.retorno_pct) : null;
   const retornoTxt = retorno!==null ? (retorno>=0?'+':'')+retorno.toFixed(2)+'%' : '—';
   const retornoColor = retorno===null ? 'var(--t3)' : (retorno>=0 ? 'var(--green)' : 'var(--red)');
+  const nombreEsc = nombre.replace(/'/g,"\\'");
 
   const overlay = document.createElement('div');
   overlay.className = 'grade-modal-overlay';
   overlay.innerHTML = `
-    <div class="grade-modal" style="max-width:500px;">
+    <div class="grade-modal" style="max-width:520px;">
       <h3>${nombre}</h3>
       <div class="sub">Resumen de su sesión</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0;">
@@ -2422,6 +2557,19 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
       <div style="font-size:11px;color:var(--t3);margin-bottom:14px;">Última actividad: ${port.ultima_actividad ? formatearFechaHora(port.ultima_actividad) : 'Sin actividad registrada'}</div>
 
       <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;border-top:1px solid var(--c4);padding-top:14px;">
+        Sesiones de Laboratorio (${labHist.length})
+      </div>
+      ${labHist.length ? labHist.map(h => `
+        <div style="padding:8px 0;border-bottom:1px solid var(--c3);font-size:12.5px;">
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-weight:600;">${h.strat || 'Estrategia sin nombre'}</span>
+            <span style="color:${h.passed?'var(--green)':'var(--red)'};font-weight:700;">${h.achieved!=null?h.achieved+'%':'—'}</span>
+          </div>
+          <div style="color:var(--t3);font-size:10.5px;">${h.perfil||''} · ${h.months||'—'} meses · meta ${h.target??'—'}% · ${h.passed?'Cumplida':'No cumplida'} · ${h.date||''}</div>
+        </div>
+      `).join('') : '<div class="auth-hint">Todavía no tiene sesiones de laboratorio.</div>'}
+
+      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px;border-top:1px solid var(--c4);padding-top:14px;">
         Calificaciones (${historial.length})
       </div>
       ${historial.length ? historial.map(h => `
@@ -2437,12 +2585,14 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
 
       <div style="display:flex;gap:10px;margin-top:16px;">
         <button class="btn btn-ghost" id="det-cerrar" style="flex:1;">Cerrar</button>
+        <button class="btn" id="det-exportar" style="flex:1;"><i class="ti ti-file-type-pdf"></i> Exportar informe</button>
         <button class="auth-submit" id="det-calificar" style="flex:1;margin-top:0;">Calificar</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
   overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
   overlay.querySelector('#det-cerrar').onclick = () => overlay.remove();
+  overlay.querySelector('#det-exportar').onclick = () => exportarInformeEstudiantePDF(usuarioId, nombreEsc, sesionId);
   overlay.querySelector('#det-calificar').onclick = () => { overlay.remove(); abrirModalCalificar(usuarioId, nombre, sesionId); };
 }
 
@@ -6421,6 +6571,14 @@ function sincronizarProgresoNube(forzar){
     const valorTotal = capital + valorPosiciones;
     const retornoPct = ((valorTotal - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
 
+    // Historial de sesiones de Laboratorio (versión resumida, sin los arreglos
+    // muy pesados como la lista completa de activos elegidos por id).
+    const labResumen = (labHistory||[]).slice(0, 20).map(h => ({
+      date: h.date, strat: h.strat, perfil: h.perfil, months: h.months,
+      init: h.init, finalVal: h.finalVal, achieved: h.achieved, target: h.target,
+      passed: h.passed, sharpe: h.sharpe, sigma: h.sigma, picked: h.picked,
+    }));
+
     sb.from('portafolios').upsert({
       usuario_id: currentUser.usuario_id,
       sesion_id: currentUser.sesion_id,
@@ -6429,6 +6587,7 @@ function sincronizarProgresoNube(forzar){
       retorno_pct: retornoPct,
       num_operaciones: txHistory.length,
       ultima_actividad: new Date().toISOString(),
+      lab_historial: labResumen,
       actualizado_en: new Date().toISOString(),
     }, { onConflict: 'usuario_id,sesion_id' }).then(({error})=>{
       if(error) console.warn('No se pudo sincronizar la cartera con la nube:', error.message);
