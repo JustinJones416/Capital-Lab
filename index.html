@@ -2189,6 +2189,7 @@ function renderRosterProfesorTabla(estudiantes, sesionId, sesionNombre){
       <td><span class="grade-pill ${nivel}">${notaTxt}</span></td>
       <td style="white-space:nowrap;">
         <button class="btn btn-sm" title="Ver resumen completo" onclick="abrirDetalleEstudiante('${est.id}','${nombreEsc}','${sesionId}')"><i class="ti ti-eye"></i></button>
+        <button class="btn btn-sm" title="Exportar informe de ${nombreEsc}" onclick="exportarInformeEstudiantePDF('${est.id}','${nombreEsc}','${sesionId}')"><i class="ti ti-printer"></i></button>
         <button class="btn btn-sm" onclick="abrirModalCalificar('${est.id}','${nombreEsc}','${sesionId}')"><i class="ti ti-pencil"></i> Calificar</button>
       </td>
     </tr>`;
@@ -2262,8 +2263,8 @@ function bloqueEstudiantePDF(estNombre, estCorreo, port, calificaciones, labHist
 
     <div class="section"><div class="section-title" style="font-size:10pt;">Calificaciones y retroalimentación</div></div>
     ${(calificaciones&&calificaciones.length) ? calificaciones.map(c=>`
-      <div class="info-box ${c.nota_general>=80?'success':c.nota_general<60?'danger':''}">
-        <b>${c.titulo}</b> — ${c.categoria||'General'} — <span class="mono">${c.nota_general??'—'}/100</span><br>
+      <div class="info-box ${c.nota_general==null?'':(c.nota_general>=80?'success':c.nota_general<60?'danger':'')}">
+        <b>${c.titulo}</b> — ${c.categoria||'General'} — <span class="mono">${c.nota_general!=null?c.nota_general+'/100':'Sin nota numérica'}</span><br>
         ${c.comentario ? `<i>"${c.comentario}"</i><br>` : ''}
         <span style="color:#999;font-size:7.5pt;">${formatearFechaHora(c.creado_en)}</span>
       </div>
