@@ -666,6 +666,11 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 .auth-guest-opt i{display:block;font-size:16px;margin-bottom:4px;}
 .user-chip .role-badge.guest{background:rgba(122,138,176,.15);color:var(--t2);}
 
+/* ── Casilla de resultado: código de sesión generado ── */
+.auth-code-result{text-align:center;background:rgba(0,208,132,.07);border:1px solid rgba(0,208,132,.28);border-radius:var(--r2);padding:18px 16px;margin-top:6px;}
+.auth-code-label{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
+.auth-code-value{font-family:var(--font-mono);font-size:26px;font-weight:700;letter-spacing:.12em;color:var(--green);background:var(--c2);border:1px dashed rgba(0,208,132,.4);border-radius:var(--r);padding:10px 0;margin-bottom:10px;user-select:all;}
+
 /* ── Chip de usuario en la topbar ── */
 .user-chip{display:flex;align-items:center;gap:8px;background:var(--c2);border:1px solid var(--c4);border-radius:20px;padding:5px 6px 5px 12px;font-size:11.5px;color:var(--t1);}
 .user-chip .role-badge{font-size:9px;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:10px;font-weight:700;}
@@ -730,16 +735,24 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         </div>
       </div>
       <div class="auth-field" id="field-sesion-estudiante">
-        <label>Sesión de clase</label>
-        <select id="signup-sesion"><option value="">Cargando sesiones disponibles…</option></select>
-        <div class="auth-hint">Selecciona el grupo asignado por tu docente.</div>
+        <label>Código de sesión</label>
+        <input type="text" id="signup-sesion-codigo" placeholder="Ej. MF2026B" maxlength="10" style="text-transform:uppercase;letter-spacing:.08em;">
+        <div class="auth-hint">Pídeselo a tu docente — cada sesión de clase tiene un código propio.</div>
       </div>
       <div class="auth-field hidden" id="field-sesion-docente">
         <label>Nombre de la sesión de clase</label>
         <input type="text" id="signup-sesion-nombre" placeholder='Ej. "Mercados Financieros — 2026-2"'>
-        <div class="auth-hint">Se creará una sesión nueva de la que serás responsable.</div>
+        <div class="auth-hint">Se creará una sesión nueva de la que serás responsable. Al terminar te daremos un código para compartir con tus estudiantes.</div>
       </div>
+
       <button class="auth-submit" id="btn-signup" onclick="authSignup()">Crear cuenta</button>
+
+      <div class="auth-code-result" id="signup-code-result" style="display:none;">
+        <div class="auth-code-label">Sesión creada — código para tus estudiantes</div>
+        <div class="auth-code-value" id="signup-code-value">——————</div>
+        <div class="auth-hint">Compárteles este código para que se registren en tu sesión. También queda guardado en tu cuenta.</div>
+        <button class="auth-submit" style="margin-top:12px;" onclick="authSwitchView('login')">Entendido, iniciar sesión</button>
+      </div>
     </div>
 
     <!-- Vista: recuperar contraseña -->
@@ -1449,7 +1462,11 @@ function authSwitchView(view){
   });
   document.getElementById('tab-login').classList.toggle('active', view==='login');
   document.getElementById('tab-signup').classList.toggle('active', view==='signup');
-  if(view==='signup') authRefreshSessionOptions();
+  if(view==='signup'){
+    // Al volver a esta vista tras haber creado una sesión, ocultamos el aviso del código.
+    document.getElementById('signup-code-result').style.display = 'none';
+    document.getElementById('btn-signup').style.display = '';
+  }
 }
 
 function authSetRole(role){
@@ -1460,21 +1477,12 @@ function authSetRole(role){
   document.getElementById('field-sesion-docente').classList.toggle('hidden', role!=='docente');
 }
 
-async function authRefreshSessionOptions(){
-  const sel = document.getElementById('signup-sesion');
-  if(!sel) return;
-  if(!sb){ sel.innerHTML = '<option value="">Configura Supabase primero</option>'; return; }
-  try {
-    const { data, error } = await sb.from('sesiones_clase').select('id,nombre').eq('activa', true).order('nombre');
-    if(error) throw error;
-    if(!data || data.length===0){
-      sel.innerHTML = '<option value="">No hay sesiones activas — pide a tu docente que cree una</option>';
-      return;
-    }
-    sel.innerHTML = data.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
-  } catch(e){
-    sel.innerHTML = '<option value="">Error al cargar sesiones</option>';
-  }
+// Genera un código corto y legible para compartir (sin caracteres ambiguos como 0/O, 1/I).
+function generarCodigoSesion(){
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  for(let i=0;i<6;i++) out += abc[Math.floor(Math.random()*abc.length)];
+  return out;
 }
 
 async function authSignup(){
@@ -1483,38 +1491,63 @@ async function authSignup(){
   const correo = document.getElementById('signup-email').value.trim();
   const password = document.getElementById('signup-password').value;
   const rol = authPendingRole;
-  const sesionId = rol==='estudiante' ? document.getElementById('signup-sesion').value : null;
+  const codigoIngresado = rol==='estudiante' ? document.getElementById('signup-sesion-codigo').value.trim() : null;
   const sesionNombre = rol==='docente' ? document.getElementById('signup-sesion-nombre').value.trim() : null;
 
   if(!nombre || !correo || !password){ authMsg('Completa nombre, correo y contraseña.'); return; }
   if(password.length < 6){ authMsg('La contraseña debe tener al menos 6 caracteres.'); return; }
-  if(rol==='estudiante' && !sesionId){ authMsg('Selecciona la sesión de clase a la que perteneces.'); return; }
+  if(rol==='estudiante' && !codigoIngresado){ authMsg('Ingresa el código de sesión que te dio tu docente.'); return; }
   if(rol==='docente' && !sesionNombre){ authMsg('Indica el nombre de la sesión de clase que vas a crear.'); return; }
 
   const btn = document.getElementById('btn-signup');
   btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Creando cuenta…';
   try {
+    // Para estudiantes, validar el código ANTES de crear la cuenta de autenticación,
+    // así no queda una cuenta huérfana si el código no existe.
+    let sesionId = null;
+    if(rol==='estudiante'){
+      const { data: sesiones, error: buscarError } = await sb.rpc('buscar_sesion_por_codigo', { p_codigo: codigoIngresado });
+      if(buscarError) throw buscarError;
+      if(!sesiones || sesiones.length===0) throw new Error('El código de sesión no es válido o la sesión ya no está activa. Verifícalo con tu docente.');
+      sesionId = sesiones[0].id;
+    }
+
     const { data: signUpData, error: signUpError } = await sb.auth.signUp({ email: correo, password });
     if(signUpError) throw signUpError;
     const authId = signUpData.user ? signUpData.user.id : null;
     if(!authId) throw new Error('No se pudo crear la cuenta. Intenta de nuevo.');
 
-    let finalSesionId = sesionId;
+    let codigoGenerado = null;
     if(rol==='docente'){
-      const { data: sesionRow, error: sesionError } = await sb.from('sesiones_clase')
-        .insert({ nombre: sesionNombre, docente_id: authId, capital_inicial: 50000, mercados_activos: 5, activa: true })
-        .select('id').single();
-      if(sesionError) throw sesionError;
-      finalSesionId = sesionRow.id;
+      // Reintenta un par de veces por si el código generado ya existe (muy poco probable).
+      for(let intento=0; intento<4; intento++){
+        codigoGenerado = generarCodigoSesion();
+        const { data: sesionRow, error: sesionError } = await sb.from('sesiones_clase')
+          .insert({ nombre: sesionNombre, codigo: codigoGenerado, docente_id: authId, capital_inicial: 50000, mercados_activos: 5, activa: true })
+          .select('id').single();
+        if(!sesionError){ sesionId = sesionRow.id; break; }
+        if(sesionError.code !== '23505') throw sesionError; // 23505 = código duplicado, reintentar
+        if(intento===3) throw sesionError;
+      }
     }
 
     const { error: userError } = await sb.from('usuarios').insert({
-      auth_id: authId, nombre, correo, rol, sesion_id: finalSesionId,
+      auth_id: authId, nombre, correo, rol, sesion_id: sesionId,
     });
     if(userError) throw userError;
 
-    authMsg('Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.', 'success');
-    setTimeout(()=>authSwitchView('login'), 2200);
+    if(rol==='docente'){
+      // Mostrar el código con calma en vez de mandarlo directo a login: es lo único
+      // que necesita para invitar a sus estudiantes y no debe perderse de vista.
+      btn.style.display = 'none';
+      const box = document.getElementById('signup-code-result');
+      document.getElementById('signup-code-value').textContent = codigoGenerado;
+      box.style.display = 'block';
+      authMsg('Cuenta creada. Revisa tu correo para confirmarla antes de iniciar sesión.', 'success');
+    } else {
+      authMsg('Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.', 'success');
+      setTimeout(()=>authSwitchView('login'), 2200);
+    }
   } catch(e){
     authMsg('Error al crear la cuenta: ' + (e.message||e));
   } finally {
@@ -1637,7 +1670,6 @@ async function authBoot(){
     if(session){
       await authLoadProfileAndEnter();
     }
-    authRefreshSessionOptions();
   } catch(e){
     authMsg('No se pudo conectar con el servidor: ' + (e.message||e) + '. Puedes usar el modo de prueba sin cuenta mientras tanto.', 'error');
   }
