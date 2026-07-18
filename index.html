@@ -711,6 +711,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       </div>
       <button class="auth-submit" id="btn-login" onclick="authLogin()">Iniciar sesión</button>
       <span class="auth-forgot" onclick="authSwitchView('reset')">¿Olvidaste tu contraseña?</span>
+      <span class="auth-forgot" onclick="authResendConfirmation()">¿No te llegó el correo de confirmación? Reenviar</span>
     </div>
 
     <!-- Vista: crear cuenta -->
@@ -1574,6 +1575,20 @@ async function authResetPassword(){
     authMsg('No se pudo enviar el correo: ' + (e.message||e));
   } finally {
     btn.disabled = false; btn.textContent = 'Enviar enlace de recuperación';
+  }
+}
+
+async function authResendConfirmation(){
+  if(!authConfigured() || !sb){ authMsg('Supabase aún no está configurado o no se pudo conectar. Revisa tu conexión e intenta de nuevo.', 'error'); return; }
+  let correo = document.getElementById('login-email').value.trim();
+  if(!correo) correo = (prompt('¿A qué correo reenviamos la confirmación?','') || '').trim();
+  if(!correo){ authMsg('Ingresa tu correo electrónico primero.'); return; }
+  try {
+    const { error } = await sb.auth.resend({ type: 'signup', email: correo });
+    if(error) throw error;
+    authMsg('Correo de confirmación reenviado. Si sigue sin llegar en unos minutos, revisa la carpeta de spam.', 'success');
+  } catch(e){
+    authMsg('No se pudo reenviar el correo: ' + (e.message||e));
   }
 }
 
