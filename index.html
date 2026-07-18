@@ -138,6 +138,8 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 
 /* ── SIDEBAR NAV ── */
 .wl-nav{display:flex;flex-direction:column;gap:1px;padding:6px 6px 0;border-bottom:1px solid var(--c4);margin-bottom:2px;flex-shrink:0;}
+.wl-nav-section{font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;padding:8px 8px 3px;font-weight:700;}
+.wl-nav-section:first-child{padding-top:2px;}
 .wl-nav-btn{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;color:var(--t2);font-size:11px;font-family:var(--font-body);width:100%;text-align:left;transition:all .12s;white-space:nowrap;overflow:hidden;}
 .wl-nav-btn i{font-size:14px;flex-shrink:0;}
 .wl-nav-btn:hover{background:var(--c3);color:var(--t1);}
@@ -687,6 +689,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 #prof-cloud-table tr:last-child td{border-bottom:none;}
 .prof-join-badge{display:inline-block;background:rgba(0,196,255,.1);color:var(--accent2);font-size:10px;padding:2px 7px;border-radius:8px;margin-left:6px;animation:prof-join-pulse 2s ease-in-out 3;}
 @keyframes prof-join-pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+@keyframes logro-entrada{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}
 .grade-pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:10px;}
 .grade-pill.alta{background:rgba(0,208,132,.12);color:var(--green);}
 .grade-pill.media{background:rgba(212,175,55,.14);color:var(--gold);}
@@ -893,7 +896,10 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 <div class="sidebar">
   <!-- Navigation -->
   <div class="wl-nav" id="wl-nav">
-    <button class="wl-nav-btn active" id="nav-mercado"       onclick="goPage('mercado')"><i class="ti ti-chart-candle"></i> Mercado</button>
+    <button class="wl-nav-btn active" id="nav-inicio"        onclick="goPage('inicio')"><i class="ti ti-home"></i> Inicio</button>
+
+    <div class="wl-nav-section">Simulador</div>
+    <button class="wl-nav-btn"        id="nav-mercado"       onclick="goPage('mercado')"><i class="ti ti-chart-candle"></i> Mercado</button>
     <button class="wl-nav-btn"        id="nav-analisis"      onclick="goPage('analisis')"><i class="ti ti-chart-bar"></i> Análisis</button>
     <button class="wl-nav-btn"        id="nav-personalizado" onclick="goPage('personalizado')"><i class="ti ti-adjustments-horizontal"></i> Personalizado</button>
     <button class="wl-nav-btn"        id="nav-cartera"       onclick="goPage('cartera')"><i class="ti ti-briefcase"></i> Mi Cartera</button>
@@ -901,10 +907,14 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <button class="wl-nav-btn"        id="nav-resultados"    onclick="goPage('resultados')"><i class="ti ti-award"></i> Resultados</button>
     <button class="wl-nav-btn"        id="nav-resultados-lab" onclick="goPage('resultados-lab')"><i class="ti ti-report-analytics"></i> Resultados Lab</button>
     <button class="wl-nav-btn"        id="nav-noticias"      onclick="goPage('noticias')"><i class="ti ti-news"></i> Noticias</button>
+
+    <div class="wl-nav-section">Mi progreso</div>
     <button class="wl-nav-btn"        id="nav-calificaciones" onclick="goPage('calificaciones')"><i class="ti ti-certificate"></i> Calificaciones</button>
     <button class="wl-nav-btn"        id="nav-cuestionarios"  onclick="goPage('cuestionarios')"><i class="ti ti-list-check"></i> Cuestionarios</button>
     <button class="wl-nav-btn"        id="nav-posiciones"     onclick="goPage('posiciones')"><i class="ti ti-trophy"></i> Posiciones</button>
-    <button class="wl-nav-btn"        id="nav-profesor"      onclick="goPage('profesor')"><i class="ti ti-school"></i> Modo Profesor</button>
+
+    <div class="wl-nav-section" id="wl-nav-section-gestion" style="display:none;">Gestión</div>
+    <button class="wl-nav-btn"        id="nav-profesor"      onclick="goPage('profesor')" style="display:none;"><i class="ti ti-school"></i> Modo Profesor</button>
     <button class="wl-nav-btn"        id="nav-admin"          onclick="goPage('admin')" style="display:none;"><i class="ti ti-shield-cog"></i> Administración</button>
   </div>
   <!-- Watchlist -->
@@ -932,8 +942,17 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 <!-- ── MAIN ── -->
 <div class="main-content">
 
+<!-- ════════ INICIO ════════ -->
+<div id="page-inicio" class="page active">
+  <div class="page-header">
+    <div class="page-title" id="inicio-titulo">Bienvenido a CapitalLab</div>
+    <div class="page-sub" id="inicio-sub">Cargando tu resumen…</div>
+  </div>
+  <div id="inicio-contenido"><div class="auth-hint">Cargando…</div></div>
+</div>
+
 <!-- ════════ MERCADO ════════ -->
-<div id="page-mercado" class="page active" style="padding:0;max-width:100%;">
+<div id="page-mercado" class="page" style="padding:0;max-width:100%;">
   <div class="market-with-news">
   <div class="market-main" style="display:flex;flex-direction:column;height:calc(var(--vh,1vh)*100 - 128px);overflow:hidden;">
       <div class="market-toolbar" id="mkt-toolbar">
@@ -1776,7 +1795,10 @@ function authGuestEnter(role){
   badge.className = 'role-badge guest';
   const navProfesor = document.getElementById('nav-profesor');
   if(navProfesor) navProfesor.style.display = (role==='estudiante') ? 'none' : '';
+  const seccionGestionG = document.getElementById('wl-nav-section-gestion');
+  if(seccionGestionG) seccionGestionG.style.display = (role==='estudiante') ? 'none' : '';
   if(typeof initApp === 'function') initApp();
+  renderInicioPage();
   setTimeout(()=>{ if(typeof notify==='function') notify('Modo de prueba: el progreso no se sincroniza con ninguna cuenta.', 'success'); }, 900);
 }
 
@@ -1830,8 +1852,11 @@ async function authLoadProfileAndEnter(){
   if(navProfesor) navProfesor.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
   const navAdmin = document.getElementById('nav-admin');
   if(navAdmin) navAdmin.style.display = (currentUser.rol==='superadmin') ? '' : 'none';
+  const seccionGestion = document.getElementById('wl-nav-section-gestion');
+  if(seccionGestion) seccionGestion.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
   if(typeof initApp === 'function') initApp();
   actualizarBadgeNotificaciones();
+  renderInicioPage();
 
   if(perfil._codigoRecienGenerado){
     setTimeout(()=>mostrarCodigoSesionPostLogin(perfil._codigoRecienGenerado), 700);
@@ -2052,6 +2077,14 @@ async function mostrarInfoSesion(){
   const esDocente = currentUser.rol === 'docente' || currentUser.rol === 'superadmin';
   overlay.innerHTML = `
     <div class="auth-box" style="max-width:420px;">
+      <div class="auth-brand" style="font-size:18px;">Mi cuenta</div>
+      <div class="auth-field" style="margin-bottom:18px;">
+        <label>Nombre</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="ms-mi-nombre" value="${currentUser.nombre.replace(/"/g,'&quot;')}" style="flex:1;">
+          <button class="btn btn-sm" id="ms-btn-guardar-nombre"><i class="ti ti-check"></i></button>
+        </div>
+      </div>
       <div class="auth-brand" style="font-size:18px;">Mis sesiones de clase</div>
       <div class="auth-sub">${esDocente ? 'Las clases que administras. La marcada como activa es la que ves en Modo Profesor.' : 'Las clases a las que perteneces. La marcada como activa es en la que estás operando ahora.'}</div>
       <div id="ms-msg" class="auth-msg"></div>
@@ -2078,6 +2111,20 @@ async function mostrarInfoSesion(){
   document.body.appendChild(overlay);
   overlay.querySelector('#btn-cerrar-info-sesion').onclick = () => overlay.remove();
   overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+  overlay.querySelector('#ms-btn-guardar-nombre').onclick = async () => {
+    const nuevoNombre = overlay.querySelector('#ms-mi-nombre').value.trim();
+    const msg = overlay.querySelector('#ms-msg');
+    if(!nuevoNombre){ msg.className='auth-msg show error'; msg.textContent='El nombre no puede quedar vacío.'; return; }
+    try {
+      const { error } = await sb.from('usuarios').update({ nombre: nuevoNombre }).eq('id', currentUser.usuario_id);
+      if(error) throw error;
+      currentUser.nombre = nuevoNombre;
+      document.getElementById('user-name-label').textContent = nuevoNombre;
+      notify('Nombre actualizado.', 'success');
+    } catch(e){
+      msg.className='auth-msg show error'; msg.textContent = 'No se pudo actualizar: ' + (e.message||e);
+    }
+  };
 
   async function cargarListaSesiones(){
     const cont = overlay.querySelector('#ms-lista');
@@ -2692,6 +2739,247 @@ function editarDesdeCalPage(calId, nombreEst){
 }
 
 // ══════════════════════════════════════════════════
+// LOGROS — insignias por hitos alcanzados
+// ══════════════════════════════════════════════════
+const CATALOGO_LOGROS = {
+  primera_operacion:     { icono:'ti-flag',               titulo:'Primera operación',        desc:'Registraste tu primera compra o venta.' },
+  diez_operaciones:      { icono:'ti-repeat',              titulo:'Operador activo',          desc:'Registraste 10 operaciones o más.' },
+  cartera_diversificada: { icono:'ti-chart-pie',           titulo:'Cartera diversificada',     desc:'Tienes posiciones abiertas en 3 activos distintos o más.' },
+  retorno_positivo:      { icono:'ti-trending-up',         titulo:'En números verdes',         desc:'Tu cartera alcanzó un retorno positivo.' },
+  explorador_mercados:   { icono:'ti-world',               titulo:'Explorador de mercados',    desc:'Operaste en acciones, bonos y divisas.' },
+  primer_cuestionario:   { icono:'ti-list-check',          titulo:'Primer cuestionario',       desc:'Resolviste tu primer cuestionario.' },
+  cuestionario_perfecto: { icono:'ti-star',                titulo:'Cuestionario perfecto',     desc:'Obtuviste 100 de 100 en un cuestionario.' },
+  meta_laboratorio:      { icono:'ti-target-arrow',        titulo:'Meta cumplida',             desc:'Completaste una sesión de Laboratorio alcanzando tu meta.' },
+};
+
+let _logrosDesbloqueadosCache = null;
+
+async function cargarLogrosDesbloqueados(forzar){
+  if(!sb || !currentUser || !currentUser.usuario_id || !currentUser.sesion_id) return new Set();
+  if(_logrosDesbloqueadosCache && !forzar) return _logrosDesbloqueadosCache;
+  try {
+    const { data } = await sb.from('logros_desbloqueados').select('codigo_logro').eq('usuario_id', currentUser.usuario_id).eq('sesion_id', currentUser.sesion_id);
+    _logrosDesbloqueadosCache = new Set((data||[]).map(d=>d.codigo_logro));
+  } catch(e){ _logrosDesbloqueadosCache = new Set(); }
+  return _logrosDesbloqueadosCache;
+}
+
+async function desbloquearLogro(codigo){
+  if(!sb || !currentUser || !currentUser.usuario_id || !currentUser.sesion_id || guestMode) return;
+  if(!CATALOGO_LOGROS[codigo]) return;
+  const cache = await cargarLogrosDesbloqueados();
+  if(cache.has(codigo)) return; // ya lo tenía, no repetir el aviso
+  try {
+    const { error } = await sb.from('logros_desbloqueados').insert({
+      usuario_id: currentUser.usuario_id, sesion_id: currentUser.sesion_id, codigo_logro: codigo,
+    });
+    if(error){ if(error.code!=='23505') console.warn('No se pudo registrar el logro:', error.message); return; }
+    cache.add(codigo);
+    mostrarCelebracionLogro(codigo);
+  } catch(e){ /* silencioso: un logro que no se pudo guardar no debe interrumpir nada más */ }
+}
+
+function mostrarCelebracionLogro(codigo){
+  const l = CATALOGO_LOGROS[codigo];
+  if(!l) return;
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;top:70px;right:20px;z-index:4000;background:var(--c1);border:1px solid var(--gold);border-radius:var(--r2);padding:14px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:320px;animation:logro-entrada .35s ease;';
+  el.innerHTML = `
+    <div style="width:42px;height:42px;border-radius:50%;background:rgba(212,175,55,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <i class="ti ${l.icono}" style="font-size:20px;color:var(--gold);"></i>
+    </div>
+    <div>
+      <div style="font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:.04em;font-weight:700;">Logro desbloqueado</div>
+      <div style="font-weight:700;font-size:13.5px;">${l.titulo}</div>
+      <div style="font-size:11.5px;color:var(--t3);">${l.desc}</div>
+    </div>`;
+  document.body.appendChild(el);
+  setTimeout(()=>{ el.style.transition='opacity .4s'; el.style.opacity='0'; setTimeout(()=>el.remove(), 400); }, 5000);
+}
+
+// Revisa los logros relacionados con el mercado, con lo que ya está en
+// memoria (sin consultas extra a la nube). Se llama junto con cada sync.
+function verificarLogrosTrading(){
+  if(!currentUser || !currentUser.usuario_id || guestMode) return;
+  if(txHistory.length >= 1) desbloquearLogro('primera_operacion');
+  if(txHistory.length >= 10) desbloquearLogro('diez_operaciones');
+  const activosAbiertos = new Set(portfolio.map(p=>p.id+'_'+p.type));
+  if(activosAbiertos.size >= 3) desbloquearLogro('cartera_diversificada');
+  const valorPosiciones = portfolio.reduce((s,p)=>s+((p.currentPrice||p.buyPrice||0)*p.qty), 0);
+  if((capital + valorPosiciones) > INITIAL_CAPITAL) desbloquearLogro('retorno_positivo');
+  const tiposOperados = new Set(portfolio.map(p=>p.type).concat(txHistory.map(t=>t.type)));
+  if(['accion','bono','divisa'].every(t=>tiposOperados.has(t))) desbloquearLogro('explorador_mercados');
+}
+
+// Tarjeta compacta para el Panel de Inicio: todos los logros, desbloqueados
+// a color y con fecha, los que faltan en gris con su criterio.
+async function tarjetaLogrosHTML(){
+  const desbloqueados = await cargarLogrosDesbloqueados();
+  const codigos = Object.keys(CATALOGO_LOGROS);
+  return `
+    <div class="card">
+      <div class="card-title"><i class="ti ti-award" style="color:var(--gold);"></i> Mis logros (${desbloqueados.size}/${codigos.length})</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px;margin-top:6px;">
+        ${codigos.map(cod => {
+          const l = CATALOGO_LOGROS[cod];
+          const logrado = desbloqueados.has(cod);
+          return `<div title="${l.desc}" style="text-align:center;padding:10px 4px;border-radius:var(--r);${logrado?'background:rgba(212,175,55,.1);':'opacity:.4;'}">
+            <div style="width:38px;height:38px;margin:0 auto 6px;border-radius:50%;background:${logrado?'rgba(212,175,55,.18)':'var(--c3)'};display:flex;align-items:center;justify-content:center;">
+              <i class="ti ${l.icono}" style="font-size:17px;color:${logrado?'var(--gold)':'var(--t3)'};"></i>
+            </div>
+            <div style="font-size:10px;line-height:1.25;color:${logrado?'var(--t1)':'var(--t3)'};">${l.titulo}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════
+// PANEL DE INICIO — resumen de un vistazo al entrar
+// ══════════════════════════════════════════════════
+async function renderInicioPage(){
+  const titulo = document.getElementById('inicio-titulo');
+  const sub = document.getElementById('inicio-sub');
+  const cont = document.getElementById('inicio-contenido');
+  if(!titulo || !cont) return;
+
+  if(!currentUser){ return; }
+
+  const primerNombre = (currentUser.nombre||'').split(' ')[0] || 'de vuelta';
+  titulo.textContent = `Hola, ${primerNombre}`;
+
+  if(guestMode){
+    sub.textContent = 'Estás en modo de prueba, sin cuenta real.';
+    cont.innerHTML = `
+      <div class="card">
+        <div class="card-title"><i class="ti ti-flask" style="color:var(--accent2);"></i> Modo de prueba</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.6;">Puedes explorar todo el simulador libremente, pero nada de lo que hagas aquí se guarda en una cuenta real. Cuando quieras, cierra sesión y crea una cuenta para conservar tu progreso.</div>
+        <button class="btn" style="margin-top:12px;" onclick="goPage('mercado')"><i class="ti ti-chart-candle"></i> Ir al mercado</button>
+      </div>`;
+    return;
+  }
+
+  const esDocente = currentUser.rol==='docente' || currentUser.rol==='superadmin';
+
+  if(!currentUser.sesion_id){
+    sub.textContent = 'Todavía no perteneces a ninguna sesión de clase.';
+    cont.innerHTML = `<div class="card"><div style="font-size:13px;color:var(--t2);">Usa el ícono de información junto a tu nombre, arriba a la derecha, para unirte a una sesión con un código o crear una nueva.</div></div>`;
+    return;
+  }
+
+  sub.textContent = currentUser.sesion_nombre ? `Sesión: ${currentUser.sesion_nombre}` : '';
+  cont.innerHTML = '<div class="auth-hint">Cargando tu resumen…</div>';
+
+  try {
+    if(esDocente){
+      const sesionId = currentUser.sesion_id;
+      const [{data: estudiantes}, {data: ports}, {data: cuest}, {data: anuncios}] = await Promise.all([
+        sb.from('usuarios').select('id').eq('sesion_id', sesionId).eq('rol','estudiante'),
+        sb.from('portafolios').select('retorno_pct').eq('sesion_id', sesionId),
+        sb.from('cuestionarios').select('id,titulo,activo').eq('sesion_id', sesionId).order('creado_en',{ascending:false}).limit(5),
+        sb.from('anuncios').select('titulo,creado_en').eq('sesion_id', sesionId).order('creado_en',{ascending:false}).limit(3),
+      ]);
+      const numEst = (estudiantes||[]).length;
+      const retornos = (ports||[]).map(p=>p.retorno_pct).filter(r=>r!=null);
+      const promedio = retornos.length ? (retornos.reduce((a,b)=>a+Number(b),0)/retornos.length).toFixed(1) : null;
+      const cuestActivos = (cuest||[]).filter(c=>c.activo!==false).length;
+
+      cont.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;">
+          <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
+            <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Estudiantes</div>
+            <div style="font-size:22px;font-weight:700;">${numEst}</div>
+          </div>
+          <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
+            <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Retorno promedio</div>
+            <div style="font-size:22px;font-weight:700;color:${promedio===null?'var(--t3)':(promedio>=0?'var(--green)':'var(--red)')};">${promedio!==null?(promedio>=0?'+':'')+promedio+'%':'—'}</div>
+          </div>
+          <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
+            <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Cuestionarios activos</div>
+            <div style="font-size:22px;font-weight:700;">${cuestActivos}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">
+          <div class="card">
+            <div class="card-title"><i class="ti ti-school" style="color:var(--accent2);"></i> Accesos rápidos</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <button class="btn" onclick="goPage('profesor')"><i class="ti ti-users-group"></i> Ver a mis estudiantes</button>
+              <button class="btn" onclick="goPage('cuestionarios')"><i class="ti ti-list-check"></i> Cuestionarios</button>
+              <button class="btn" onclick="mostrarNotificaciones()"><i class="ti ti-speakerphone"></i> Publicar un anuncio</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title"><i class="ti ti-speakerphone" style="color:var(--accent2);"></i> Tus últimos anuncios</div>
+            ${(anuncios&&anuncios.length) ? anuncios.map(a=>`<div style="padding:6px 0;border-bottom:1px solid var(--c3);font-size:12.5px;">${a.titulo}<div style="color:var(--t3);font-size:10.5px;">${formatearFechaHora(a.creado_en)}</div></div>`).join('') : '<div class="auth-hint">Todavía no has publicado ningún anuncio.</div>'}
+          </div>
+        </div>`;
+    } else {
+      const sesionId = currentUser.sesion_id;
+      const valorPosiciones = portfolio.reduce((s,p)=>s+((p.currentPrice||p.buyPrice||0)*p.qty), 0);
+      const valorTotal = capital + valorPosiciones;
+      const retornoPct = ((valorTotal - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
+
+      const [{data: cuestActivos}, {data: misIntentos}, {data: anuncios}, {data: misCals}, {data: sesionInfo}] = await Promise.all([
+        sb.from('cuestionarios').select('id,titulo').eq('sesion_id', sesionId).eq('activo', true),
+        sb.from('intentos_cuestionario').select('cuestionario_id').eq('usuario_id', currentUser.usuario_id),
+        sb.from('anuncios').select('titulo,creado_en').eq('sesion_id', sesionId).order('creado_en',{ascending:false}).limit(3),
+        sb.from('calificaciones').select('titulo,nota_general,creado_en').eq('usuario_id', currentUser.usuario_id).order('creado_en',{ascending:false}).limit(3),
+        sb.from('sesiones_clase').select('mostrar_ranking').eq('id', sesionId).maybeSingle(),
+      ]);
+      const idsResueltos = new Set((misIntentos||[]).map(i=>i.cuestionario_id));
+      const pendientes = (cuestActivos||[]).filter(c=>!idsResueltos.has(c.id));
+
+      let rankingTxt = '';
+      if(sesionInfo?.mostrar_ranking){
+        const { data: ports } = await sb.from('portafolios').select('usuario_id,retorno_pct').eq('sesion_id', sesionId).order('retorno_pct',{ascending:false});
+        if(ports && ports.length){
+          const puesto = ports.findIndex(p=>p.usuario_id===currentUser.usuario_id) + 1;
+          if(puesto>0) rankingTxt = `Estás en el puesto <b>${puesto}</b> de ${ports.length}.`;
+        }
+      }
+
+      cont.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;">
+          <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
+            <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Valor de cartera</div>
+            <div style="font-size:22px;font-weight:700;">$${valorTotal.toLocaleString('es-PA',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+          </div>
+          <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
+            <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Retorno</div>
+            <div style="font-size:22px;font-weight:700;color:${retornoPct>=0?'var(--green)':'var(--red)'};">${retornoPct>=0?'+':''}${retornoPct.toFixed(2)}%</div>
+          </div>
+          <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
+            <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Cuestionarios pendientes</div>
+            <div style="font-size:22px;font-weight:700;">${pendientes.length}</div>
+          </div>
+        </div>
+        ${rankingTxt ? `<div class="info-box-app" style="background:rgba(0,196,255,.08);border:1px solid var(--accent2);border-radius:var(--r);padding:10px 14px;font-size:13px;margin-bottom:16px;"><i class="ti ti-trophy" style="color:var(--accent2);margin-right:6px;"></i>${rankingTxt}</div>` : ''}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">
+          <div class="card">
+            <div class="card-title"><i class="ti ti-list-check" style="color:var(--accent2);"></i> Cuestionarios pendientes</div>
+            ${pendientes.length ? pendientes.slice(0,4).map(c=>`
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--c3);font-size:12.5px;">
+                <span>${c.titulo}</span>
+                <button class="btn btn-sm" onclick="goPage('cuestionarios')">Resolver</button>
+              </div>`).join('') : '<div class="auth-hint">No tienes cuestionarios pendientes por ahora.</div>'}
+          </div>
+          <div class="card">
+            <div class="card-title"><i class="ti ti-speakerphone" style="color:var(--accent2);"></i> Anuncios recientes</div>
+            ${(anuncios&&anuncios.length) ? anuncios.map(a=>`<div style="padding:6px 0;border-bottom:1px solid var(--c3);font-size:12.5px;">${a.titulo}<div style="color:var(--t3);font-size:10.5px;">${formatearFechaHora(a.creado_en)}</div></div>`).join('') : '<div class="auth-hint">Sin anuncios todavía.</div>'}
+          </div>
+          <div class="card">
+            <div class="card-title"><i class="ti ti-certificate" style="color:var(--accent2);"></i> Calificaciones recientes</div>
+            ${(misCals&&misCals.length) ? misCals.map(c=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--c3);font-size:12.5px;"><span>${c.titulo}</span><span class="grade-pill ${nivelCalificacion(c.nota_general)}">${c.nota_general??'—'}</span></div>`).join('') : '<div class="auth-hint">Sin calificaciones todavía.</div>'}
+          </div>
+        </div>
+        <div style="margin-top:14px;">${await tarjetaLogrosHTML()}</div>`;
+    }
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar tu resumen: '+(e.message||e)+'</div>';
+  }
+}
+
+// ══════════════════════════════════════════════════
 // CUESTIONARIOS — banco de preguntas de opción múltiple
 // ══════════════════════════════════════════════════
 async function renderCuestionariosPage(){
@@ -2750,6 +3038,53 @@ async function renderCuestionariosPage(){
 }
 
 // ── Construcción de un cuestionario nuevo (docente) ──
+// Plantillas de ejemplo, listas para usar o personalizar. No se guardan en
+// la nube hasta que el docente las guarda como cuestionario propio — solo
+// llenan el editor con contenido de partida para que sea fácil entender
+// cómo se arma uno, sin tener que empezar desde cero.
+const PLANTILLAS_CUESTIONARIOS = [
+  {
+    titulo: 'Repaso: Mercado de Acciones',
+    descripcion: 'Conceptos básicos de renta variable, riesgo y diversificación.',
+    preguntas: [
+      { texto: '¿Qué diferencia a una acción de un bono?', opciones: ['Es un instrumento de renta variable, no de deuda','Ambos son exactamente lo mismo','Un bono nunca paga intereses','Una acción siempre garantiza ganancias'], correcta: 0 },
+      { texto: '¿Qué mide el ratio Sharpe?', opciones: ['El precio de una acción','El retorno obtenido por cada unidad de riesgo asumida','La inflación anual','El tipo de cambio'], correcta: 1 },
+      { texto: '¿Por qué se recomienda diversificar una cartera?', opciones: ['Para aumentar las comisiones','Para reducir el número de operaciones','Para reducir el riesgo combinando activos de distintos sectores','No tiene ningún efecto real'], correcta: 2 },
+      { texto: '¿Qué mide el Valor en Riesgo (VaR) al 95%?', opciones: ['La ganancia mínima garantizada','El precio justo de una acción','El número de acciones en circulación','La pérdida máxima esperada con 95% de confianza'], correcta: 3 },
+    ],
+  },
+  {
+    titulo: 'Repaso: Mercado de Bonos',
+    descripcion: 'Precios, rendimiento y duración de instrumentos de renta fija.',
+    preguntas: [
+      { texto: '¿Qué relación existe entre el precio de un bono y la tasa de interés de mercado?', opciones: ['Relación inversa: si sube la tasa, baja el precio','Relación directa: suben juntos','No existe ninguna relación','Depende únicamente del emisor'], correcta: 0 },
+      { texto: '¿Qué mide la duración de un bono?', opciones: ['El tiempo que tarda en emitirse','La sensibilidad del precio ante cambios en la tasa de interés','El monto exacto del cupón','El número de inversionistas que lo poseen'], correcta: 1 },
+      { texto: '¿Qué es el rendimiento al vencimiento (YTM)?', opciones: ['El precio de emisión del bono','El valor nominal del bono','El retorno total si se mantiene el bono hasta su vencimiento','La tasa de inflación del país emisor'], correcta: 2 },
+      { texto: '¿Por qué un bono corporativo suele rendir más que uno soberano de plazo similar?', opciones: ['Porque son más baratos de comprar','Porque pagan en otra moneda','No hay ninguna diferencia real','Por el mayor riesgo de crédito del emisor'], correcta: 3 },
+    ],
+  },
+  {
+    titulo: 'Repaso: Mercado de Divisas',
+    descripcion: 'Tipo de cambio, riesgo país e indicadores macroeconómicos.',
+    preguntas: [
+      { texto: '¿Qué significa que una moneda se "aprecie"?', opciones: ['Que gana valor frente a otra moneda','Que pierde valor frente a otra moneda','Que deja de cotizarse en el mercado','Que se elimina del sistema financiero'], correcta: 0 },
+      { texto: '¿Qué mide el riesgo país?', opciones: ['El precio del petróleo','La percepción de estabilidad económica y política de un país','La cantidad de bancos que operan ahí','El tamaño del territorio nacional'], correcta: 1 },
+      { texto: '¿Cuál de estos factores afecta más directamente el tipo de cambio?', opciones: ['El color de la bandera del país','El número de días feriados','El diferencial de tasas de interés entre países','El clima de la región'], correcta: 2 },
+      { texto: 'En un par de divisas como USD/EUR, ¿qué representa la primera moneda?', opciones: ['La moneda cotizada','Es irrelevante cuál va primero','Siempre representa a la moneda más fuerte','La moneda base'], correcta: 3 },
+    ],
+  },
+  {
+    titulo: 'Gestión de Riesgo y Rentabilidad',
+    descripcion: 'Conceptos generales que aplican a los tres mercados del simulador.',
+    preguntas: [
+      { texto: '¿Qué es el capital inicial en el simulador?', opciones: ['El monto virtual con el que un estudiante comienza a operar','Una comisión que se cobra por cada operación','El valor de una sola acción','El límite máximo de pérdida permitido'], correcta: 0 },
+      { texto: '¿Qué indica un retorno negativo en la cartera?', opciones: ['Que la cuenta fue bloqueada','Que el valor actual es menor al capital inicial','Que nunca se ha operado','Que el mercado está cerrado'], correcta: 1 },
+      { texto: '¿Qué estrategia reduce mejor el riesgo de una cartera concentrada en un solo activo?', opciones: ['Comprar más del mismo activo','Vender todo y dejar de operar','Diversificar entre acciones, bonos y divisas','Aumentar el apalancamiento'], correcta: 2 },
+      { texto: '¿Para qué sirve el Laboratorio dentro de CapitalLab?', opciones: ['Para ver noticias del mercado','Para calificar exámenes','Para cambiar de sesión de clase','Para practicar una estrategia bajo un horizonte y una meta definidos'], correcta: 3 },
+    ],
+  },
+];
+
 function abrirEditorCuestionario(){
   if(!currentUser || !currentUser.sesion_id) return;
   let preguntas = [{ texto:'', opciones:['',''], correcta:0 }];
@@ -2758,6 +3093,13 @@ function abrirEditorCuestionario(){
   overlay.innerHTML = `<div class="grade-modal" style="max-width:560px;">
     <h3>Nuevo cuestionario</h3>
     <div class="sub">Opción múltiple, calificado automáticamente. Los estudiantes no pueden ver la respuesta correcta.</div>
+    <div class="grade-field">
+      <label>Empezar desde una plantilla (opcional)</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${PLANTILLAS_CUESTIONARIOS.map((t,ti) => `<button class="btn btn-sm" data-plantilla="${ti}" style="font-size:11.5px;">${t.titulo}</button>`).join('')}
+      </div>
+      <div class="auth-hint">Carga el título y las preguntas de ejemplo; puedes editar cualquier parte antes de guardar.</div>
+    </div>
     <div class="grade-field"><label>Título</label><input type="text" id="cq-titulo" placeholder='Ej. "Repaso: mercado de bonos"'></div>
     <div class="grade-field"><label>Descripción (opcional)</label><input type="text" id="cq-desc" placeholder="Instrucciones breves para el estudiante"></div>
     <div id="cq-preguntas"></div>
@@ -2803,6 +3145,14 @@ function abrirEditorCuestionario(){
   }
   renderPreguntas();
   overlay.querySelector('#cq-btn-agregar').onclick = () => { preguntas.push({texto:'',opciones:['',''],correcta:0}); renderPreguntas(); };
+  overlay.querySelectorAll('[data-plantilla]').forEach(btn => btn.onclick = () => {
+    const t = PLANTILLAS_CUESTIONARIOS[+btn.dataset.plantilla];
+    overlay.querySelector('#cq-titulo').value = t.titulo;
+    overlay.querySelector('#cq-desc').value = t.descripcion;
+    preguntas = t.preguntas.map(p => ({ texto: p.texto, opciones: [...p.opciones], correcta: p.correcta }));
+    renderPreguntas();
+    notify('Plantilla cargada — puedes editar cualquier parte antes de guardar.', 'success');
+  });
 
   overlay.querySelector('#cq-guardar').onclick = async () => {
     const msg = overlay.querySelector('#cq-msg');
@@ -2930,6 +3280,8 @@ async function tomarCuestionario(id, titulo){
         if(errEnvio) throw errEnvio;
         overlay.remove();
         notify(`Cuestionario enviado. Tu nota: ${nota}/100`, 'success');
+        desbloquearLogro('primer_cuestionario');
+        if(nota >= 100) desbloquearLogro('cuestionario_perfecto');
         renderCuestionariosPage();
         actualizarBadgeNotificaciones();
       } catch(e){
@@ -3334,6 +3686,9 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
       <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px;border-top:1px solid var(--c4);padding-top:14px;">Asistencia</div>
       <div id="det-asistencia"><div class="auth-hint">Cargando…</div></div>
 
+      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px;border-top:1px solid var(--c4);padding-top:14px;">Logros</div>
+      <div id="det-logros"><div class="auth-hint">Cargando…</div></div>
+
       <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;border-top:1px solid var(--c4);padding-top:14px;">
         Sesiones de Laboratorio (${labHist.length})
       </div>
@@ -3391,6 +3746,22 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
         </div>`;
     } catch(e){
       cont.innerHTML = '<div class="auth-hint">No se pudo cargar la asistencia.</div>';
+    }
+  })();
+
+  (async () => {
+    const cont = overlay.querySelector('#det-logros');
+    if(!cont) return;
+    try {
+      const { data, error } = await sb.from('logros_desbloqueados').select('codigo_logro').eq('usuario_id', usuarioId).eq('sesion_id', sesionId);
+      if(error) throw error;
+      const codigos = (data||[]).map(d=>d.codigo_logro).filter(c=>CATALOGO_LOGROS[c]);
+      if(!codigos.length){ cont.innerHTML = '<div class="auth-hint">Todavía no ha desbloqueado ningún logro.</div>'; return; }
+      cont.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${codigos.map(c => { const l = CATALOGO_LOGROS[c]; return `<span title="${l.desc}" style="display:flex;align-items:center;gap:5px;background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);border-radius:14px;padding:4px 10px 4px 6px;font-size:11px;"><i class="ti ${l.icono}" style="font-size:13px;color:var(--gold);"></i>${l.titulo}</span>`; }).join('')}
+      </div>`;
+    } catch(e){
+      cont.innerHTML = '<div class="auth-hint">No se pudieron cargar los logros.</div>';
     }
   })();
 }
@@ -4478,6 +4849,7 @@ function goPage(p){
   if(p==='resultados-lab')renderResultsLab();
   if(p==='profesor'){ renderTeacher(); cargarRosterProfesor(); iniciarRealtimeProfesor(); }
   else { detenerRealtimeProfesor(); }
+  if(p==='inicio') renderInicioPage();
   if(p==='calificaciones') renderCalificacionesPage();
   if(p==='cuestionarios') renderCuestionariosPage();
   if(p==='posiciones') renderPosicionesPage();
@@ -7402,6 +7774,7 @@ function sincronizarProgresoNube(forzar){
       init: h.init, finalVal: h.finalVal, achieved: h.achieved, target: h.target,
       passed: h.passed, sharpe: h.sharpe, sigma: h.sigma, picked: h.picked,
     }));
+    if(labResumen.some(h=>h.passed)) desbloquearLogro('meta_laboratorio');
 
     sb.from('portafolios').upsert({
       usuario_id: currentUser.usuario_id,
@@ -7415,7 +7788,7 @@ function sincronizarProgresoNube(forzar){
       actualizado_en: new Date().toISOString(),
     }, { onConflict: 'usuario_id,sesion_id' }).then(({error})=>{
       if(error) console.warn('No se pudo sincronizar la cartera con la nube:', error.message);
-      else registrarPuntoHistorialCartera(valorTotal, retornoPct);
+      else { registrarPuntoHistorialCartera(valorTotal, retornoPct); verificarLogrosTrading(); }
     });
   } catch(e){
     console.warn('Sincronización con la nube omitida:', e.message);
