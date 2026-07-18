@@ -6,6 +6,7 @@
 <title>CapitalLab — Simulador de Cartera de Inversiones</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" media="print" onload="this.media='all'">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{
   --c0:#0b0e14;--c1:#10141d;--c2:#151a27;--c3:#1c2333;--c4:#242d42;--c5:#2d3a55;
@@ -619,9 +620,146 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   .metric-grid{grid-template-columns:1fr 1fr;}
 }
 
+/* ══════════════════════════════════════════════════
+   AUTENTICACIÓN — pantalla de acceso
+   ══════════════════════════════════════════════════ */
+.hidden{display:none!important;}
+#auth-gate{position:fixed;inset:0;z-index:2000;background:var(--c0);display:flex;align-items:center;justify-content:center;padding:20px;}
+#auth-gate.hidden{display:none;}
+.auth-bg-glow{position:absolute;inset:0;background:radial-gradient(circle at 20% 15%, rgba(41,98,255,.14), transparent 45%),radial-gradient(circle at 85% 85%, rgba(0,196,255,.10), transparent 40%);pointer-events:none;}
+.auth-box{position:relative;width:100%;max-width:400px;background:var(--c1);border:1px solid var(--c4);border-radius:var(--r3);padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,.45);}
+.auth-brand{font-family:var(--font-head);font-size:22px;font-weight:700;color:var(--t1);text-align:center;margin-bottom:4px;}
+.auth-brand span{color:var(--accent2);}
+.auth-sub{text-align:center;font-size:12px;color:var(--t2);margin-bottom:22px;}
+.auth-tabs{display:flex;background:var(--c2);border-radius:var(--r2);padding:3px;margin-bottom:20px;}
+.auth-tab{flex:1;text-align:center;padding:8px 0;font-size:12.5px;font-weight:600;color:var(--t2);border-radius:8px;cursor:pointer;transition:all .15s;}
+.auth-tab.active{background:var(--accent);color:#fff;}
+.auth-field{margin-bottom:13px;}
+.auth-field label{display:block;font-size:11px;color:var(--t2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;}
+.auth-field input,.auth-field select{width:100%;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);padding:9px 11px;color:var(--t1);font-family:var(--font-body);font-size:13px;}
+.auth-field input:focus,.auth-field select:focus{outline:none;border-color:var(--accent);}
+.auth-role-row{display:flex;gap:8px;}
+.auth-role-opt{flex:1;text-align:center;padding:9px 0;border:1px solid var(--c4);border-radius:var(--r);font-size:12px;color:var(--t2);cursor:pointer;transition:all .15s;}
+.auth-role-opt.active{border-color:var(--accent);color:var(--accent2);background:rgba(41,98,255,.08);}
+.auth-submit{width:100%;padding:11px 0;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:13.5px;font-weight:600;cursor:pointer;margin-top:6px;transition:filter .15s;}
+.auth-submit:hover{filter:brightness(1.1);}
+.auth-submit:disabled{opacity:.6;cursor:not-allowed;}
+.auth-forgot{display:block;text-align:center;font-size:11.5px;color:var(--t2);margin-top:14px;cursor:pointer;text-decoration:underline;}
+.auth-forgot:hover{color:var(--accent2);}
+.auth-msg{font-size:12px;padding:9px 11px;border-radius:var(--r);margin-bottom:14px;display:none;}
+.auth-msg.show{display:block;}
+.auth-msg.error{background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);color:#ff8a94;}
+.auth-msg.success{background:rgba(0,208,132,.1);border:1px solid rgba(0,208,132,.3);color:#5fe3ac;}
+.auth-hint{font-size:10.5px;color:var(--t3);margin-top:3px;line-height:1.4;}
+.auth-view{display:none;}
+.auth-view.active{display:block;}
+.auth-spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:auth-spin .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+@keyframes auth-spin{to{transform:rotate(360deg);}}
+
+/* ── Modo invitado (probar sin cuenta) ── */
+.auth-guest-sep{display:flex;align-items:center;gap:10px;margin:20px 0 14px;}
+.auth-guest-sep::before,.auth-guest-sep::after{content:'';flex:1;height:1px;background:var(--c4);}
+.auth-guest-sep span{font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}
+.auth-guest-row{display:flex;gap:8px;}
+.auth-guest-opt{flex:1;text-align:center;padding:10px 6px;border:1px dashed var(--c4);border-radius:var(--r);font-size:11.5px;color:var(--t2);cursor:pointer;transition:all .15s;}
+.auth-guest-opt:hover{border-color:var(--accent2);color:var(--accent2);background:rgba(0,196,255,.06);}
+.auth-guest-opt i{display:block;font-size:16px;margin-bottom:4px;}
+.user-chip .role-badge.guest{background:rgba(122,138,176,.15);color:var(--t2);}
+
+/* ── Chip de usuario en la topbar ── */
+.user-chip{display:flex;align-items:center;gap:8px;background:var(--c2);border:1px solid var(--c4);border-radius:20px;padding:5px 6px 5px 12px;font-size:11.5px;color:var(--t1);}
+.user-chip .role-badge{font-size:9px;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:10px;font-weight:700;}
+.user-chip .role-badge.docente{background:rgba(212,175,55,.15);color:var(--gold);}
+.user-chip .role-badge.estudiante{background:rgba(0,196,255,.12);color:var(--accent2);}
+.user-chip .role-badge.superadmin{background:rgba(255,71,87,.14);color:var(--red);}
+.user-chip button{background:var(--c3);border:none;color:var(--t2);width:24px;height:24px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.user-chip button:hover{background:var(--c4);color:var(--t1);}
+@media(max-width:900px){.user-chip .chip-name{display:none;}}
+
 </style>
 </head>
 <body>
+
+<!-- ── AUTENTICACIÓN ── -->
+<div id="auth-gate">
+  <div class="auth-bg-glow"></div>
+  <div class="auth-box">
+    <div class="auth-brand">Capital<span>Lab</span></div>
+    <div class="auth-sub">Simulador de Mercados Financieros · Facultad de Economía UP</div>
+
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-login" onclick="authSwitchView('login')">Iniciar sesión</div>
+      <div class="auth-tab" id="tab-signup" onclick="authSwitchView('signup')">Crear cuenta</div>
+    </div>
+
+    <div class="auth-msg" id="auth-msg"></div>
+
+    <!-- Vista: iniciar sesión -->
+    <div class="auth-view active" id="view-login">
+      <div class="auth-field">
+        <label>Correo electrónico</label>
+        <input type="email" id="login-email" placeholder="nombre@correo.com" autocomplete="email">
+      </div>
+      <div class="auth-field">
+        <label>Contraseña</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="auth-submit" id="btn-login" onclick="authLogin()">Iniciar sesión</button>
+      <span class="auth-forgot" onclick="authSwitchView('reset')">¿Olvidaste tu contraseña?</span>
+    </div>
+
+    <!-- Vista: crear cuenta -->
+    <div class="auth-view" id="view-signup">
+      <div class="auth-field">
+        <label>Nombre completo</label>
+        <input type="text" id="signup-name" placeholder="Nombre y apellido" autocomplete="name">
+      </div>
+      <div class="auth-field">
+        <label>Correo electrónico</label>
+        <input type="email" id="signup-email" placeholder="nombre@correo.com" autocomplete="email">
+      </div>
+      <div class="auth-field">
+        <label>Contraseña</label>
+        <input type="password" id="signup-password" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+      </div>
+      <div class="auth-field">
+        <label>Rol</label>
+        <div class="auth-role-row">
+          <div class="auth-role-opt active" id="role-estudiante" onclick="authSetRole('estudiante')"><i class="ti ti-user"></i> Estudiante</div>
+          <div class="auth-role-opt" id="role-docente" onclick="authSetRole('docente')"><i class="ti ti-school"></i> Docente</div>
+        </div>
+      </div>
+      <div class="auth-field" id="field-sesion-estudiante">
+        <label>Sesión de clase</label>
+        <select id="signup-sesion"><option value="">Cargando sesiones disponibles…</option></select>
+        <div class="auth-hint">Selecciona el grupo asignado por tu docente.</div>
+      </div>
+      <div class="auth-field hidden" id="field-sesion-docente">
+        <label>Nombre de la sesión de clase</label>
+        <input type="text" id="signup-sesion-nombre" placeholder='Ej. "Mercados Financieros — 2026-2"'>
+        <div class="auth-hint">Se creará una sesión nueva de la que serás responsable.</div>
+      </div>
+      <button class="auth-submit" id="btn-signup" onclick="authSignup()">Crear cuenta</button>
+    </div>
+
+    <!-- Vista: recuperar contraseña -->
+    <div class="auth-view" id="view-reset">
+      <div class="auth-field">
+        <label>Correo electrónico</label>
+        <input type="email" id="reset-email" placeholder="nombre@correo.com" autocomplete="email">
+      </div>
+      <button class="auth-submit" id="btn-reset" onclick="authResetPassword()">Enviar enlace de recuperación</button>
+      <span class="auth-forgot" onclick="authSwitchView('login')">Volver a iniciar sesión</span>
+    </div>
+
+    <div class="auth-guest-sep"><span>o bien</span></div>
+    <div class="auth-guest-row">
+      <div class="auth-guest-opt" onclick="authGuestEnter('estudiante')"><i class="ti ti-user"></i> Probar como estudiante</div>
+      <div class="auth-guest-opt" onclick="authGuestEnter('docente')"><i class="ti ti-school"></i> Probar como docente</div>
+    </div>
+    <div class="auth-hint" style="text-align:center;margin-top:8px;">Modo de prueba local: no crea cuenta ni requiere conexión. El progreso no se comparte con nadie más.</div>
+  </div>
+</div>
 
 <!-- ── MOBILE SIDEBAR OVERLAY ── -->
 <div id="sidebar-overlay" onclick="closeMobileSidebar()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:498;backdrop-filter:blur(2px);"></div>
@@ -649,6 +787,11 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <div class="cap-pill" onclick="openCapModal()" title="Haz clic para editar el capital disponible">
       <i class="ti ti-wallet"></i> $<span id="nav-capital">50,000.00</span>
       <span class="cap-edit-hint"><i class="ti ti-pencil" style="font-size:9px;"></i></span>
+    </div>
+    <div class="user-chip" id="user-chip" style="display:none;">
+      <span class="role-badge" id="user-role-badge">—</span>
+      <span class="chip-name" id="user-name-label">—</span>
+      <button onclick="authLogout()" title="Cerrar sesión"><i class="ti ti-logout" style="font-size:12px;"></i></button>
     </div>
   </div>
 </div>
@@ -1271,6 +1414,236 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
+// ══════════════════════════════════════════════════
+// AUTENTICACIÓN — Supabase (correo/contraseña, roles, sesiones de clase)
+// ══════════════════════════════════════════════════
+// TODO antes de publicar: reemplazar con las credenciales reales del proyecto Supabase
+// (Panel de Supabase → Project Settings → API). La "anon key" es pública por diseño,
+// la seguridad real la dan las políticas de Row Level Security del esquema SQL adjunto.
+const SUPABASE_URL = 'https://zppwrnznsnphxbcqsxsg.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_QDlqCn_sV9kDtrSs4cvQzQ_8ji-2CcO';
+
+let sb = null;
+let currentUser = null; // {auth_id, nombre, correo, rol, sesion_id, sesion_nombre}
+let authPendingRole = 'estudiante';
+
+function authConfigured(){
+  return SUPABASE_URL.indexOf('TU-PROYECTO') === -1 && SUPABASE_ANON_KEY.indexOf('TU-ANON-KEY') === -1;
+}
+
+function authMsg(text, type){
+  const el = document.getElementById('auth-msg');
+  if(!el) return;
+  el.textContent = text;
+  el.className = 'auth-msg show ' + (type||'error');
+}
+function authMsgClear(){
+  const el = document.getElementById('auth-msg');
+  if(el){ el.className = 'auth-msg'; el.textContent=''; }
+}
+
+function authSwitchView(view){
+  authMsgClear();
+  ['login','signup','reset'].forEach(v=>{
+    document.getElementById('view-'+v).classList.toggle('active', v===view);
+  });
+  document.getElementById('tab-login').classList.toggle('active', view==='login');
+  document.getElementById('tab-signup').classList.toggle('active', view==='signup');
+  if(view==='signup') authRefreshSessionOptions();
+}
+
+function authSetRole(role){
+  authPendingRole = role;
+  document.getElementById('role-estudiante').classList.toggle('active', role==='estudiante');
+  document.getElementById('role-docente').classList.toggle('active', role==='docente');
+  document.getElementById('field-sesion-estudiante').classList.toggle('hidden', role!=='estudiante');
+  document.getElementById('field-sesion-docente').classList.toggle('hidden', role!=='docente');
+}
+
+async function authRefreshSessionOptions(){
+  const sel = document.getElementById('signup-sesion');
+  if(!sel) return;
+  if(!sb){ sel.innerHTML = '<option value="">Configura Supabase primero</option>'; return; }
+  try {
+    const { data, error } = await sb.from('sesiones_clase').select('id,nombre').eq('activa', true).order('nombre');
+    if(error) throw error;
+    if(!data || data.length===0){
+      sel.innerHTML = '<option value="">No hay sesiones activas — pide a tu docente que cree una</option>';
+      return;
+    }
+    sel.innerHTML = data.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  } catch(e){
+    sel.innerHTML = '<option value="">Error al cargar sesiones</option>';
+  }
+}
+
+async function authSignup(){
+  if(!authConfigured()){ authMsg('Supabase aún no está configurado en este archivo. Revisa SUPABASE_URL y SUPABASE_ANON_KEY.', 'error'); return; }
+  const nombre = document.getElementById('signup-name').value.trim();
+  const correo = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const rol = authPendingRole;
+  const sesionId = rol==='estudiante' ? document.getElementById('signup-sesion').value : null;
+  const sesionNombre = rol==='docente' ? document.getElementById('signup-sesion-nombre').value.trim() : null;
+
+  if(!nombre || !correo || !password){ authMsg('Completa nombre, correo y contraseña.'); return; }
+  if(password.length < 6){ authMsg('La contraseña debe tener al menos 6 caracteres.'); return; }
+  if(rol==='estudiante' && !sesionId){ authMsg('Selecciona la sesión de clase a la que perteneces.'); return; }
+  if(rol==='docente' && !sesionNombre){ authMsg('Indica el nombre de la sesión de clase que vas a crear.'); return; }
+
+  const btn = document.getElementById('btn-signup');
+  btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Creando cuenta…';
+  try {
+    const { data: signUpData, error: signUpError } = await sb.auth.signUp({ email: correo, password });
+    if(signUpError) throw signUpError;
+    const authId = signUpData.user ? signUpData.user.id : null;
+    if(!authId) throw new Error('No se pudo crear la cuenta. Intenta de nuevo.');
+
+    let finalSesionId = sesionId;
+    if(rol==='docente'){
+      const { data: sesionRow, error: sesionError } = await sb.from('sesiones_clase')
+        .insert({ nombre: sesionNombre, docente_id: authId, capital_inicial: 50000, mercados_activos: 5, activa: true })
+        .select('id').single();
+      if(sesionError) throw sesionError;
+      finalSesionId = sesionRow.id;
+    }
+
+    const { error: userError } = await sb.from('usuarios').insert({
+      auth_id: authId, nombre, correo, rol, sesion_id: finalSesionId,
+    });
+    if(userError) throw userError;
+
+    authMsg('Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.', 'success');
+    setTimeout(()=>authSwitchView('login'), 2200);
+  } catch(e){
+    authMsg('Error al crear la cuenta: ' + (e.message||e));
+  } finally {
+    btn.disabled = false; btn.textContent = 'Crear cuenta';
+  }
+}
+
+async function authLogin(){
+  if(!authConfigured()){ authMsg('Supabase aún no está configurado en este archivo. Revisa SUPABASE_URL y SUPABASE_ANON_KEY.', 'error'); return; }
+  const correo = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if(!correo || !password){ authMsg('Ingresa tu correo y contraseña.'); return; }
+
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Verificando…';
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email: correo, password });
+    if(error) throw error;
+    await authLoadProfileAndEnter();
+  } catch(e){
+    authMsg('No se pudo iniciar sesión: ' + (e.message||e));
+    btn.disabled = false; btn.textContent = 'Iniciar sesión';
+  }
+}
+
+async function authResetPassword(){
+  if(!authConfigured()){ authMsg('Supabase aún no está configurado en este archivo.', 'error'); return; }
+  const correo = document.getElementById('reset-email').value.trim();
+  if(!correo){ authMsg('Ingresa tu correo electrónico.'); return; }
+  const btn = document.getElementById('btn-reset');
+  btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Enviando…';
+  try {
+    const { error } = await sb.auth.resetPasswordForEmail(correo);
+    if(error) throw error;
+    authMsg('Enlace de recuperación enviado a tu correo.', 'success');
+  } catch(e){
+    authMsg('No se pudo enviar el correo: ' + (e.message||e));
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enviar enlace de recuperación';
+  }
+}
+
+async function authLogout(){
+  if(guestMode){ location.reload(); return; }
+  if(sb){ try { await sb.auth.signOut(); } catch(e){} }
+  currentUser = null;
+  location.reload();
+}
+
+let guestMode = false;
+
+// Entra directo al simulador sin pasar por Supabase — solo para probar la interfaz.
+// El progreso se sigue guardando en localStorage como siempre, igual que antes de
+// añadir el inicio de sesión; simplemente no queda vinculado a ninguna cuenta real.
+function authGuestEnter(role){
+  guestMode = true;
+  currentUser = {
+    auth_id: null,
+    nombre: role==='docente' ? 'Docente (invitado)' : 'Estudiante (invitado)',
+    correo: '',
+    rol: role,
+    sesion_id: null,
+    sesion_nombre: '',
+  };
+  document.getElementById('auth-gate').classList.add('hidden');
+  const chip = document.getElementById('user-chip');
+  chip.style.display = 'flex';
+  document.getElementById('user-name-label').textContent = currentUser.nombre;
+  const badge = document.getElementById('user-role-badge');
+  badge.textContent = 'invitado';
+  badge.className = 'role-badge guest';
+  const navProfesor = document.getElementById('nav-profesor');
+  if(navProfesor) navProfesor.style.display = (role==='estudiante') ? 'none' : '';
+  if(typeof initApp === 'function') initApp();
+  setTimeout(()=>{ if(typeof notify==='function') notify('Modo de prueba: el progreso no se sincroniza con ninguna cuenta.', 'success'); }, 900);
+}
+
+// Trae el perfil (nombre/rol/sesión) desde la tabla `usuarios` y entra a la app.
+async function authLoadProfileAndEnter(){
+  const { data: { user } } = await sb.auth.getUser();
+  if(!user){ authMsg('No se encontró la sesión. Intenta iniciar sesión de nuevo.'); return; }
+  const { data: perfil, error } = await sb.from('usuarios').select('*, sesiones_clase(nombre)').eq('auth_id', user.id).single();
+  if(error || !perfil){
+    authMsg('Tu cuenta no tiene un perfil asociado. Contacta al administrador.');
+    return;
+  }
+  currentUser = {
+    auth_id: user.id,
+    nombre: perfil.nombre,
+    correo: perfil.correo,
+    rol: perfil.rol,
+    sesion_id: perfil.sesion_id,
+    sesion_nombre: perfil.sesiones_clase ? perfil.sesiones_clase.nombre : '',
+  };
+  document.getElementById('auth-gate').classList.add('hidden');
+  const chip = document.getElementById('user-chip');
+  chip.style.display = 'flex';
+  document.getElementById('user-name-label').textContent = currentUser.nombre;
+  const badge = document.getElementById('user-role-badge');
+  badge.textContent = currentUser.rol;
+  badge.className = 'role-badge ' + currentUser.rol;
+  // El modo profesor solo es visible para docentes y superadministradores
+  const navProfesor = document.getElementById('nav-profesor');
+  if(navProfesor) navProfesor.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
+  if(typeof initApp === 'function') initApp();
+}
+
+async function authBoot(){
+  if(!authConfigured()){
+    authMsg('Este archivo aún no tiene configuradas las credenciales de Supabase (SUPABASE_URL / SUPABASE_ANON_KEY). Edítalas antes de usar el inicio de sesión, o usa el modo de prueba sin cuenta.', 'error');
+    return;
+  }
+  if(typeof supabase === 'undefined'){
+    authMsg('No se pudo cargar la librería de Supabase (revisa tu conexión a internet). Puedes usar el modo de prueba sin cuenta mientras tanto.', 'error');
+    return;
+  }
+  try {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: { session } } = await sb.auth.getSession();
+    if(session){
+      await authLoadProfileAndEnter();
+    }
+    authRefreshSessionOptions();
+  } catch(e){
+    authMsg('No se pudo conectar con el servidor: ' + (e.message||e) + '. Puedes usar el modo de prueba sin cuenta mientras tanto.', 'error');
+  }
+}
+document.addEventListener('DOMContentLoaded', authBoot);
+
 // ═══════════════════ DATA ═══════════════════
 const RF=4.5;
 const ALL_STOCKS=[
@@ -6844,7 +7217,10 @@ function loadTeacherRoster(){
 }
 
 
-(function initApp() {
+let _appInitialized = false;
+function initApp() {
+  if (_appInitialized) return; // evita reinicializar si ya se cargó tras el login
+  _appInitialized = true;
   try { computePrices(6); } catch(e) { console.error('computePrices failed', e); }
   try { loadTeacherRoster(); } catch(e) { console.error('loadTeacherRoster failed', e); }
   // Load saved progress BEFORE rendering
@@ -6881,7 +7257,7 @@ function loadTeacherRoster(){
       }
     }
   } catch(e) {}
-})();
+}
 </script>
 </body>
 </html>
