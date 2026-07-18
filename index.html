@@ -681,6 +681,31 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 .user-chip button:hover{background:var(--c4);color:var(--t1);}
 @media(max-width:900px){.user-chip .chip-name{display:none;}}
 
+/* ── Panel de estudiantes en la nube (Modo Profesor) ── */
+.nav-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--c3);color:var(--t2);font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;}
+#prof-cloud-table td{padding:8px 10px;border-bottom:1px solid var(--c3);vertical-align:middle;}
+#prof-cloud-table tr:last-child td{border-bottom:none;}
+.prof-join-badge{display:inline-block;background:rgba(0,196,255,.1);color:var(--accent2);font-size:10px;padding:2px 7px;border-radius:8px;margin-left:6px;animation:prof-join-pulse 2s ease-in-out 3;}
+@keyframes prof-join-pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.grade-pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:10px;}
+.grade-pill.alta{background:rgba(0,208,132,.12);color:var(--green);}
+.grade-pill.media{background:rgba(212,175,55,.14);color:var(--gold);}
+.grade-pill.baja{background:rgba(255,71,87,.12);color:var(--red);}
+.grade-pill.sin{background:var(--c3);color:var(--t3);}
+
+/* ── Modal de calificación con rúbrica ── */
+.grade-modal-overlay{position:fixed;inset:0;z-index:2500;background:rgba(4,7,12,.75);display:flex;align-items:center;justify-content:center;padding:20px;}
+.grade-modal{background:var(--c1);border:1px solid var(--c4);border-radius:var(--r3);padding:24px;max-width:460px;width:100%;max-height:88vh;overflow-y:auto;}
+.grade-modal h3{font-family:var(--font-head);font-size:17px;margin-bottom:2px;}
+.grade-modal .sub{font-size:12px;color:var(--t3);margin-bottom:16px;}
+.grade-field{margin-bottom:14px;}
+.grade-field label{display:block;font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
+.grade-field input[type=number],.grade-field textarea{width:100%;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);padding:9px 11px;color:var(--t1);font-family:var(--font-body);font-size:13px;}
+.grade-field textarea{min-height:70px;resize:vertical;}
+.grade-criterio-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.grade-criterio-row label{flex:1;font-size:12.5px;color:var(--t1);text-transform:none;letter-spacing:0;margin:0;}
+.grade-criterio-row input{width:70px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);padding:6px 8px;color:var(--t1);font-size:12.5px;text-align:center;}
+
 </style>
 </head>
 <body>
@@ -805,6 +830,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <div class="user-chip" id="user-chip" style="display:none;">
       <span class="role-badge" id="user-role-badge">—</span>
       <span class="chip-name" id="user-name-label">—</span>
+      <button onclick="mostrarInfoSesion()" title="Ver mi sesión de clase"><i class="ti ti-info-circle" style="font-size:12px;"></i></button>
       <button onclick="authLogout()" title="Cerrar sesión"><i class="ti ti-logout" style="font-size:12px;"></i></button>
     </div>
   </div>
@@ -1363,8 +1389,35 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <div class="page-sub">Recopila y clasifica las carteras de tus estudiantes · Evaluación objetiva por desempeño</div>
   </div>
 
+  <!-- ── Panel de estudiantes registrados en la nube (cuentas reales, Supabase) ── -->
+  <div class="card" id="prof-cloud-card" style="margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
+      <div class="card-title"><i class="ti ti-users-group" style="color:var(--accent2);"></i> Estudiantes de mi sesión <span id="prof-cloud-badge" class="nav-badge" style="margin-left:6px;">—</span></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="prof-cloud-live-dot" title="Actualización en vivo activa" style="width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);display:none;"></span>
+        <button class="btn btn-sm" onclick="cargarRosterProfesor(true)"><i class="ti ti-refresh"></i> Actualizar ahora</button>
+      </div>
+    </div>
+    <div class="card-sub" id="prof-cloud-sesion-info">Cargando información de tu sesión…</div>
+    <div style="overflow-x:auto;margin-top:10px;">
+      <table id="prof-cloud-table" style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <thead>
+          <tr style="text-align:left;color:var(--t3);font-size:11px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--c4);">
+            <th style="padding:8px 10px;">Estudiante</th>
+            <th style="padding:8px 10px;">Correo</th>
+            <th style="padding:8px 10px;">Se registró</th>
+            <th style="padding:8px 10px;">Calificación</th>
+            <th style="padding:8px 10px;"></th>
+          </tr>
+        </thead>
+        <tbody id="prof-cloud-tbody"></tbody>
+      </table>
+      <div id="prof-cloud-empty" style="text-align:center;padding:24px;color:var(--t3);font-size:12.5px;">Aún no se ha registrado ningún estudiante en tu sesión.</div>
+    </div>
+  </div>
+
   <div class="info-box" style="margin-bottom:14px;">
-    <b>¿Cómo funciona?</b> Cada estudiante exporta su desempeño desde su propia sesión (botón "Exportar para el profesor", en la barra superior). Tú importas aquí los archivos de cada estudiante para construir la tabla de clasificación. Este modo es independiente: no afecta tu propia sesión de simulación.
+    <b>¿Cómo funciona el ranking por archivos?</b> Además de la lista de arriba (cuentas reales, en vivo), puedes seguir recopilando el desempeño exportado manualmente: cada estudiante exporta su desempeño desde su propia sesión (botón "Exportar para el profesor", en la barra superior). Tú importas aquí los archivos de cada estudiante para construir la tabla de clasificación. Este modo es independiente: no afecta tu propia sesión de simulación.
   </div>
 
   <div class="prof-toolbar">
@@ -1534,7 +1587,12 @@ async function authSignup(){
     const { data: signUpData, error: signUpError } = await conTiempoLimite(
       sb.auth.signUp({
         email: correo, password,
-        options: { data: {
+        options: {
+          // Sin esto, Supabase manda el enlace de confirmación al "Site URL" configurado
+          // en el panel (por defecto localhost, algo que solo tiene sentido en desarrollo).
+          // Al fijarlo aquí, el enlace siempre apunta a donde realmente está publicado el sitio.
+          emailRedirectTo: window.location.origin + window.location.pathname,
+          data: {
           pending_nombre: nombre,
           pending_rol: rol,
           pending_sesion_codigo: codigoIngresado || null,
@@ -1585,7 +1643,9 @@ async function authResetPassword(){
   const btn = document.getElementById('btn-reset');
   btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Enviando…';
   try {
-    const { error } = await sb.auth.resetPasswordForEmail(correo);
+    const { error } = await conTiempoLimite(sb.auth.resetPasswordForEmail(correo, {
+      redirectTo: window.location.origin + window.location.pathname
+    }));
     if(error) throw error;
     authMsg('Enlace de recuperación enviado a tu correo.', 'success');
   } catch(e){
@@ -1601,7 +1661,10 @@ async function authResendConfirmation(){
   if(!correo) correo = (prompt('¿A qué correo reenviamos la confirmación?','') || '').trim();
   if(!correo){ authMsg('Ingresa tu correo electrónico primero.'); return; }
   try {
-    const { error } = await sb.auth.resend({ type: 'signup', email: correo });
+    const { error } = await conTiempoLimite(sb.auth.resend({
+      type: 'signup', email: correo,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname }
+    }));
     if(error) throw error;
     authMsg('Correo de confirmación reenviado. Si sigue sin llegar en unos minutos, revisa la carpeta de spam.', 'success');
   } catch(e){
@@ -1649,7 +1712,7 @@ async function authLoadProfileAndEnter(){
   const { data: { user } } = await sb.auth.getUser();
   if(!user){ authMsg('No se encontró la sesión. Intenta iniciar sesión de nuevo.'); return; }
 
-  let { data: perfil, error } = await sb.from('usuarios').select('*, sesiones_clase(nombre)').eq('auth_id', user.id).maybeSingle();
+  let { data: perfil, error } = await sb.from('usuarios').select('*, sesiones_clase(nombre,codigo)').eq('auth_id', user.id).maybeSingle();
 
   // Primera vez que esta cuenta inicia sesión con éxito: todavía no existe su
   // fila en `usuarios`. Ahora sí hay una sesión de autenticación real (auth.uid()
@@ -1679,6 +1742,7 @@ async function authLoadProfileAndEnter(){
     rol: perfil.rol,
     sesion_id: perfil.sesion_id,
     sesion_nombre: perfil.sesiones_clase ? perfil.sesiones_clase.nombre : '',
+    sesion_codigo: perfil.sesiones_clase ? perfil.sesiones_clase.codigo : '',
   };
   document.getElementById('auth-gate').classList.add('hidden');
   const chip = document.getElementById('user-chip');
@@ -1694,6 +1758,8 @@ async function authLoadProfileAndEnter(){
 
   if(perfil._codigoRecienGenerado){
     setTimeout(()=>mostrarCodigoSesionPostLogin(perfil._codigoRecienGenerado), 700);
+  } else if(currentUser.sesion_nombre && typeof notify==='function'){
+    setTimeout(()=>notify(`Sesión: ${currentUser.sesion_nombre} · Código: ${currentUser.sesion_codigo}`, 'success'), 700);
   }
 }
 
@@ -1725,7 +1791,7 @@ async function completarRegistroPendiente(user, meta){
 
   const { data: nuevoPerfil, error: userError } = await sb.from('usuarios')
     .insert({ auth_id: user.id, nombre, correo: user.email, rol, sesion_id: sesionId })
-    .select('*, sesiones_clase(nombre)').single();
+    .select('*, sesiones_clase(nombre,codigo)').single();
   if(userError) throw userError;
 
   if(codigoGenerado) nuevoPerfil._codigoRecienGenerado = codigoGenerado;
@@ -1750,6 +1816,29 @@ function mostrarCodigoSesionPostLogin(codigo){
   overlay.querySelector('#btn-cerrar-codigo-modal').onclick = () => overlay.remove();
 }
 
+// Le recuerda al usuario (sobre todo al estudiante) en qué sesión de clase está
+// y con qué código entró, para que no se pierda si maneja varias clases o cuentas.
+function mostrarInfoSesion(){
+  if(!currentUser){ return; }
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(4,7,12,.7);display:flex;align-items:center;justify-content:center;padding:20px;';
+  const tieneSesion = !!currentUser.sesion_nombre;
+  overlay.innerHTML = `
+    <div class="auth-box" style="max-width:380px;">
+      <div class="auth-code-result" style="display:block;">
+        <div class="auth-code-label">${tieneSesion ? 'Tu sesión de clase' : 'Sin sesión asignada'}</div>
+        ${tieneSesion ? `
+          <div style="font-size:17px;font-weight:700;color:var(--t1);margin-bottom:10px;">${currentUser.sesion_nombre}</div>
+          <div class="auth-code-value" style="font-size:20px;">${currentUser.sesion_codigo || '—'}</div>
+          <div class="auth-hint">${currentUser.rol==='docente' ? 'Este es el código que le compartes a tus estudiantes.' : 'Este es el código que usaste para registrarte.'}</div>
+        ` : `<div class="auth-hint">${guestMode ? 'Estás en modo de prueba, sin cuenta ni sesión real.' : 'Tu cuenta no está vinculada a ninguna sesión de clase.'}</div>`}
+        <button class="auth-submit" style="margin-top:12px;" id="btn-cerrar-info-sesion">Cerrar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#btn-cerrar-info-sesion').onclick = () => overlay.remove();
+  overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+}
 // Para cuentas creadas directamente desde el panel de Supabase (Authentication →
 // Users → Add user), que no pasaron por el formulario de registro de la app y por
 // lo tanto no traen nombre/rol/sesión guardados. Se les pide completar esos datos
@@ -1828,6 +1917,179 @@ function mostrarFormularioCompletarPerfil(user){
     } catch(e){
       cpMsg.className='auth-msg show error'; cpMsg.textContent = 'No se pudo guardar: ' + (e.message||e);
       btn.disabled = false; btn.textContent = 'Continuar';
+    }
+  };
+}
+
+// ══════════════════════════════════════════════════
+// MODO PROFESOR — panel de estudiantes en la nube
+// ══════════════════════════════════════════════════
+let profCalificaciones = {}; // usuario_id -> fila de calificaciones
+let profRealtimeChannel = null;
+
+function nivelCalificacion(nota){
+  if(nota===null||nota===undefined) return 'sin';
+  if(nota>=80) return 'alta';
+  if(nota>=60) return 'media';
+  return 'baja';
+}
+
+function formatearFechaHora(iso){
+  try {
+    const d=new Date(iso);
+    return d.toLocaleDateString('es-PA',{day:'2-digit',month:'short'}) + ' · ' + d.toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'});
+  } catch(e){ return '—'; }
+}
+
+async function cargarRosterProfesor(esManual){
+  if(!sb || !currentUser || currentUser.rol==='estudiante'){ return; }
+  const info = document.getElementById('prof-cloud-sesion-info');
+  const tbody = document.getElementById('prof-cloud-tbody');
+  const empty = document.getElementById('prof-cloud-empty');
+  const badge = document.getElementById('prof-cloud-badge');
+  if(!info || !tbody) return;
+
+  if(guestMode){
+    info.textContent = 'El modo de prueba sin cuenta no tiene estudiantes reales conectados.';
+    badge.textContent = '0';
+    tbody.innerHTML=''; empty.style.display='block';
+    return;
+  }
+
+  if(esManual) info.textContent = 'Actualizando…';
+
+  try {
+    // sesion_id del docente: si currentUser.sesion_id no está (docente creado antes de
+    // esta función), lo resolvemos desde sesiones_clase por docente_id.
+    let sesionId = currentUser.sesion_id;
+    let sesionNombre = currentUser.sesion_nombre;
+    let sesionCodigo = currentUser.sesion_codigo;
+    if(!sesionId){
+      const { data: miSesion } = await sb.from('sesiones_clase').select('id,nombre,codigo').eq('docente_id', currentUser.auth_id).eq('activa', true).limit(1).maybeSingle();
+      if(miSesion){ sesionId = miSesion.id; sesionNombre = miSesion.nombre; sesionCodigo = miSesion.codigo; }
+    }
+    if(!sesionId){
+      info.textContent = 'Todavía no tienes una sesión de clase creada.';
+      badge.textContent = '0'; tbody.innerHTML=''; empty.style.display='block';
+      return;
+    }
+
+    info.innerHTML = `<b>${sesionNombre}</b> · Código <span style="font-family:var(--font-mono);color:var(--accent2);">${sesionCodigo}</span>`;
+
+    const { data: estudiantes, error } = await conTiempoLimite(
+      sb.from('usuarios').select('id,nombre,correo,creado_en').eq('sesion_id', sesionId).eq('rol','estudiante').order('creado_en', {ascending:false})
+    );
+    if(error) throw error;
+
+    const { data: calRows } = await sb.from('calificaciones').select('*').eq('sesion_id', sesionId);
+    profCalificaciones = {};
+    (calRows||[]).forEach(c=>{ profCalificaciones[c.usuario_id] = c; });
+
+    badge.textContent = (estudiantes||[]).length;
+    renderRosterProfesorTabla(estudiantes||[], sesionId, sesionNombre);
+  } catch(e){
+    info.textContent = 'No se pudo cargar la lista: ' + (e.message||e);
+  }
+}
+
+function renderRosterProfesorTabla(estudiantes, sesionId, sesionNombre){
+  const tbody = document.getElementById('prof-cloud-tbody');
+  const empty = document.getElementById('prof-cloud-empty');
+  if(!estudiantes.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = estudiantes.map(est=>{
+    const cal = profCalificaciones[est.id];
+    const nivel = cal ? nivelCalificacion(cal.nota_general) : 'sin';
+    const notaTxt = cal && cal.nota_general!==null && cal.nota_general!==undefined ? cal.nota_general : 'Sin calificar';
+    return `<tr data-usuario-id="${est.id}">
+      <td style="font-weight:600;">${est.nombre}</td>
+      <td style="color:var(--t3);">${est.correo}</td>
+      <td style="color:var(--t3);white-space:nowrap;">${formatearFechaHora(est.creado_en)}</td>
+      <td><span class="grade-pill ${nivel}">${notaTxt}</span></td>
+      <td><button class="btn btn-sm" onclick="abrirModalCalificar('${est.id}','${est.nombre.replace(/'/g,"\\'")}','${sesionId}')"><i class="ti ti-pencil"></i> Calificar</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function iniciarRealtimeProfesor(){
+  if(!sb || !currentUser || currentUser.rol==='estudiante' || guestMode) return;
+  detenerRealtimeProfesor();
+  const sesionId = currentUser.sesion_id;
+  if(!sesionId) return;
+  const dot = document.getElementById('prof-cloud-live-dot');
+  profRealtimeChannel = sb.channel('roster-'+sesionId)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'usuarios', filter:`sesion_id=eq.${sesionId}` }, (payload) => {
+      if(payload.new && payload.new.rol==='estudiante'){
+        notify(`Nuevo estudiante registrado: ${payload.new.nombre}`, 'success');
+        cargarRosterProfesor();
+      }
+    })
+    .subscribe((status) => { if(dot) dot.style.display = (status==='SUBSCRIBED') ? 'inline-block' : 'none'; });
+}
+
+function detenerRealtimeProfesor(){
+  if(profRealtimeChannel && sb){ sb.removeChannel(profRealtimeChannel); profRealtimeChannel = null; }
+  const dot = document.getElementById('prof-cloud-live-dot');
+  if(dot) dot.style.display = 'none';
+}
+
+// ── Calificación con rúbrica ──
+function abrirModalCalificar(usuarioId, nombre, sesionId){
+  const existente = profCalificaciones[usuarioId] || {};
+  const criterios = existente.criterios || {};
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `
+    <div class="grade-modal">
+      <h3>Calificar a ${nombre}</h3>
+      <div class="sub">La calificación solo la puedes ver tú, nunca el estudiante.</div>
+      <div class="grade-field">
+        <label>Nota general (0–100)</label>
+        <input type="number" min="0" max="100" id="gm-nota" value="${existente.nota_general ?? ''}" placeholder="Ej. 85">
+      </div>
+      <div class="grade-field">
+        <label>Criterios (opcionales)</label>
+        <div class="grade-criterio-row"><label>Rentabilidad</label><input type="number" min="0" max="100" id="gm-crit-rentabilidad" value="${criterios.rentabilidad ?? ''}"></div>
+        <div class="grade-criterio-row"><label>Gestión de riesgo</label><input type="number" min="0" max="100" id="gm-crit-riesgo" value="${criterios.riesgo ?? ''}"></div>
+        <div class="grade-criterio-row"><label>Participación</label><input type="number" min="0" max="100" id="gm-crit-participacion" value="${criterios.participacion ?? ''}"></div>
+      </div>
+      <div class="grade-field">
+        <label>Comentario (opcional)</label>
+        <textarea id="gm-comentario" placeholder="Observaciones para tu propio registro…">${existente.comentario || ''}</textarea>
+      </div>
+      <div class="auth-msg" id="gm-msg"></div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-ghost" id="gm-cancelar" style="flex:1;">Cancelar</button>
+        <button class="auth-submit" id="gm-guardar" style="flex:1;margin-top:0;">Guardar calificación</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  overlay.querySelector('#gm-cancelar').onclick = () => overlay.remove();
+  overlay.querySelector('#gm-guardar').onclick = async () => {
+    const msg = overlay.querySelector('#gm-msg');
+    const notaVal = overlay.querySelector('#gm-nota').value.trim();
+    const nota = notaVal==='' ? null : Number(notaVal);
+    if(nota!==null && (isNaN(nota) || nota<0 || nota>100)){ msg.className='auth-msg show error'; msg.textContent='La nota general debe estar entre 0 y 100.'; return; }
+    const critVal = (id)=>{ const v=overlay.querySelector(id).value.trim(); return v==='' ? null : Number(v); };
+    const nuevosCriterios = { rentabilidad: critVal('#gm-crit-rentabilidad'), riesgo: critVal('#gm-crit-riesgo'), participacion: critVal('#gm-crit-participacion') };
+    const comentario = overlay.querySelector('#gm-comentario').value.trim() || null;
+
+    const btn = overlay.querySelector('#gm-guardar');
+    btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Guardando…';
+    try {
+      const { error } = await conTiempoLimite(sb.from('calificaciones').upsert({
+        usuario_id: usuarioId, sesion_id: sesionId, docente_id: currentUser.auth_id,
+        nota_general: nota, comentario, criterios: nuevosCriterios,
+        actualizado_en: new Date().toISOString(),
+      }, { onConflict: 'usuario_id,sesion_id' }));
+      if(error) throw error;
+      overlay.remove();
+      notify('Calificación guardada.', 'success');
+      cargarRosterProfesor();
+    } catch(e){
+      msg.className='auth-msg show error'; msg.textContent = 'No se pudo guardar: ' + (e.message||e);
+      btn.disabled = false; btn.textContent = 'Guardar calificación';
     }
   };
 }
@@ -2913,7 +3175,8 @@ function goPage(p){
   if(p==='analisis')populateAnalysisSelect();
   if(p==='laboratorio'){renderLabHistory();renderLabPicker();}
   if(p==='resultados-lab')renderResultsLab();
-  if(p==='profesor')renderTeacher();
+  if(p==='profesor'){ renderTeacher(); cargarRosterProfesor(); iniciarRealtimeProfesor(); }
+  else { detenerRealtimeProfesor(); }
   if(p==='noticias')renderNewsCenter();
   // Close mobile drawer on navigation
   if(window.innerWidth<=768)closeMobileSidebar();
