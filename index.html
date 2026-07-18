@@ -1504,49 +1504,36 @@ async function authSignup(){
   try {
     // Para estudiantes, validar el código ANTES de crear la cuenta de autenticación,
     // así no queda una cuenta huérfana si el código no existe.
-    let sesionId = null;
     if(rol==='estudiante'){
       const { data: sesiones, error: buscarError } = await sb.rpc('buscar_sesion_por_codigo', { p_codigo: codigoIngresado });
       if(buscarError) throw buscarError;
       if(!sesiones || sesiones.length===0) throw new Error('El código de sesión no es válido o la sesión ya no está activa. Verifícalo con tu docente.');
-      sesionId = sesiones[0].id;
     }
 
-    const { data: signUpData, error: signUpError } = await sb.auth.signUp({ email: correo, password });
-    if(signUpError) throw signUpError;
-    const authId = signUpData.user ? signUpData.user.id : null;
-    if(!authId) throw new Error('No se pudo crear la cuenta. Intenta de nuevo.');
-
-    let codigoGenerado = null;
-    if(rol==='docente'){
-      // Reintenta un par de veces por si el código generado ya existe (muy poco probable).
-      for(let intento=0; intento<4; intento++){
-        codigoGenerado = generarCodigoSesion();
-        const { data: sesionRow, error: sesionError } = await sb.from('sesiones_clase')
-          .insert({ nombre: sesionNombre, codigo: codigoGenerado, docente_id: authId, capital_inicial: 50000, mercados_activos: 5, activa: true })
-          .select('id').single();
-        if(!sesionError){ sesionId = sesionRow.id; break; }
-        if(sesionError.code !== '23505') throw sesionError; // 23505 = código duplicado, reintentar
-        if(intento===3) throw sesionError;
-      }
-    }
-
-    const { error: userError } = await sb.from('usuarios').insert({
-      auth_id: authId, nombre, correo, rol, sesion_id: sesionId,
+    // No creamos aún la fila en `sesiones_clase` ni en `usuarios`: mientras el
+    // correo no esté confirmado no hay sesión de autenticación activa, y las
+    // políticas de seguridad (RLS) exigen auth.uid() para poder escribir.
+    // En su lugar, guardamos lo necesario en los metadatos de la cuenta y lo
+    // completamos en authLoadProfileAndEnter() la primera vez que inicie sesión.
+    const { data: signUpData, error: signUpError } = await sb.auth.signUp({
+      email: correo, password,
+      options: { data: {
+        pending_nombre: nombre,
+        pending_rol: rol,
+        pending_sesion_codigo: codigoIngresado || null,
+        pending_sesion_nombre: sesionNombre || null,
+      }}
     });
-    if(userError) throw userError;
+    if(signUpError) throw signUpError;
+    if(!signUpData.user) throw new Error('No se pudo crear la cuenta. Intenta de nuevo.');
 
-    if(rol==='docente'){
-      // Mostrar el código con calma en vez de mandarlo directo a login: es lo único
-      // que necesita para invitar a sus estudiantes y no debe perderse de vista.
-      btn.style.display = 'none';
-      const box = document.getElementById('signup-code-result');
-      document.getElementById('signup-code-value').textContent = codigoGenerado;
-      box.style.display = 'block';
-      authMsg('Cuenta creada. Revisa tu correo para confirmarla antes de iniciar sesión.', 'success');
+    if(signUpData.session){
+      // La confirmación de correo está desactivada en este proyecto: ya hay
+      // sesión activa, así que completamos el registro y entramos de una vez.
+      await authLoadProfileAndEnter();
     } else {
-      authMsg('Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.', 'success');
-      setTimeout(()=>authSwitchView('login'), 2200);
+      authMsg('Cuenta creada. Revisa tu correo para confirmarla — al iniciar sesión por primera vez terminamos de configurar tu cuenta.', 'success');
+      setTimeout(()=>authSwitchView('login'), 2600);
     }
   } catch(e){
     authMsg('Error al crear la cuenta: ' + (e.message||e));
@@ -1629,11 +1616,27 @@ function authGuestEnter(role){
 async function authLoadProfileAndEnter(){
   const { data: { user } } = await sb.auth.getUser();
   if(!user){ authMsg('No se encontró la sesión. Intenta iniciar sesión de nuevo.'); return; }
-  const { data: perfil, error } = await sb.from('usuarios').select('*, sesiones_clase(nombre)').eq('auth_id', user.id).single();
-  if(error || !perfil){
-    authMsg('Tu cuenta no tiene un perfil asociado. Contacta al administrador.');
-    return;
+
+  let { data: perfil, error } = await sb.from('usuarios').select('*, sesiones_clase(nombre)').eq('auth_id', user.id).maybeSingle();
+
+  // Primera vez que esta cuenta inicia sesión con éxito: todavía no existe su
+  // fila en `usuarios`. Ahora sí hay una sesión de autenticación real (auth.uid()
+  // ya resuelve), así que es el momento correcto para crear la sesión de clase
+  // (si es docente) o unirse a una (si es estudiante), sin chocar con RLS.
+  if(!perfil){
+    const meta = user.user_metadata || {};
+    if(!meta.pending_rol){
+      authMsg('Tu cuenta no tiene un perfil asociado. Contacta al administrador.');
+      return;
+    }
+    try {
+      perfil = await completarRegistroPendiente(user, meta);
+    } catch(e){
+      authMsg('No se pudo completar tu registro: ' + (e.message||e));
+      return;
+    }
   }
+
   currentUser = {
     auth_id: user.id,
     nombre: perfil.nombre,
@@ -1653,6 +1656,63 @@ async function authLoadProfileAndEnter(){
   const navProfesor = document.getElementById('nav-profesor');
   if(navProfesor) navProfesor.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
   if(typeof initApp === 'function') initApp();
+
+  if(perfil._codigoRecienGenerado){
+    setTimeout(()=>mostrarCodigoSesionPostLogin(perfil._codigoRecienGenerado), 700);
+  }
+}
+
+// Crea la fila en `sesiones_clase` (docente) o resuelve el código (estudiante),
+// y luego crea la fila en `usuarios`. Se llama solo una vez, en el primer login,
+// cuando ya existe una sesión de autenticación real.
+async function completarRegistroPendiente(user, meta){
+  const rol = meta.pending_rol;
+  const nombre = meta.pending_nombre || user.email;
+  let sesionId = null;
+  let codigoGenerado = null;
+
+  if(rol==='docente'){
+    for(let intento=0; intento<4; intento++){
+      codigoGenerado = generarCodigoSesion();
+      const { data: sesionRow, error: sesionError } = await sb.from('sesiones_clase')
+        .insert({ nombre: meta.pending_sesion_nombre, codigo: codigoGenerado, docente_id: user.id, capital_inicial: 50000, mercados_activos: 5, activa: true })
+        .select('id').single();
+      if(!sesionError){ sesionId = sesionRow.id; break; }
+      if(sesionError.code !== '23505') throw sesionError; // 23505 = código duplicado, reintentar
+      if(intento===3) throw sesionError;
+    }
+  } else if(rol==='estudiante'){
+    const { data: sesiones, error: buscarError } = await sb.rpc('buscar_sesion_por_codigo', { p_codigo: meta.pending_sesion_codigo });
+    if(buscarError) throw buscarError;
+    if(!sesiones || sesiones.length===0) throw new Error('El código de sesión ya no es válido. Pide uno nuevo a tu docente.');
+    sesionId = sesiones[0].id;
+  }
+
+  const { data: nuevoPerfil, error: userError } = await sb.from('usuarios')
+    .insert({ auth_id: user.id, nombre, correo: user.email, rol, sesion_id: sesionId })
+    .select('*, sesiones_clase(nombre)').single();
+  if(userError) throw userError;
+
+  if(codigoGenerado) nuevoPerfil._codigoRecienGenerado = codigoGenerado;
+  return nuevoPerfil;
+}
+
+// Modal breve para mostrarle el código de sesión al docente justo después de
+// su primer inicio de sesión (momento en el que se creó la sesión de clase).
+function mostrarCodigoSesionPostLogin(codigo){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(4,7,12,.7);display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div class="auth-box" style="max-width:380px;">
+      <div class="auth-code-result" style="display:block;">
+        <div class="auth-code-label">Tu sesión de clase ya está lista — código para tus estudiantes</div>
+        <div class="auth-code-value">${codigo}</div>
+        <div class="auth-hint">Compárteles este código para que se registren en tu sesión.</div>
+        <button class="auth-submit" style="margin-top:12px;" id="btn-cerrar-codigo-modal">Entendido</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#btn-cerrar-codigo-modal').onclick = () => overlay.remove();
 }
 
 async function authBoot(){
