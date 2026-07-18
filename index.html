@@ -900,6 +900,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <button class="wl-nav-btn"        id="nav-resultados"    onclick="goPage('resultados')"><i class="ti ti-award"></i> Resultados</button>
     <button class="wl-nav-btn"        id="nav-resultados-lab" onclick="goPage('resultados-lab')"><i class="ti ti-report-analytics"></i> Resultados Lab</button>
     <button class="wl-nav-btn"        id="nav-noticias"      onclick="goPage('noticias')"><i class="ti ti-news"></i> Noticias</button>
+    <button class="wl-nav-btn"        id="nav-calificaciones" onclick="goPage('calificaciones')"><i class="ti ti-certificate"></i> Calificaciones</button>
     <button class="wl-nav-btn"        id="nav-profesor"      onclick="goPage('profesor')"><i class="ti ti-school"></i> Modo Profesor</button>
   </div>
   <!-- Watchlist -->
@@ -1383,6 +1384,20 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   </div>
   <div id="news-center" class="news-center"></div>
 </div>
+<div id="page-calificaciones" class="page">
+  <div class="page-header">
+    <div class="page-title">Calificaciones</div>
+    <div class="page-sub" id="cal-page-sub">Aquí puedes ver tus calificaciones registradas por tu docente.</div>
+  </div>
+  <div class="card">
+    <div id="cal-lista"><div class="auth-hint">Cargando…</div></div>
+    <div id="cal-empty" style="display:none;text-align:center;padding:40px 20px;color:var(--t3);font-size:13px;">
+      <i class="ti ti-certificate" style="font-size:32px;display:block;margin-bottom:10px;opacity:.5;"></i>
+      Todavía no hay calificaciones registradas.
+    </div>
+  </div>
+</div>
+
 <div id="page-profesor" class="page">
   <div class="page-header">
     <div class="page-title">Modo Profesor</div>
@@ -1405,12 +1420,9 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
           <tr style="text-align:left;color:var(--t3);font-size:11px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--c4);">
             <th style="padding:8px 10px;">Estudiante</th>
             <th style="padding:8px 10px;">Se registró</th>
-            <th style="padding:8px 10px;">Valor cartera</th>
-            <th style="padding:8px 10px;">Retorno</th>
-            <th style="padding:8px 10px;">Operac.</th>
-            <th style="padding:8px 10px;">Última actividad</th>
+            <th style="padding:8px 10px;">Cartera</th>
             <th style="padding:8px 10px;">Calificación</th>
-            <th style="padding:8px 10px;"></th>
+            <th style="padding:8px 10px;">Acciones</th>
           </tr>
         </thead>
         <tbody id="prof-cloud-tbody"></tbody>
@@ -1798,6 +1810,12 @@ async function completarRegistroPendiente(user, meta){
     .select('*, sesiones_clase(nombre,codigo)').single();
   if(userError) throw userError;
 
+  if(rol==='estudiante' && sesionId){
+    // Registra la inscripción (para que la sesión aparezca luego en "Mis sesiones").
+    // No es crítico si falla — la sesión activa ya quedó fijada en usuarios.sesion_id.
+    await sb.from('inscripciones').insert({ usuario_id: nuevoPerfil.id, sesion_id: sesionId }).then(()=>{}, ()=>{});
+  }
+
   if(codigoGenerado) nuevoPerfil._codigoRecienGenerado = codigoGenerado;
   return nuevoPerfil;
 }
@@ -1822,27 +1840,165 @@ function mostrarCodigoSesionPostLogin(codigo){
 
 // Le recuerda al usuario (sobre todo al estudiante) en qué sesión de clase está
 // y con qué código entró, para que no se pierda si maneja varias clases o cuentas.
-function mostrarInfoSesion(){
-  if(!currentUser){ return; }
+async function mostrarInfoSesion(){
+  if(!currentUser) return;
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(4,7,12,.7);display:flex;align-items:center;justify-content:center;padding:20px;';
-  const tieneSesion = !!currentUser.sesion_nombre;
+
+  if(guestMode){
+    overlay.innerHTML = `
+      <div class="auth-box" style="max-width:380px;">
+        <div class="auth-code-result" style="display:block;">
+          <div class="auth-code-label">Modo de prueba</div>
+          <div class="auth-hint">Estás en modo de prueba sin cuenta, no hay sesiones de clase reales que gestionar aquí.</div>
+          <button class="auth-submit" style="margin-top:12px;" id="btn-cerrar-info-sesion">Cerrar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#btn-cerrar-info-sesion').onclick = () => overlay.remove();
+    overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+    return;
+  }
+
+  const esDocente = currentUser.rol === 'docente' || currentUser.rol === 'superadmin';
   overlay.innerHTML = `
-    <div class="auth-box" style="max-width:380px;">
-      <div class="auth-code-result" style="display:block;">
-        <div class="auth-code-label">${tieneSesion ? 'Tu sesión de clase' : 'Sin sesión asignada'}</div>
-        ${tieneSesion ? `
-          <div style="font-size:17px;font-weight:700;color:var(--t1);margin-bottom:10px;">${currentUser.sesion_nombre}</div>
-          <div class="auth-code-value" style="font-size:20px;">${currentUser.sesion_codigo || '—'}</div>
-          <div class="auth-hint">${currentUser.rol==='docente' ? 'Este es el código que le compartes a tus estudiantes.' : 'Este es el código que usaste para registrarte.'}</div>
-        ` : `<div class="auth-hint">${guestMode ? 'Estás en modo de prueba, sin cuenta ni sesión real.' : 'Tu cuenta no está vinculada a ninguna sesión de clase.'}</div>`}
-        <button class="auth-submit" style="margin-top:12px;" id="btn-cerrar-info-sesion">Cerrar</button>
-      </div>
+    <div class="auth-box" style="max-width:420px;">
+      <div class="auth-brand" style="font-size:18px;">Mis sesiones de clase</div>
+      <div class="auth-sub">${esDocente ? 'Las clases que administras. La marcada como activa es la que ves en Modo Profesor.' : 'Las clases a las que perteneces. La marcada como activa es en la que estás operando ahora.'}</div>
+      <div id="ms-msg" class="auth-msg"></div>
+      <div id="ms-lista" style="margin-bottom:16px;"><div class="auth-hint">Cargando…</div></div>
+      ${esDocente ? `
+        <div class="auth-field">
+          <label>Crear una sesión de clase nueva</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="ms-nueva-sesion" placeholder='Ej. "Mercados Financieros — 2027-1"' style="flex:1;">
+            <button class="btn" id="ms-btn-crear"><i class="ti ti-plus"></i></button>
+          </div>
+        </div>
+      ` : `
+        <div class="auth-field">
+          <label>Unirme a otra sesión con un código</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="ms-nuevo-codigo" placeholder="Ej. MF2026B" style="flex:1;text-transform:uppercase;">
+            <button class="btn" id="ms-btn-unirse"><i class="ti ti-plus"></i></button>
+          </div>
+        </div>
+      `}
+      <button class="btn btn-ghost" style="width:100%;margin-top:6px;" id="btn-cerrar-info-sesion">Cerrar</button>
     </div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('#btn-cerrar-info-sesion').onclick = () => overlay.remove();
   overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+
+  async function cargarListaSesiones(){
+    const cont = overlay.querySelector('#ms-lista');
+    try {
+      let filas = [];
+      if(esDocente){
+        const { data, error } = await sb.from('sesiones_clase').select('id,nombre,codigo').eq('docente_id', currentUser.auth_id).order('creado_en', {ascending:false});
+        if(error) throw error;
+        filas = data || [];
+      } else {
+        const { data, error } = await sb.from('inscripciones').select('sesiones_clase(id,nombre,codigo)').eq('usuario_id', currentUser.usuario_id);
+        if(error) throw error;
+        filas = (data||[]).map(r=>r.sesiones_clase).filter(Boolean);
+      }
+      if(!filas.length){ cont.innerHTML = '<div class="auth-hint">Todavía no perteneces a ninguna sesión.</div>'; return; }
+      cont.innerHTML = filas.map(s => `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--c4);border-radius:var(--r);margin-bottom:8px;${s.id===currentUser.sesion_id?'border-color:var(--accent2);background:rgba(0,196,255,.06);':''}">
+          <div style="min-width:0;">
+            <div style="font-weight:600;font-size:13px;">${s.nombre}</div>
+            <div style="font-size:11px;color:var(--t3);font-family:var(--font-mono);">${s.codigo}</div>
+          </div>
+          ${s.id===currentUser.sesion_id
+            ? '<span class="nav-badge" style="background:var(--accent2);color:#031320;">Activa</span>'
+            : `<button class="btn btn-sm" onclick="cambiarSesionActiva('${s.id}','${s.nombre.replace(/'/g,"\\'")}','${s.codigo}')">Cambiar</button>`}
+        </div>`).join('');
+    } catch(e){
+      cont.innerHTML = '<div class="auth-hint">No se pudo cargar la lista: '+(e.message||e)+'</div>';
+    }
+  }
+  cargarListaSesiones();
+
+  if(esDocente){
+    overlay.querySelector('#ms-btn-crear').onclick = async () => {
+      const nombre = overlay.querySelector('#ms-nueva-sesion').value.trim();
+      const msg = overlay.querySelector('#ms-msg');
+      if(!nombre){ msg.className='auth-msg show error'; msg.textContent='Ponle un nombre a la sesión.'; return; }
+      msg.className='auth-msg';
+      try {
+        let codigoGenerado, sesionId;
+        for(let intento=0; intento<4; intento++){
+          codigoGenerado = generarCodigoSesion();
+          const { data, error } = await sb.from('sesiones_clase')
+            .insert({ nombre, codigo: codigoGenerado, docente_id: currentUser.auth_id, capital_inicial: 50000, mercados_activos: 5, activa: true })
+            .select('id').single();
+          if(!error){ sesionId = data.id; break; }
+          if(error.code !== '23505') throw error;
+          if(intento===3) throw error;
+        }
+        overlay.querySelector('#ms-nueva-sesion').value='';
+        await cargarListaSesiones();
+        msg.className='auth-msg show success'; msg.textContent=`Sesión creada. Código: ${codigoGenerado}`;
+        cambiarSesionActiva(sesionId, nombre, codigoGenerado);
+      } catch(e){
+        msg.className='auth-msg show error'; msg.textContent='No se pudo crear: '+(e.message||e);
+      }
+    };
+  } else {
+    overlay.querySelector('#ms-btn-unirse').onclick = async () => {
+      const codigo = overlay.querySelector('#ms-nuevo-codigo').value.trim();
+      const msg = overlay.querySelector('#ms-msg');
+      if(!codigo){ msg.className='auth-msg show error'; msg.textContent='Ingresa un código de sesión.'; return; }
+      msg.className='auth-msg';
+      try {
+        const { data: sesiones, error: buscarError } = await sb.rpc('buscar_sesion_por_codigo', { p_codigo: codigo });
+        if(buscarError) throw buscarError;
+        if(!sesiones || sesiones.length===0) throw new Error('Código inválido o sesión inactiva.');
+        const s = sesiones[0];
+        const { error: insError } = await sb.from('inscripciones').insert({ usuario_id: currentUser.usuario_id, sesion_id: s.id });
+        if(insError && insError.code !== '23505') throw insError; // 23505 = ya estaba inscrito, no pasa nada
+        overlay.querySelector('#ms-nuevo-codigo').value='';
+        await cargarListaSesiones();
+        msg.className='auth-msg show success'; msg.textContent=`Te uniste a "${s.nombre}".`;
+        cambiarSesionActiva(s.id, s.nombre, codigo.toUpperCase());
+      } catch(e){
+        msg.className='auth-msg show error'; msg.textContent='No se pudo unir: '+(e.message||e);
+      }
+    };
+  }
 }
+
+// Cambia la sesión de clase activa: guarda el cambio en la nube, reinicia el
+// estado local de trading (cada sesión guarda su propio progreso por separado,
+// ver storageKey()) y vuelve a cargar lo que corresponda a la nueva sesión.
+async function cambiarSesionActiva(sesionId, sesionNombre, sesionCodigo){
+  if(!sb || !currentUser || sesionId === currentUser.sesion_id) return;
+  try {
+    await sb.from('usuarios').update({ sesion_id: sesionId }).eq('id', currentUser.usuario_id);
+  } catch(e){
+    notify('No se pudo cambiar de sesión: ' + (e.message||e), 'error');
+    return;
+  }
+  currentUser.sesion_id = sesionId;
+  currentUser.sesion_nombre = sesionNombre;
+  currentUser.sesion_codigo = sesionCodigo;
+
+  // Reinicia el estado de trading en memoria (cada sesión es independiente)
+  // y carga lo que ya hubiera guardado antes en esta sesión, si aplica.
+  capital = 50000; labCapital = 50000; portfolio = []; txHistory = [];
+  labHistory = []; navHistory = []; pendingOrders = []; marketSessionLog = [];
+  savedPortfolios = []; newsFeed = []; labPickedIds = [];
+  labConfig = {capital:50000, horizon:6, target:8, started:false, startCapital:0};
+  loadProgress();
+
+  document.getElementById('user-role-badge').className = 'role-badge ' + currentUser.rol;
+  renderAssetList(); renderCustom(); renderWatchlist(); renderPortfolio(); renderPortfolioTabs();
+  renderLabHistory(); updateNavCapital();
+  if(document.getElementById('page-profesor').classList.contains('active')){ cargarRosterProfesor(); iniciarRealtimeProfesor(); }
+  notify(`Cambiaste a: ${sesionNombre}`, 'success');
+}
+
 // Para cuentas creadas directamente desde el panel de Supabase (Authentication →
 // Users → Add user), que no pasaron por el formulario de registro de la app y por
 // lo tanto no traen nombre/rol/sesión guardados. Se les pide completar esos datos
@@ -1986,9 +2142,12 @@ async function cargarRosterProfesor(esManual){
     );
     if(error) throw error;
 
-    const { data: calRows } = await sb.from('calificaciones').select('*').eq('sesion_id', sesionId);
+    const { data: calRows } = await sb.from('calificaciones').select('*').eq('sesion_id', sesionId).order('creado_en', {ascending:false});
     profCalificaciones = {};
-    (calRows||[]).forEach(c=>{ profCalificaciones[c.usuario_id] = c; });
+    (calRows||[]).forEach(c=>{
+      if(!profCalificaciones[c.usuario_id]) profCalificaciones[c.usuario_id] = [];
+      profCalificaciones[c.usuario_id].push(c);
+    });
 
     const { data: portRows } = await sb.from('portafolios').select('*').eq('sesion_id', sesionId);
     profPortafolios = {};
@@ -2007,25 +2166,27 @@ function renderRosterProfesorTabla(estudiantes, sesionId, sesionNombre){
   if(!estudiantes.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
   tbody.innerHTML = estudiantes.map(est=>{
-    const cal = profCalificaciones[est.id];
-    const nivel = cal ? nivelCalificacion(cal.nota_general) : 'sin';
-    const notaTxt = cal && cal.nota_general!==null && cal.nota_general!==undefined ? cal.nota_general : 'Sin calificar';
+    const cals = profCalificaciones[est.id] || [];
+    const masReciente = cals[0];
+    const nivel = masReciente ? nivelCalificacion(masReciente.nota_general) : 'sin';
+    const notaTxt = masReciente && masReciente.nota_general!==null && masReciente.nota_general!==undefined
+      ? masReciente.nota_general + (cals.length>1 ? ` (${cals.length})` : '')
+      : (cals.length ? `${cals.length} sin nota` : 'Sin calificar');
     const port = profPortafolios[est.id];
-    const valorTxt = port && port.valor_total!=null ? '$'+Number(port.valor_total).toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+    const valorTxt = port && port.valor_total!=null ? '$'+Number(port.valor_total).toLocaleString('es-PA',{minimumFractionDigits:0,maximumFractionDigits:0}) : '—';
     const retorno = port && port.retorno_pct!=null ? Number(port.retorno_pct) : null;
-    const retornoTxt = retorno!==null ? (retorno>=0?'+':'')+retorno.toFixed(2)+'%' : '—';
+    const retornoTxt = retorno!==null ? (retorno>=0?'+':'')+retorno.toFixed(1)+'%' : '—';
     const retornoColor = retorno===null ? 'var(--t3)' : (retorno>=0 ? 'var(--green)' : 'var(--red)');
-    const numOps = port && port.num_operaciones!=null ? port.num_operaciones : 0;
-    const ultimaAct = port && port.ultima_actividad ? formatearFechaHora(port.ultima_actividad) : 'Sin actividad';
+    const nombreEsc = est.nombre.replace(/'/g,"\\'");
     return `<tr data-usuario-id="${est.id}">
       <td style="font-weight:600;">${est.nombre}<div style="font-size:10.5px;color:var(--t3);font-weight:400;">${est.correo}</div></td>
       <td style="color:var(--t3);white-space:nowrap;">${formatearFechaHora(est.creado_en)}</td>
-      <td style="font-weight:600;">${valorTxt}</td>
-      <td style="color:${retornoColor};font-weight:600;">${retornoTxt}</td>
-      <td style="color:var(--t3);">${numOps}</td>
-      <td style="color:var(--t3);white-space:nowrap;">${ultimaAct}</td>
+      <td style="white-space:nowrap;"><span style="font-weight:600;">${valorTxt}</span> <span style="color:${retornoColor};font-size:11.5px;">${retornoTxt}</span></td>
       <td><span class="grade-pill ${nivel}">${notaTxt}</span></td>
-      <td><button class="btn btn-sm" onclick="abrirModalCalificar('${est.id}','${est.nombre.replace(/'/g,"\\'")}','${sesionId}')"><i class="ti ti-pencil"></i> Calificar</button></td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" title="Ver resumen completo" onclick="abrirDetalleEstudiante('${est.id}','${nombreEsc}','${sesionId}')"><i class="ti ti-eye"></i></button>
+        <button class="btn btn-sm" onclick="abrirModalCalificar('${est.id}','${nombreEsc}','${sesionId}')"><i class="ti ti-pencil"></i> Calificar</button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -2058,65 +2219,231 @@ function detenerRealtimeProfesor(){
   if(dot) dot.style.display = 'none';
 }
 
+// ── Página "Calificaciones" (nav principal) — adaptable por rol ──
+async function renderCalificacionesPage(){
+  const cont = document.getElementById('cal-lista');
+  const empty = document.getElementById('cal-empty');
+  const sub = document.getElementById('cal-page-sub');
+  if(!cont) return;
+
+  if(guestMode || !sb || !currentUser){
+    cont.innerHTML=''; empty.style.display='block';
+    empty.querySelector('div')?.remove();
+    empty.innerHTML = '<i class="ti ti-certificate" style="font-size:32px;display:block;margin-bottom:10px;opacity:.5;"></i>En modo de prueba no hay calificaciones reales.';
+    return;
+  }
+
+  const esDocente = currentUser.rol==='docente' || currentUser.rol==='superadmin';
+  cont.innerHTML = '<div class="auth-hint">Cargando…</div>'; empty.style.display='none';
+
+  if(!esDocente){
+    sub.textContent = currentUser.sesion_nombre ? `Sesión: ${currentUser.sesion_nombre}` : 'Tus calificaciones registradas por tu docente.';
+    try {
+      const { data, error } = await sb.from('calificaciones').select('*').eq('usuario_id', currentUser.usuario_id).order('creado_en', {ascending:false});
+      if(error) throw error;
+      if(!data || !data.length){ cont.innerHTML=''; empty.style.display='block'; return; }
+      cont.innerHTML = data.map(h => {
+        const nivel = nivelCalificacion(h.nota_general);
+        return `<div style="padding:14px;border:1px solid var(--c4);border-radius:var(--r2);margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+            <div>
+              <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;">${h.categoria || 'General'}</div>
+              <div style="font-weight:700;font-size:14.5px;">${h.titulo}</div>
+            </div>
+            <span class="grade-pill ${nivel}" style="font-size:14px;">${h.nota_general ?? '—'}</span>
+          </div>
+          ${h.comentario ? `<div style="color:var(--t2);font-size:13px;margin-top:8px;font-style:italic;">"${h.comentario}"</div>` : ''}
+          <div style="color:var(--t3);font-size:10.5px;margin-top:8px;">${formatearFechaHora(h.creado_en)}</div>
+        </div>`;
+      }).join('');
+    } catch(e){
+      cont.innerHTML = '<div class="auth-hint">No se pudieron cargar tus calificaciones: '+(e.message||e)+'</div>';
+    }
+  } else {
+    sub.textContent = currentUser.sesion_nombre ? `Todas las calificaciones que has dado en: ${currentUser.sesion_nombre}` : 'Todas las calificaciones que has dado.';
+    try {
+      const sesionId = currentUser.sesion_id;
+      if(!sesionId){ cont.innerHTML=''; empty.style.display='block'; return; }
+      const { data, error } = await sb.from('calificaciones').select('*, usuarios!calificaciones_usuario_id_fkey(nombre)').eq('sesion_id', sesionId).order('creado_en', {ascending:false});
+      if(error) throw error;
+      if(!data || !data.length){ cont.innerHTML=''; empty.style.display='block'; return; }
+      cont.innerHTML = data.map(h => {
+        const nivel = nivelCalificacion(h.nota_general);
+        return `<div style="padding:14px;border:1px solid var(--c4);border-radius:var(--r2);margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+            <div>
+              <div style="font-size:10.5px;color:var(--accent2);font-weight:600;">${h.usuarios?.nombre || 'Estudiante'}</div>
+              <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;">${h.categoria || 'General'}</div>
+              <div style="font-weight:700;font-size:14.5px;">${h.titulo}</div>
+            </div>
+            <span class="grade-pill ${nivel}" style="font-size:14px;">${h.nota_general ?? '—'}</span>
+          </div>
+          ${h.comentario ? `<div style="color:var(--t2);font-size:13px;margin-top:8px;font-style:italic;">"${h.comentario}"</div>` : ''}
+          <div style="color:var(--t3);font-size:10.5px;margin-top:8px;">${formatearFechaHora(h.creado_en)}</div>
+        </div>`;
+      }).join('');
+    } catch(e){
+      cont.innerHTML = '<div class="auth-hint">No se pudieron cargar las calificaciones: '+(e.message||e)+'</div>';
+    }
+  }
+}
+
 // ── Calificación con rúbrica ──
 function abrirModalCalificar(usuarioId, nombre, sesionId){
-  const existente = profCalificaciones[usuarioId] || {};
-  const criterios = existente.criterios || {};
+  const historial = profCalificaciones[usuarioId] || [];
   const overlay = document.createElement('div');
   overlay.className = 'grade-modal-overlay';
   overlay.innerHTML = `
     <div class="grade-modal">
       <h3>Calificar a ${nombre}</h3>
-      <div class="sub">La calificación solo la puedes ver tú, nunca el estudiante.</div>
+      <div class="sub">Puedes agregar varias calificaciones distintas para el mismo estudiante (exámenes, participación, etc.). El estudiante sí puede ver estas calificaciones en su sección "Calificaciones".</div>
       <div class="grade-field">
-        <label>Nota general (0–100)</label>
-        <input type="number" min="0" max="100" id="gm-nota" value="${existente.nota_general ?? ''}" placeholder="Ej. 85">
+        <label>Categoría</label>
+        <select id="gm-categoria">
+          <option value="Rentabilidad">Rentabilidad</option>
+          <option value="Gestión de riesgo">Gestión de riesgo</option>
+          <option value="Participación">Participación</option>
+          <option value="Examen">Examen</option>
+          <option value="Otro">Otro</option>
+        </select>
       </div>
       <div class="grade-field">
-        <label>Criterios (opcionales)</label>
-        <div class="grade-criterio-row"><label>Rentabilidad</label><input type="number" min="0" max="100" id="gm-crit-rentabilidad" value="${criterios.rentabilidad ?? ''}"></div>
-        <div class="grade-criterio-row"><label>Gestión de riesgo</label><input type="number" min="0" max="100" id="gm-crit-riesgo" value="${criterios.riesgo ?? ''}"></div>
-        <div class="grade-criterio-row"><label>Participación</label><input type="number" min="0" max="100" id="gm-crit-participacion" value="${criterios.participacion ?? ''}"></div>
+        <label>Título</label>
+        <input type="text" id="gm-titulo" placeholder='Ej. "Examen parcial — Mercado de acciones"'>
+      </div>
+      <div class="grade-field">
+        <label>Nota (0–100)</label>
+        <input type="number" min="0" max="100" id="gm-nota" placeholder="Ej. 85">
       </div>
       <div class="grade-field">
         <label>Comentario (opcional)</label>
-        <textarea id="gm-comentario" placeholder="Observaciones para tu propio registro…">${existente.comentario || ''}</textarea>
+        <textarea id="gm-comentario" placeholder="Observaciones para el estudiante…"></textarea>
+      </div>
+      <div class="grade-field">
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;text-transform:none;color:var(--t1);">
+          <input type="checkbox" id="gm-notificar" checked style="width:auto;"> Avisar por correo al estudiante
+        </label>
       </div>
       <div class="auth-msg" id="gm-msg"></div>
       <div style="display:flex;gap:10px;">
         <button class="btn btn-ghost" id="gm-cancelar" style="flex:1;">Cancelar</button>
         <button class="auth-submit" id="gm-guardar" style="flex:1;margin-top:0;">Guardar calificación</button>
       </div>
+      ${historial.length ? `
+        <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--c4);">
+          <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Calificaciones anteriores</div>
+          ${historial.map(h => `
+            <div style="padding:8px 0;border-bottom:1px solid var(--c3);font-size:12px;">
+              <div style="display:flex;justify-content:space-between;">
+                <span style="font-weight:600;">${h.titulo}</span>
+                <span style="color:var(--accent2);font-weight:700;">${h.nota_general ?? '—'}</span>
+              </div>
+              <div style="color:var(--t3);font-size:10.5px;">${h.categoria || 'General'} · ${formatearFechaHora(h.creado_en)}</div>
+              ${h.comentario ? `<div style="color:var(--t2);margin-top:3px;">"${h.comentario}"</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     </div>`;
   document.body.appendChild(overlay);
   overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
   overlay.querySelector('#gm-cancelar').onclick = () => overlay.remove();
   overlay.querySelector('#gm-guardar').onclick = async () => {
     const msg = overlay.querySelector('#gm-msg');
+    const categoria = overlay.querySelector('#gm-categoria').value;
+    const titulo = overlay.querySelector('#gm-titulo').value.trim();
     const notaVal = overlay.querySelector('#gm-nota').value.trim();
     const nota = notaVal==='' ? null : Number(notaVal);
-    if(nota!==null && (isNaN(nota) || nota<0 || nota>100)){ msg.className='auth-msg show error'; msg.textContent='La nota general debe estar entre 0 y 100.'; return; }
-    const critVal = (id)=>{ const v=overlay.querySelector(id).value.trim(); return v==='' ? null : Number(v); };
-    const nuevosCriterios = { rentabilidad: critVal('#gm-crit-rentabilidad'), riesgo: critVal('#gm-crit-riesgo'), participacion: critVal('#gm-crit-participacion') };
     const comentario = overlay.querySelector('#gm-comentario').value.trim() || null;
+    const notificar = overlay.querySelector('#gm-notificar').checked;
+    if(!titulo){ msg.className='auth-msg show error'; msg.textContent='Ponle un título a la calificación.'; return; }
+    if(nota!==null && (isNaN(nota) || nota<0 || nota>100)){ msg.className='auth-msg show error'; msg.textContent='La nota debe estar entre 0 y 100.'; return; }
 
     const btn = overlay.querySelector('#gm-guardar');
     btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Guardando…';
     try {
-      const { error } = await conTiempoLimite(sb.from('calificaciones').upsert({
+      const { data: nuevaCal, error } = await conTiempoLimite(sb.from('calificaciones').insert({
         usuario_id: usuarioId, sesion_id: sesionId, docente_id: currentUser.auth_id,
-        nota_general: nota, comentario, criterios: nuevosCriterios,
-        actualizado_en: new Date().toISOString(),
-      }, { onConflict: 'usuario_id,sesion_id' }));
+        categoria, titulo, nota_general: nota, comentario,
+      }).select('id').single());
       if(error) throw error;
       overlay.remove();
       notify('Calificación guardada.', 'success');
       cargarRosterProfesor();
+
+      if(notificar && nuevaCal && nuevaCal.id){
+        // Llama a la Edge Function que envía el correo. Si todavía no la
+        // desplegaste en tu proyecto de Supabase, esto simplemente falla en
+        // silencio (la calificación ya quedó guardada de todas formas).
+        sb.functions.invoke('notificar-calificacion', { body: { calificacion_id: nuevaCal.id } })
+          .then(({error: fnError})=>{ if(fnError) console.warn('No se pudo enviar el correo de aviso:', fnError.message); })
+          .catch(()=>{});
+      }
     } catch(e){
       msg.className='auth-msg show error'; msg.textContent = 'No se pudo guardar: ' + (e.message||e);
       btn.disabled = false; btn.textContent = 'Guardar calificación';
     }
   };
+}
+
+// Botón "Ver" del roster: resumen completo del estudiante sin llenar la
+// tabla principal de columnas — cartera detallada + todas sus calificaciones.
+function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
+  const port = profPortafolios[usuarioId] || {};
+  const historial = profCalificaciones[usuarioId] || [];
+  const retorno = port.retorno_pct!=null ? Number(port.retorno_pct) : null;
+  const retornoTxt = retorno!==null ? (retorno>=0?'+':'')+retorno.toFixed(2)+'%' : '—';
+  const retornoColor = retorno===null ? 'var(--t3)' : (retorno>=0 ? 'var(--green)' : 'var(--red)');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `
+    <div class="grade-modal" style="max-width:500px;">
+      <h3>${nombre}</h3>
+      <div class="sub">Resumen de su sesión</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0;">
+        <div style="background:var(--c2);border-radius:var(--r);padding:12px;">
+          <div style="font-size:10px;color:var(--t3);text-transform:uppercase;">Efectivo disponible</div>
+          <div style="font-size:16px;font-weight:700;">${port.efectivo_disponible!=null ? '$'+Number(port.efectivo_disponible).toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'}</div>
+        </div>
+        <div style="background:var(--c2);border-radius:var(--r);padding:12px;">
+          <div style="font-size:10px;color:var(--t3);text-transform:uppercase;">Valor total de cartera</div>
+          <div style="font-size:16px;font-weight:700;">${port.valor_total!=null ? '$'+Number(port.valor_total).toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'}</div>
+        </div>
+        <div style="background:var(--c2);border-radius:var(--r);padding:12px;">
+          <div style="font-size:10px;color:var(--t3);text-transform:uppercase;">Retorno</div>
+          <div style="font-size:16px;font-weight:700;color:${retornoColor};">${retornoTxt}</div>
+        </div>
+        <div style="background:var(--c2);border-radius:var(--r);padding:12px;">
+          <div style="font-size:10px;color:var(--t3);text-transform:uppercase;">Operaciones registradas</div>
+          <div style="font-size:16px;font-weight:700;">${port.num_operaciones ?? 0}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:14px;">Última actividad: ${port.ultima_actividad ? formatearFechaHora(port.ultima_actividad) : 'Sin actividad registrada'}</div>
+
+      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;border-top:1px solid var(--c4);padding-top:14px;">
+        Calificaciones (${historial.length})
+      </div>
+      ${historial.length ? historial.map(h => `
+        <div style="padding:8px 0;border-bottom:1px solid var(--c3);font-size:12.5px;">
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-weight:600;">${h.titulo}</span>
+            <span style="color:var(--accent2);font-weight:700;">${h.nota_general ?? '—'}</span>
+          </div>
+          <div style="color:var(--t3);font-size:10.5px;">${h.categoria || 'General'} · ${formatearFechaHora(h.creado_en)}</div>
+          ${h.comentario ? `<div style="color:var(--t2);margin-top:3px;">"${h.comentario}"</div>` : ''}
+        </div>
+      `).join('') : '<div class="auth-hint">Todavía no tiene calificaciones.</div>'}
+
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button class="btn btn-ghost" id="det-cerrar" style="flex:1;">Cerrar</button>
+        <button class="auth-submit" id="det-calificar" style="flex:1;margin-top:0;">Calificar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  overlay.querySelector('#det-cerrar').onclick = () => overlay.remove();
+  overlay.querySelector('#det-calificar').onclick = () => { overlay.remove(); abrirModalCalificar(usuarioId, nombre, sesionId); };
 }
 
 async function authBoot(){
@@ -3202,6 +3529,7 @@ function goPage(p){
   if(p==='resultados-lab')renderResultsLab();
   if(p==='profesor'){ renderTeacher(); cargarRosterProfesor(); iniciarRealtimeProfesor(); }
   else { detenerRealtimeProfesor(); }
+  if(p==='calificaciones') renderCalificacionesPage();
   if(p==='noticias')renderNewsCenter();
   // Close mobile drawer on navigation
   if(window.innerWidth<=768)closeMobileSidebar();
@@ -6016,7 +6344,12 @@ function updateNavCapital() {
 }
 
 // ═══════════════════ PERSISTENCIA (localStorage) ═══════════════════
-const STORAGE_KEY = 'capitallab_v1';
+// Con sesiones múltiples, cada sesión de clase tiene su propio progreso
+// guardado por separado (para no mezclar el trading de una clase con otra).
+// Sin sesión activa (invitado o sin iniciar sesión), usa una clave fija local.
+function storageKey(){
+  return 'capitallab_v1_' + (typeof currentUser!=='undefined' && currentUser && currentUser.sesion_id ? currentUser.sesion_id : 'local');
+}
 
 function saveProgress() {
   try {
@@ -6035,7 +6368,7 @@ function saveProgress() {
       labPickedIds,
       savedAt: new Date().toISOString(),
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(storageKey(), JSON.stringify(state));
     // Flash the save indicator
     const dot = document.getElementById('save-dot');
     if (dot) { dot.classList.add('flash'); setTimeout(()=>dot.classList.remove('flash'), 1200); }
@@ -6107,7 +6440,13 @@ function sincronizarProgresoNube(forzar){
 
 function loadProgress() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    let raw = localStorage.getItem(storageKey());
+    if (!raw) {
+      // Migración desde la versión anterior (una sola clave global, sin
+      // sesiones múltiples): si existe, se copia una vez a la clave nueva.
+      const legacy = localStorage.getItem('capitallab_v1');
+      if (legacy) { raw = legacy; localStorage.setItem(storageKey(), legacy); }
+    }
     if (!raw) return false;
     const state = JSON.parse(raw);
     if (typeof state.capital === 'number')    capital          = state.capital;
@@ -6273,7 +6612,7 @@ function resetSession() {
   labHistory   = [];
   labPickedIds = [];
   labConfig    = {capital:50000, horizon:6, target:8, started:false, startCapital:0};
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(storageKey());
   updateNavCapital();
   renderLabHistory();
   // Reset lab UI
@@ -7804,7 +8143,7 @@ function initApp() {
   try { updateNavCapital(); }     catch(e) { console.error('updateNavCapital failed', e); }
   // Show restore notification if data was found
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey());
     if (raw) {
       const s = JSON.parse(raw);
       const txCount = (s.txHistory||[]).length;
