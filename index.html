@@ -2354,6 +2354,16 @@ function exportarDesdeCalificaciones(){
   }
 }
 
+// Guarda las calificaciones tal como llegan de la nube en la página
+// "Calificaciones" (vista docente), para que el botón de editar de ahí
+// pueda encontrarlas sin tener que volver a consultarlas.
+let calPageDataMap = {};
+function editarDesdeCalPage(calId, nombreEst){
+  const cal = calPageDataMap[calId];
+  if(!cal){ notify('No se encontró la calificación.', 'error'); return; }
+  abrirModalCalificar(cal.usuario_id, nombreEst, cal.sesion_id, cal);
+}
+
 async function renderCalificacionesPage(){
   const cont = document.getElementById('cal-lista');
   const empty = document.getElementById('cal-empty');
@@ -2401,8 +2411,12 @@ async function renderCalificacionesPage(){
       const { data, error } = await sb.from('calificaciones').select('*, usuarios!calificaciones_usuario_id_fkey(nombre)').eq('sesion_id', sesionId).order('creado_en', {ascending:false});
       if(error) throw error;
       if(!data || !data.length){ cont.innerHTML=''; empty.style.display='block'; return; }
+      // Guardamos las calificaciones tal cual llegaron para que el botón de
+      // editar de esta página pueda encontrarlas sin volver a consultar la nube.
+      calPageDataMap = {}; data.forEach(h=>{ calPageDataMap[h.id] = h; });
       cont.innerHTML = data.map(h => {
         const nivel = nivelCalificacion(h.nota_general);
+        const nombreEst = (h.usuarios?.nombre || 'Estudiante').replace(/'/g,"\\'");
         return `<div style="padding:14px;border:1px solid var(--c4);border-radius:var(--r2);margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
             <div>
@@ -2410,7 +2424,10 @@ async function renderCalificacionesPage(){
               <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;">${h.categoria || 'General'}</div>
               <div style="font-weight:700;font-size:14.5px;">${h.titulo}</div>
             </div>
-            <span class="grade-pill ${nivel}" style="font-size:14px;">${h.nota_general ?? '—'}</span>
+            <span style="display:flex;align-items:center;gap:8px;">
+              <span class="grade-pill ${nivel}" style="font-size:14px;">${h.nota_general ?? '—'}</span>
+              <button class="btn btn-sm" title="Editar" onclick="editarDesdeCalPage('${h.id}','${nombreEst}')"><i class="ti ti-pencil"></i></button>
+            </span>
           </div>
           ${h.comentario ? `<div style="color:var(--t2);font-size:13px;margin-top:8px;font-style:italic;">"${h.comentario}"</div>` : ''}
           <div style="color:var(--t3);font-size:10.5px;margin-top:8px;">${formatearFechaHora(h.creado_en)}</div>
@@ -2423,54 +2440,51 @@ async function renderCalificacionesPage(){
 }
 
 // ── Calificación con rúbrica ──
-function abrirModalCalificar(usuarioId, nombre, sesionId){
+function abrirModalCalificar(usuarioId, nombre, sesionId, editando){
   const historial = profCalificaciones[usuarioId] || [];
+  const esEdicion = !!editando;
+  const nombreEsc = nombre.replace(/'/g,"\\'");
   const overlay = document.createElement('div');
   overlay.className = 'grade-modal-overlay';
   overlay.innerHTML = `
     <div class="grade-modal">
-      <h3>Calificar a ${nombre}</h3>
-      <div class="sub">Puedes agregar varias calificaciones distintas para el mismo estudiante (exámenes, participación, etc.). El estudiante sí puede ver estas calificaciones en su sección "Calificaciones".</div>
+      <h3>${esEdicion ? 'Editar calificación' : 'Calificar a '+nombre}</h3>
+      <div class="sub">${esEdicion ? `Estás editando una calificación de ${nombre}.` : 'Puedes agregar varias calificaciones distintas para el mismo estudiante (exámenes, participación, etc.). El estudiante sí puede ver estas calificaciones en su sección "Calificaciones".'}</div>
       <div class="grade-field">
         <label>Categoría</label>
         <select id="gm-categoria">
-          <option value="Rentabilidad">Rentabilidad</option>
-          <option value="Gestión de riesgo">Gestión de riesgo</option>
-          <option value="Participación">Participación</option>
-          <option value="Examen">Examen</option>
-          <option value="Otro">Otro</option>
+          ${['Rentabilidad','Gestión de riesgo','Participación','Examen','Otro'].map(c=>
+            `<option value="${c}" ${editando?.categoria===c?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
       <div class="grade-field">
         <label>Título</label>
-        <input type="text" id="gm-titulo" placeholder='Ej. "Examen parcial — Mercado de acciones"'>
+        <input type="text" id="gm-titulo" value="${editando?.titulo ? editando.titulo.replace(/"/g,'&quot;') : ''}" placeholder='Ej. "Examen parcial — Mercado de acciones"'>
       </div>
       <div class="grade-field">
         <label>Nota (0–100)</label>
-        <input type="number" min="0" max="100" id="gm-nota" placeholder="Ej. 85">
+        <input type="number" min="0" max="100" id="gm-nota" value="${editando && editando.nota_general!=null ? editando.nota_general : ''}" placeholder="Ej. 85">
       </div>
       <div class="grade-field">
         <label>Comentario (opcional)</label>
-        <textarea id="gm-comentario" placeholder="Observaciones para el estudiante…"></textarea>
-      </div>
-      <div class="grade-field">
-        <label style="display:flex;align-items:center;gap:7px;font-size:12px;text-transform:none;color:var(--t1);">
-          <input type="checkbox" id="gm-notificar" checked style="width:auto;"> Avisar por correo al estudiante
-        </label>
+        <textarea id="gm-comentario" placeholder="Observaciones para el estudiante…">${editando?.comentario || ''}</textarea>
       </div>
       <div class="auth-msg" id="gm-msg"></div>
       <div style="display:flex;gap:10px;">
         <button class="btn btn-ghost" id="gm-cancelar" style="flex:1;">Cancelar</button>
-        <button class="auth-submit" id="gm-guardar" style="flex:1;margin-top:0;">Guardar calificación</button>
+        <button class="auth-submit" id="gm-guardar" style="flex:1;margin-top:0;">${esEdicion ? 'Guardar cambios' : 'Guardar calificación'}</button>
       </div>
       ${historial.length ? `
         <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--c4);">
           <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Calificaciones anteriores</div>
           ${historial.map(h => `
             <div style="padding:8px 0;border-bottom:1px solid var(--c3);font-size:12px;">
-              <div style="display:flex;justify-content:space-between;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
                 <span style="font-weight:600;">${h.titulo}</span>
-                <span style="color:var(--accent2);font-weight:700;">${h.nota_general ?? '—'}</span>
+                <span style="display:flex;align-items:center;gap:6px;">
+                  <span style="color:var(--accent2);font-weight:700;">${h.nota_general ?? '—'}</span>
+                  <button class="btn btn-sm" style="padding:3px 7px;" title="Editar esta calificación" onclick="abrirEdicionCalificacion('${usuarioId}','${nombreEsc}','${sesionId}','${h.id}')"><i class="ti ti-pencil" style="font-size:11px;"></i></button>
+                </span>
               </div>
               <div style="color:var(--t3);font-size:10.5px;">${h.categoria || 'General'} · ${formatearFechaHora(h.creado_en)}</div>
               ${h.comentario ? `<div style="color:var(--t2);margin-top:3px;">"${h.comentario}"</div>` : ''}
@@ -2489,35 +2503,42 @@ function abrirModalCalificar(usuarioId, nombre, sesionId){
     const notaVal = overlay.querySelector('#gm-nota').value.trim();
     const nota = notaVal==='' ? null : Number(notaVal);
     const comentario = overlay.querySelector('#gm-comentario').value.trim() || null;
-    const notificar = overlay.querySelector('#gm-notificar').checked;
     if(!titulo){ msg.className='auth-msg show error'; msg.textContent='Ponle un título a la calificación.'; return; }
     if(nota!==null && (isNaN(nota) || nota<0 || nota>100)){ msg.className='auth-msg show error'; msg.textContent='La nota debe estar entre 0 y 100.'; return; }
 
     const btn = overlay.querySelector('#gm-guardar');
     btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Guardando…';
     try {
-      const { data: nuevaCal, error } = await conTiempoLimite(sb.from('calificaciones').insert({
-        usuario_id: usuarioId, sesion_id: sesionId, docente_id: currentUser.auth_id,
-        categoria, titulo, nota_general: nota, comentario,
-      }).select('id').single());
-      if(error) throw error;
-      overlay.remove();
-      notify('Calificación guardada.', 'success');
-      cargarRosterProfesor();
-
-      if(notificar && nuevaCal && nuevaCal.id){
-        // Llama a la Edge Function que envía el correo. Si todavía no la
-        // desplegaste en tu proyecto de Supabase, esto simplemente falla en
-        // silencio (la calificación ya quedó guardada de todas formas).
-        sb.functions.invoke('notificar-calificacion', { body: { calificacion_id: nuevaCal.id } })
-          .then(({error: fnError})=>{ if(fnError) console.warn('No se pudo enviar el correo de aviso:', fnError.message); })
-          .catch(()=>{});
+      if(esEdicion){
+        const { error } = await conTiempoLimite(sb.from('calificaciones').update({
+          categoria, titulo, nota_general: nota, comentario, actualizado_en: new Date().toISOString(),
+        }).eq('id', editando.id));
+        if(error) throw error;
+      } else {
+        const { error } = await conTiempoLimite(sb.from('calificaciones').insert({
+          usuario_id: usuarioId, sesion_id: sesionId, docente_id: currentUser.auth_id,
+          categoria, titulo, nota_general: nota, comentario,
+        }));
+        if(error) throw error;
       }
+      overlay.remove();
+      notify(esEdicion ? 'Calificación actualizada.' : 'Calificación guardada.', 'success');
+      cargarRosterProfesor();
     } catch(e){
       msg.className='auth-msg show error'; msg.textContent = 'No se pudo guardar: ' + (e.message||e);
-      btn.disabled = false; btn.textContent = 'Guardar calificación';
+      btn.disabled = false; btn.textContent = esEdicion ? 'Guardar cambios' : 'Guardar calificación';
     }
   };
+}
+
+// Cierra cualquier modal de calificar/detalle abierto y reabre el modal de
+// calificar en modo edición, con los datos de esa calificación ya cargados.
+function abrirEdicionCalificacion(usuarioId, nombre, sesionId, calId){
+  document.querySelectorAll('.grade-modal-overlay').forEach(o=>o.remove());
+  const historial = profCalificaciones[usuarioId] || [];
+  const cal = historial.find(h=>h.id===calId);
+  if(!cal){ notify('No se encontró la calificación.', 'error'); return; }
+  abrirModalCalificar(usuarioId, nombre, sesionId, cal);
 }
 
 // Botón "Ver" del roster: resumen completo del estudiante sin llenar la
@@ -2575,9 +2596,12 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
       </div>
       ${historial.length ? historial.map(h => `
         <div style="padding:8px 0;border-bottom:1px solid var(--c3);font-size:12.5px;">
-          <div style="display:flex;justify-content:space-between;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
             <span style="font-weight:600;">${h.titulo}</span>
-            <span style="color:var(--accent2);font-weight:700;">${h.nota_general ?? '—'}</span>
+            <span style="display:flex;align-items:center;gap:6px;">
+              <span style="color:var(--accent2);font-weight:700;">${h.nota_general ?? '—'}</span>
+              <button class="btn btn-sm" style="padding:3px 7px;" title="Editar" onclick="abrirEdicionCalificacion('${usuarioId}','${nombreEsc}','${sesionId}','${h.id}')"><i class="ti ti-pencil" style="font-size:11px;"></i></button>
+            </span>
           </div>
           <div style="color:var(--t3);font-size:10.5px;">${h.categoria || 'General'} · ${formatearFechaHora(h.creado_en)}</div>
           ${h.comentario ? `<div style="color:var(--t2);margin-top:3px;">"${h.comentario}"</div>` : ''}
