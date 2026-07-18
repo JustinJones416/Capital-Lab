@@ -902,7 +902,10 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <button class="wl-nav-btn"        id="nav-resultados-lab" onclick="goPage('resultados-lab')"><i class="ti ti-report-analytics"></i> Resultados Lab</button>
     <button class="wl-nav-btn"        id="nav-noticias"      onclick="goPage('noticias')"><i class="ti ti-news"></i> Noticias</button>
     <button class="wl-nav-btn"        id="nav-calificaciones" onclick="goPage('calificaciones')"><i class="ti ti-certificate"></i> Calificaciones</button>
+    <button class="wl-nav-btn"        id="nav-cuestionarios"  onclick="goPage('cuestionarios')"><i class="ti ti-list-check"></i> Cuestionarios</button>
+    <button class="wl-nav-btn"        id="nav-posiciones"     onclick="goPage('posiciones')"><i class="ti ti-trophy"></i> Posiciones</button>
     <button class="wl-nav-btn"        id="nav-profesor"      onclick="goPage('profesor')"><i class="ti ti-school"></i> Modo Profesor</button>
+    <button class="wl-nav-btn"        id="nav-admin"          onclick="goPage('admin')" style="display:none;"><i class="ti ti-shield-cog"></i> Administración</button>
   </div>
   <!-- Watchlist -->
   <div class="wl-header">
@@ -1402,6 +1405,55 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   </div>
 </div>
 
+<div id="page-cuestionarios" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <div>
+      <div class="page-title">Cuestionarios</div>
+      <div class="page-sub" id="cuest-page-sub">Cuestionarios de opción múltiple de tu sesión.</div>
+    </div>
+    <button class="btn btn-sm" id="cuest-btn-nuevo" style="display:none;" onclick="abrirEditorCuestionario()"><i class="ti ti-plus"></i> Nuevo cuestionario</button>
+  </div>
+  <div class="card">
+    <div id="cuest-lista"><div class="auth-hint">Cargando…</div></div>
+    <div id="cuest-empty" style="display:none;text-align:center;padding:40px 20px;color:var(--t3);font-size:13px;">
+      <i class="ti ti-list-check" style="font-size:32px;display:block;margin-bottom:10px;opacity:.5;"></i>
+      Todavía no hay cuestionarios en esta sesión.
+    </div>
+  </div>
+</div>
+
+<div id="page-posiciones" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <div>
+      <div class="page-title">Tabla de posiciones</div>
+      <div class="page-sub" id="pos-page-sub">Ranking de retorno de tu sesión.</div>
+    </div>
+    <label id="pos-toggle-wrap" style="display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--t2);cursor:pointer;">
+      <input type="checkbox" id="pos-toggle-visible" onchange="alternarVisibilidadRanking(this.checked)" style="width:auto;">
+      Mostrar a mis estudiantes
+    </label>
+  </div>
+  <div class="card">
+    <div id="pos-lista"><div class="auth-hint">Cargando…</div></div>
+    <div id="pos-empty" style="display:none;text-align:center;padding:40px 20px;color:var(--t3);font-size:13px;">
+      <i class="ti ti-trophy" style="font-size:32px;display:block;margin-bottom:10px;opacity:.5;"></i>
+      Todavía no hay datos suficientes para armar la tabla de posiciones.
+    </div>
+  </div>
+</div>
+
+<div id="page-admin" class="page">
+  <div class="page-header">
+    <div class="page-title">Administración</div>
+    <div class="page-sub">Panorama general de toda la plataforma CapitalLab.</div>
+  </div>
+  <div id="admin-resumen" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;"></div>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-school" style="color:var(--accent2);"></i> Todas las sesiones de clase</div>
+    <div id="admin-sesiones" style="margin-top:10px;"><div class="auth-hint">Cargando…</div></div>
+  </div>
+</div>
+
 <div id="page-profesor" class="page">
   <div class="page-header">
     <div class="page-title">Modo Profesor</div>
@@ -1776,6 +1828,8 @@ async function authLoadProfileAndEnter(){
   // El modo profesor solo es visible para docentes y superadministradores
   const navProfesor = document.getElementById('nav-profesor');
   if(navProfesor) navProfesor.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
+  const navAdmin = document.getElementById('nav-admin');
+  if(navAdmin) navAdmin.style.display = (currentUser.rol==='superadmin') ? '' : 'none';
   if(typeof initApp === 'function') initApp();
   actualizarBadgeNotificaciones();
 
@@ -2360,6 +2414,16 @@ async function abrirTomaAsistencia(){
   };
 }
 
+// Después de guardar/editar/borrar una calificación, refresca cualquier
+// vista que la esté mostrando: el roster del Modo Profesor (en memoria) y,
+// si la persona está viendo la página "Calificaciones" en ese momento,
+// también esa página (antes se quedaba desactualizada hasta cambiar de pestaña).
+function refrescarVistasCalificaciones(){
+  cargarRosterProfesor();
+  const pagCal = document.getElementById('page-calificaciones');
+  if(pagCal && pagCal.classList.contains('active')) renderCalificacionesPage();
+}
+
 async function cargarRosterProfesor(esManual){
   if(!sb || !currentUser || currentUser.rol==='estudiante'){ return; }
   const info = document.getElementById('prof-cloud-sesion-info');
@@ -2627,6 +2691,379 @@ function editarDesdeCalPage(calId, nombreEst){
   abrirModalCalificar(cal.usuario_id, nombreEst, cal.sesion_id, cal);
 }
 
+// ══════════════════════════════════════════════════
+// CUESTIONARIOS — banco de preguntas de opción múltiple
+// ══════════════════════════════════════════════════
+async function renderCuestionariosPage(){
+  if(!currentUser || guestMode || !currentUser.sesion_id){
+    document.getElementById('cuest-lista').innerHTML = '';
+    document.getElementById('cuest-empty').style.display = 'block';
+    return;
+  }
+  const esDocente = currentUser.rol==='docente' || currentUser.rol==='superadmin';
+  document.getElementById('cuest-btn-nuevo').style.display = esDocente ? '' : 'none';
+  document.getElementById('cuest-page-sub').textContent = currentUser.sesion_nombre
+    ? (esDocente ? `Cuestionarios de: ${currentUser.sesion_nombre}` : `Sesión: ${currentUser.sesion_nombre}`)
+    : 'Cuestionarios de opción múltiple.';
+
+  const cont = document.getElementById('cuest-lista');
+  const empty = document.getElementById('cuest-empty');
+  cont.innerHTML = '<div class="auth-hint">Cargando…</div>'; empty.style.display='none';
+  try {
+    const { data: cuestionarios, error } = await sb.from('cuestionarios').select('*').eq('sesion_id', currentUser.sesion_id).order('creado_en',{ascending:false});
+    if(error) throw error;
+    if(!cuestionarios || !cuestionarios.length){ cont.innerHTML=''; empty.style.display='block'; return; }
+
+    let misIntentos = {};
+    if(!esDocente){
+      const { data: intentos } = await sb.from('intentos_cuestionario').select('cuestionario_id,nota').eq('usuario_id', currentUser.usuario_id);
+      (intentos||[]).forEach(i=>{ misIntentos[i.cuestionario_id] = i.nota; });
+    }
+
+    let conteoPreguntas = {};
+    const { data: todasPreguntas } = await sb.from('preguntas').select('id,cuestionario_id').in('cuestionario_id', cuestionarios.map(c=>c.id));
+    (todasPreguntas||[]).forEach(p=>{ conteoPreguntas[p.cuestionario_id] = (conteoPreguntas[p.cuestionario_id]||0) + 1; });
+
+    cont.innerHTML = cuestionarios.map(c => {
+      const numPreguntas = conteoPreguntas[c.id] || 0;
+      const yaResuelto = misIntentos[c.id] !== undefined;
+      return `<div style="padding:14px;border:1px solid var(--c4);border-radius:var(--r2);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="min-width:0;">
+          <div style="font-weight:700;font-size:14.5px;">${c.titulo} ${c.activo===false?'<span class="nav-badge">Inactivo</span>':''}</div>
+          ${c.descripcion ? `<div style="font-size:12.5px;color:var(--t2);margin-top:3px;">${c.descripcion}</div>` : ''}
+          <div style="font-size:11px;color:var(--t3);margin-top:5px;">${numPreguntas} pregunta${numPreguntas===1?'':'s'}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          ${esDocente
+            ? `<button class="btn btn-sm" onclick="verResultadosCuestionario('${c.id}','${c.titulo.replace(/'/g,"\\'")}')"><i class="ti ti-chart-bar"></i> Resultados</button>
+               <button class="btn btn-sm" onclick="alternarActivoCuestionario('${c.id}',${c.activo===false})">${c.activo===false?'Activar':'Desactivar'}</button>
+               <button class="btn btn-sm" style="color:var(--red);" onclick="borrarCuestionario('${c.id}')"><i class="ti ti-trash"></i></button>`
+            : (yaResuelto
+              ? `<span class="grade-pill ${nivelCalificacion(misIntentos[c.id])}">${misIntentos[c.id]}/100</span>`
+              : (c.activo===false ? '<span class="nav-badge">No disponible</span>' : `<button class="btn btn-sm" onclick="tomarCuestionario('${c.id}','${c.titulo.replace(/'/g,"\\'")}')"><i class="ti ti-player-play"></i> Resolver</button>`))}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
+  }
+}
+
+// ── Construcción de un cuestionario nuevo (docente) ──
+function abrirEditorCuestionario(){
+  if(!currentUser || !currentUser.sesion_id) return;
+  let preguntas = [{ texto:'', opciones:['',''], correcta:0 }];
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:560px;">
+    <h3>Nuevo cuestionario</h3>
+    <div class="sub">Opción múltiple, calificado automáticamente. Los estudiantes no pueden ver la respuesta correcta.</div>
+    <div class="grade-field"><label>Título</label><input type="text" id="cq-titulo" placeholder='Ej. "Repaso: mercado de bonos"'></div>
+    <div class="grade-field"><label>Descripción (opcional)</label><input type="text" id="cq-desc" placeholder="Instrucciones breves para el estudiante"></div>
+    <div id="cq-preguntas"></div>
+    <button class="btn btn-sm" id="cq-btn-agregar" style="margin-bottom:12px;"><i class="ti ti-plus"></i> Agregar pregunta</button>
+    <div class="auth-msg" id="cq-msg"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" id="cq-cancelar" style="flex:1;">Cancelar</button>
+      <button class="auth-submit" id="cq-guardar" style="flex:1;margin-top:0;">Guardar cuestionario</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#cq-cancelar').onclick = () => overlay.remove();
+
+  function renderPreguntas(){
+    const cont = overlay.querySelector('#cq-preguntas');
+    cont.innerHTML = preguntas.map((p,pi) => `
+      <div style="background:var(--c2);border-radius:var(--r);padding:12px;margin-bottom:10px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <input type="text" data-p="${pi}" class="cq-texto" value="${(p.texto||'').replace(/"/g,'&quot;')}" placeholder="Texto de la pregunta ${pi+1}" style="flex:1;">
+          ${preguntas.length>1 ? `<button class="btn btn-sm" data-quitar-p="${pi}" style="color:var(--red);"><i class="ti ti-trash"></i></button>` : ''}
+        </div>
+        ${p.opciones.map((op,oi) => `
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+            <input type="radio" name="cq-correcta-${pi}" data-p="${pi}" data-o="${oi}" class="cq-radio" ${p.correcta===oi?'checked':''}>
+            <input type="text" data-p="${pi}" data-o="${oi}" class="cq-opcion" value="${(op||'').replace(/"/g,'&quot;')}" placeholder="Opción ${oi+1}" style="flex:1;">
+            ${p.opciones.length>2 ? `<button class="btn btn-sm" data-quitar-o="${pi}:${oi}" style="padding:4px 8px;"><i class="ti ti-x" style="font-size:11px;"></i></button>` : ''}
+          </div>`).join('')}
+        <button class="btn btn-sm" data-add-o="${pi}" style="margin-top:4px;">+ Opción</button>
+      </div>`).join('');
+
+    cont.querySelectorAll('.cq-texto').forEach(el => el.oninput = () => { preguntas[+el.dataset.p].texto = el.value; });
+    cont.querySelectorAll('.cq-opcion').forEach(el => el.oninput = () => { preguntas[+el.dataset.p].opciones[+el.dataset.o] = el.value; });
+    cont.querySelectorAll('.cq-radio').forEach(el => el.onclick = () => { preguntas[+el.dataset.p].correcta = +el.dataset.o; });
+    cont.querySelectorAll('[data-add-o]').forEach(el => el.onclick = () => { preguntas[+el.dataset.addO].opciones.push(''); renderPreguntas(); });
+    cont.querySelectorAll('[data-quitar-o]').forEach(el => el.onclick = () => {
+      const [pi,oi] = el.dataset.quitarO.split(':').map(Number);
+      preguntas[pi].opciones.splice(oi,1);
+      if(preguntas[pi].correcta>=preguntas[pi].opciones.length) preguntas[pi].correcta = 0;
+      renderPreguntas();
+    });
+    cont.querySelectorAll('[data-quitar-p]').forEach(el => el.onclick = () => { preguntas.splice(+el.dataset.quitarP,1); renderPreguntas(); });
+  }
+  renderPreguntas();
+  overlay.querySelector('#cq-btn-agregar').onclick = () => { preguntas.push({texto:'',opciones:['',''],correcta:0}); renderPreguntas(); };
+
+  overlay.querySelector('#cq-guardar').onclick = async () => {
+    const msg = overlay.querySelector('#cq-msg');
+    const titulo = overlay.querySelector('#cq-titulo').value.trim();
+    const descripcion = overlay.querySelector('#cq-desc').value.trim() || null;
+    if(!titulo){ msg.className='auth-msg show error'; msg.textContent='Ponle un título al cuestionario.'; return; }
+    for(const p of preguntas){
+      if(!p.texto.trim()){ msg.className='auth-msg show error'; msg.textContent='Todas las preguntas necesitan texto.'; return; }
+      if(p.opciones.some(o=>!o.trim())){ msg.className='auth-msg show error'; msg.textContent='Ninguna opción puede quedar vacía.'; return; }
+    }
+    const btn = overlay.querySelector('#cq-guardar');
+    btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Guardando…';
+    try {
+      const { data: cuestionario, error: e1 } = await conTiempoLimite(sb.from('cuestionarios').insert({
+        sesion_id: currentUser.sesion_id, docente_id: currentUser.auth_id, titulo, descripcion,
+      }).select('id').single());
+      if(e1) throw e1;
+
+      for(let i=0;i<preguntas.length;i++){
+        const p = preguntas[i];
+        const { data: pregunta, error: e2 } = await sb.from('preguntas').insert({
+          cuestionario_id: cuestionario.id, texto: p.texto.trim(), opciones: p.opciones.map(o=>o.trim()), orden: i,
+        }).select('id').single();
+        if(e2) throw e2;
+        const { error: e3 } = await sb.from('respuestas_correctas').insert({ pregunta_id: pregunta.id, indice_correcto: p.correcta });
+        if(e3) throw e3;
+      }
+      overlay.remove();
+      notify('Cuestionario creado.', 'success');
+      renderCuestionariosPage();
+    } catch(e){
+      msg.className='auth-msg show error'; msg.textContent = 'No se pudo guardar: ' + (e.message||e);
+      btn.disabled = false; btn.textContent = 'Guardar cuestionario';
+    }
+  };
+}
+
+async function alternarActivoCuestionario(id, activar){
+  try {
+    const { error } = await sb.from('cuestionarios').update({ activo: !!activar }).eq('id', id);
+    if(error) throw error;
+    notify(activar?'Cuestionario activado.':'Cuestionario desactivado.', 'success');
+    renderCuestionariosPage();
+  } catch(e){ notify('No se pudo actualizar: ' + (e.message||e), 'error'); }
+}
+
+async function borrarCuestionario(id){
+  if(!confirm('¿Borrar este cuestionario? Se pierden también los intentos que hayan hecho los estudiantes.')) return;
+  try {
+    const { error } = await sb.from('cuestionarios').delete().eq('id', id);
+    if(error) throw error;
+    notify('Cuestionario borrado.', 'success');
+    renderCuestionariosPage();
+  } catch(e){ notify('No se pudo borrar: ' + (e.message||e), 'error'); }
+}
+
+async function verResultadosCuestionario(id, titulo){
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal"><h3>Resultados: ${titulo}</h3><div class="sub"></div><div id="cq-res-lista"><div class="auth-hint">Cargando…</div></div><button class="btn btn-ghost" style="width:100%;margin-top:14px;" id="cq-res-cerrar">Cerrar</button></div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#cq-res-cerrar').onclick = () => overlay.remove();
+  try {
+    const { data, error } = await sb.from('intentos_cuestionario').select('*, usuarios!intentos_cuestionario_usuario_id_fkey(nombre)').eq('cuestionario_id', id).order('nota',{ascending:false});
+    if(error) throw error;
+    const cont = overlay.querySelector('#cq-res-lista');
+    if(!data || !data.length){ cont.innerHTML = '<div class="auth-hint">Todavía nadie lo ha resuelto.</div>'; return; }
+    const promedio = (data.reduce((s,d)=>s+(d.nota||0),0)/data.length).toFixed(1);
+    cont.innerHTML = `<div style="font-size:12.5px;color:var(--t3);margin-bottom:10px;">Promedio del grupo: <b style="color:var(--t1);">${promedio}/100</b> · ${data.length} respondieron</div>` +
+      data.map(d => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--c3);font-size:13px;">
+        <span>${d.usuarios?.nombre || 'Estudiante'}</span>
+        <span class="grade-pill ${nivelCalificacion(d.nota)}">${d.nota}/100</span>
+      </div>`).join('');
+  } catch(e){
+    overlay.querySelector('#cq-res-lista').innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
+  }
+}
+
+// ── Resolver un cuestionario (estudiante) ──
+async function tomarCuestionario(id, titulo){
+  try {
+    const { data: preguntas, error } = await sb.from('preguntas').select('*').eq('cuestionario_id', id).order('orden');
+    if(error) throw error;
+    if(!preguntas || !preguntas.length){ notify('Este cuestionario todavía no tiene preguntas.', 'error'); return; }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'grade-modal-overlay';
+    overlay.innerHTML = `<div class="grade-modal" style="max-width:540px;">
+      <h3>${titulo}</h3>
+      <div class="sub">Selecciona una opción por pregunta. No se puede volver a intentar después de enviar.</div>
+      ${preguntas.map((p,pi) => `
+        <div style="margin-bottom:16px;">
+          <div style="font-weight:600;font-size:13.5px;margin-bottom:8px;">${pi+1}. ${p.texto}</div>
+          ${(p.opciones||[]).map((op,oi) => `
+            <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;">
+              <input type="radio" name="tq-${p.id}" value="${oi}" class="tq-radio" data-pregunta="${p.id}">
+              ${op}
+            </label>`).join('')}
+        </div>`).join('')}
+      <div class="auth-msg" id="tq-msg"></div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-ghost" id="tq-cancelar" style="flex:1;">Cancelar</button>
+        <button class="auth-submit" id="tq-enviar" style="flex:1;margin-top:0;">Enviar respuestas</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+    overlay.querySelector('#tq-cancelar').onclick = () => overlay.remove();
+
+    overlay.querySelector('#tq-enviar').onclick = async () => {
+      const msg = overlay.querySelector('#tq-msg');
+      const respuestas = preguntas.map(p => {
+        const marcado = overlay.querySelector(`input[name="tq-${p.id}"]:checked`);
+        return { pregunta_id: p.id, indice_elegido: marcado ? +marcado.value : -1 };
+      });
+      if(respuestas.some(r=>r.indice_elegido===-1)){ msg.className='auth-msg show error'; msg.textContent='Responde todas las preguntas antes de enviar.'; return; }
+
+      const btn = overlay.querySelector('#tq-enviar');
+      btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Enviando…';
+      try {
+        const { data: nota, error: errEnvio } = await conTiempoLimite(sb.rpc('enviar_intento_cuestionario', {
+          p_cuestionario_id: id, p_respuestas: respuestas,
+        }));
+        if(errEnvio) throw errEnvio;
+        overlay.remove();
+        notify(`Cuestionario enviado. Tu nota: ${nota}/100`, 'success');
+        renderCuestionariosPage();
+        actualizarBadgeNotificaciones();
+      } catch(e){
+        msg.className='auth-msg show error'; msg.textContent = 'No se pudo enviar: ' + (e.message||e);
+        btn.disabled = false; btn.textContent = 'Enviar respuestas';
+      }
+    };
+  } catch(e){
+    notify('No se pudo cargar el cuestionario: ' + (e.message||e), 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// TABLA DE POSICIONES — ranking en vivo por sesión
+// ══════════════════════════════════════════════════
+async function renderPosicionesPage(){
+  const cont = document.getElementById('pos-lista');
+  const empty = document.getElementById('pos-empty');
+  const toggleWrap = document.getElementById('pos-toggle-wrap');
+  if(!currentUser || guestMode || !currentUser.sesion_id){ cont.innerHTML=''; empty.style.display='block'; toggleWrap.style.display='none'; return; }
+  const esDocente = currentUser.rol==='docente' || currentUser.rol==='superadmin';
+  cont.innerHTML = '<div class="auth-hint">Cargando…</div>'; empty.style.display='none';
+
+  try {
+    const { data: sesion } = await sb.from('sesiones_clase').select('nombre,mostrar_ranking').eq('id', currentUser.sesion_id).maybeSingle();
+    document.getElementById('pos-page-sub').textContent = sesion?.nombre ? `Sesión: ${sesion.nombre}` : 'Ranking de retorno.';
+
+    if(esDocente){
+      toggleWrap.style.display = 'flex';
+      document.getElementById('pos-toggle-visible').checked = !!sesion?.mostrar_ranking;
+    } else {
+      toggleWrap.style.display = 'none';
+      if(!sesion?.mostrar_ranking){
+        cont.innerHTML = '<div class="auth-hint">Tu docente todavía no activó la tabla de posiciones para esta sesión.</div>';
+        return;
+      }
+    }
+
+    const { data: ports, error } = await sb.from('portafolios').select('usuario_id,valor_total,retorno_pct').eq('sesion_id', currentUser.sesion_id).order('retorno_pct',{ascending:false});
+    if(error) throw error;
+    if(!ports || !ports.length){ cont.innerHTML=''; empty.style.display='block'; return; }
+
+    const { data: usuarios } = await sb.from('usuarios').select('id,nombre').eq('sesion_id', currentUser.sesion_id);
+    const nombreMap = {}; (usuarios||[]).forEach(u=>{ nombreMap[u.id] = u.nombre; });
+
+    const medallas = ['🥇','🥈','🥉'];
+    cont.innerHTML = ports.map((p,i) => {
+      const soyYo = p.usuario_id === currentUser.usuario_id;
+      const retorno = p.retorno_pct!=null ? Number(p.retorno_pct) : 0;
+      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--r);margin-bottom:6px;${soyYo?'background:rgba(0,196,255,.08);border:1px solid var(--accent2);':'border:1px solid var(--c3);'}">
+        <div style="width:28px;text-align:center;font-weight:700;font-size:14px;color:var(--t2);">${i<3 ? (i+1) : '#'+(i+1)}</div>
+        <div style="flex:1;font-weight:600;font-size:13.5px;">${nombreMap[p.usuario_id] || 'Estudiante'}${soyYo?' <span style="color:var(--accent2);">(tú)</span>':''}</div>
+        <div style="font-size:13px;color:${retorno>=0?'var(--green)':'var(--red)'};font-weight:700;">${retorno>=0?'+':''}${retorno.toFixed(2)}%</div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
+  }
+}
+
+async function alternarVisibilidadRanking(visible){
+  if(!currentUser || !currentUser.sesion_id) return;
+  try {
+    const { error } = await sb.from('sesiones_clase').update({ mostrar_ranking: !!visible }).eq('id', currentUser.sesion_id);
+    if(error) throw error;
+    notify(visible ? 'Tus estudiantes ya pueden ver la tabla de posiciones.' : 'La tabla de posiciones quedó oculta para tus estudiantes.', 'success');
+  } catch(e){
+    notify('No se pudo actualizar: ' + (e.message||e), 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// SUPERADMINISTRADOR — panorama de toda la plataforma
+// ══════════════════════════════════════════════════
+async function renderAdminPage(){
+  if(!currentUser || currentUser.rol!=='superadmin') return;
+  const resumen = document.getElementById('admin-resumen');
+  const listaCont = document.getElementById('admin-sesiones');
+  resumen.innerHTML = '<div class="auth-hint">Cargando…</div>';
+  listaCont.innerHTML = '<div class="auth-hint">Cargando…</div>';
+  try {
+    const [{data: sesiones, error: e1}, {data: usuarios, error: e2}] = await Promise.all([
+      sb.from('sesiones_clase').select('id,nombre,codigo,activa,creado_en,docente_id').order('creado_en',{ascending:false}),
+      sb.from('usuarios').select('id,auth_id,nombre,correo,rol,sesion_id'),
+    ]);
+    if(e1) throw e1; if(e2) throw e2;
+
+    const totalDocentes = (usuarios||[]).filter(u=>u.rol==='docente').length;
+    const totalEstudiantes = (usuarios||[]).filter(u=>u.rol==='estudiante').length;
+    const sesionesActivas = (sesiones||[]).filter(s=>s.activa!==false).length;
+
+    resumen.innerHTML = `
+      <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Sesiones totales</div>
+        <div style="font-size:22px;font-weight:700;">${(sesiones||[]).length}</div>
+      </div>
+      <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Sesiones activas</div>
+        <div style="font-size:22px;font-weight:700;color:var(--green);">${sesionesActivas}</div>
+      </div>
+      <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Docentes</div>
+        <div style="font-size:22px;font-weight:700;">${totalDocentes}</div>
+      </div>
+      <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Estudiantes</div>
+        <div style="font-size:22px;font-weight:700;">${totalEstudiantes}</div>
+      </div>`;
+
+    const docenteMap = {}; (usuarios||[]).forEach(u=>{ if(u.rol==='docente'||u.rol==='superadmin') docenteMap[u.auth_id || u.id] = u; });
+    const conteoEstPorSesion = {};
+    (usuarios||[]).forEach(u=>{ if(u.rol==='estudiante' && u.sesion_id) conteoEstPorSesion[u.sesion_id] = (conteoEstPorSesion[u.sesion_id]||0)+1; });
+
+    if(!sesiones || !sesiones.length){ listaCont.innerHTML = '<div class="auth-hint">Todavía no hay sesiones creadas en la plataforma.</div>'; return; }
+    listaCont.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <thead><tr style="text-align:left;color:var(--t3);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--c4);">
+        <th style="padding:8px 10px;">Sesión</th><th style="padding:8px 10px;">Código</th><th style="padding:8px 10px;">Docente responsable</th><th style="padding:8px 10px;">Estudiantes</th><th style="padding:8px 10px;">Estado</th>
+      </tr></thead>
+      <tbody>${sesiones.map(s => {
+        return `<tr style="border-bottom:1px solid var(--c3);">
+          <td style="padding:8px 10px;font-weight:600;">${s.nombre}</td>
+          <td style="padding:8px 10px;font-family:var(--font-mono);color:var(--t3);">${s.codigo}</td>
+          <td style="padding:8px 10px;color:var(--t2);">${docenteMap[s.docente_id]?.nombre || '—'}</td>
+          <td style="padding:8px 10px;">${conteoEstPorSesion[s.id]||0}</td>
+          <td style="padding:8px 10px;">${s.activa===false ? '<span class="nav-badge">Archivada</span>' : '<span class="nav-badge" style="background:rgba(0,208,132,.15);color:var(--green);">Activa</span>'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  } catch(e){
+    resumen.innerHTML = '';
+    listaCont.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
+  }
+}
+
 async function renderCalificacionesPage(){
   const cont = document.getElementById('cal-lista');
   const empty = document.getElementById('cal-empty');
@@ -2770,7 +3207,7 @@ function abrirModalCalificar(usuarioId, nombre, sesionId, editando){
         if(error) throw error;
         overlay.remove();
         notify('Calificación borrada.', 'success');
-        cargarRosterProfesor();
+        refrescarVistasCalificaciones();
       } catch(e){
         const msg = overlay.querySelector('#gm-msg');
         msg.className='auth-msg show error'; msg.textContent = 'No se pudo borrar: ' + (e.message||e);
@@ -2805,7 +3242,7 @@ function abrirModalCalificar(usuarioId, nombre, sesionId, editando){
       }
       overlay.remove();
       notify(esEdicion ? 'Calificación actualizada.' : 'Calificación guardada.', 'success');
-      cargarRosterProfesor();
+      refrescarVistasCalificaciones();
     } catch(e){
       msg.className='auth-msg show error'; msg.textContent = 'No se pudo guardar: ' + (e.message||e);
       btn.disabled = false; btn.textContent = esEdicion ? 'Guardar cambios' : 'Guardar calificación';
@@ -4042,6 +4479,9 @@ function goPage(p){
   if(p==='profesor'){ renderTeacher(); cargarRosterProfesor(); iniciarRealtimeProfesor(); }
   else { detenerRealtimeProfesor(); }
   if(p==='calificaciones') renderCalificacionesPage();
+  if(p==='cuestionarios') renderCuestionariosPage();
+  if(p==='posiciones') renderPosicionesPage();
+  if(p==='admin') renderAdminPage();
   if(p==='noticias')renderNewsCenter();
   // Close mobile drawer on navigation
   if(window.innerWidth<=768)closeMobileSidebar();
