@@ -1404,8 +1404,11 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <thead>
           <tr style="text-align:left;color:var(--t3);font-size:11px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--c4);">
             <th style="padding:8px 10px;">Estudiante</th>
-            <th style="padding:8px 10px;">Correo</th>
             <th style="padding:8px 10px;">Se registró</th>
+            <th style="padding:8px 10px;">Valor cartera</th>
+            <th style="padding:8px 10px;">Retorno</th>
+            <th style="padding:8px 10px;">Operac.</th>
+            <th style="padding:8px 10px;">Última actividad</th>
             <th style="padding:8px 10px;">Calificación</th>
             <th style="padding:8px 10px;"></th>
           </tr>
@@ -1737,6 +1740,7 @@ async function authLoadProfileAndEnter(){
 
   currentUser = {
     auth_id: user.id,
+    usuario_id: perfil.id,
     nombre: perfil.nombre,
     correo: perfil.correo,
     rol: perfil.rol,
@@ -1925,6 +1929,7 @@ function mostrarFormularioCompletarPerfil(user){
 // MODO PROFESOR — panel de estudiantes en la nube
 // ══════════════════════════════════════════════════
 let profCalificaciones = {}; // usuario_id -> fila de calificaciones
+let profPortafolios = {}; // usuario_id -> fila de portafolios (valor, retorno, actividad)
 let profRealtimeChannel = null;
 
 function nivelCalificacion(nota){
@@ -1985,6 +1990,10 @@ async function cargarRosterProfesor(esManual){
     profCalificaciones = {};
     (calRows||[]).forEach(c=>{ profCalificaciones[c.usuario_id] = c; });
 
+    const { data: portRows } = await sb.from('portafolios').select('*').eq('sesion_id', sesionId);
+    profPortafolios = {};
+    (portRows||[]).forEach(p=>{ profPortafolios[p.usuario_id] = p; });
+
     badge.textContent = (estudiantes||[]).length;
     renderRosterProfesorTabla(estudiantes||[], sesionId, sesionNombre);
   } catch(e){
@@ -2001,10 +2010,20 @@ function renderRosterProfesorTabla(estudiantes, sesionId, sesionNombre){
     const cal = profCalificaciones[est.id];
     const nivel = cal ? nivelCalificacion(cal.nota_general) : 'sin';
     const notaTxt = cal && cal.nota_general!==null && cal.nota_general!==undefined ? cal.nota_general : 'Sin calificar';
+    const port = profPortafolios[est.id];
+    const valorTxt = port && port.valor_total!=null ? '$'+Number(port.valor_total).toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+    const retorno = port && port.retorno_pct!=null ? Number(port.retorno_pct) : null;
+    const retornoTxt = retorno!==null ? (retorno>=0?'+':'')+retorno.toFixed(2)+'%' : '—';
+    const retornoColor = retorno===null ? 'var(--t3)' : (retorno>=0 ? 'var(--green)' : 'var(--red)');
+    const numOps = port && port.num_operaciones!=null ? port.num_operaciones : 0;
+    const ultimaAct = port && port.ultima_actividad ? formatearFechaHora(port.ultima_actividad) : 'Sin actividad';
     return `<tr data-usuario-id="${est.id}">
-      <td style="font-weight:600;">${est.nombre}</td>
-      <td style="color:var(--t3);">${est.correo}</td>
+      <td style="font-weight:600;">${est.nombre}<div style="font-size:10.5px;color:var(--t3);font-weight:400;">${est.correo}</div></td>
       <td style="color:var(--t3);white-space:nowrap;">${formatearFechaHora(est.creado_en)}</td>
+      <td style="font-weight:600;">${valorTxt}</td>
+      <td style="color:${retornoColor};font-weight:600;">${retornoTxt}</td>
+      <td style="color:var(--t3);">${numOps}</td>
+      <td style="color:var(--t3);white-space:nowrap;">${ultimaAct}</td>
       <td><span class="grade-pill ${nivel}">${notaTxt}</span></td>
       <td><button class="btn btn-sm" onclick="abrirModalCalificar('${est.id}','${est.nombre.replace(/'/g,"\\'")}','${sesionId}')"><i class="ti ti-pencil"></i> Calificar</button></td>
     </tr>`;
@@ -2021,6 +2040,12 @@ function iniciarRealtimeProfesor(){
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'usuarios', filter:`sesion_id=eq.${sesionId}` }, (payload) => {
       if(payload.new && payload.new.rol==='estudiante'){
         notify(`Nuevo estudiante registrado: ${payload.new.nombre}`, 'success');
+        cargarRosterProfesor();
+      }
+    })
+    .on('postgres_changes', { event:'*', schema:'public', table:'portafolios', filter:`sesion_id=eq.${sesionId}` }, (payload) => {
+      // Un estudiante compró/vendió o su cartera se actualizó: refrescar la tabla.
+      if(payload.new && payload.new.usuario_id){
         cargarRosterProfesor();
       }
     })
@@ -6014,8 +6039,69 @@ function saveProgress() {
     // Flash the save indicator
     const dot = document.getElementById('save-dot');
     if (dot) { dot.classList.add('flash'); setTimeout(()=>dot.classList.remove('flash'), 1200); }
+    sincronizarProgresoNube();
   } catch(e) {
     console.warn('No se pudo guardar en localStorage:', e.message);
+  }
+}
+
+// ══════════════════════════════════════════════════
+// SINCRONIZACIÓN CON LA NUBE — respaldo del progreso + vista en vivo del docente
+// ══════════════════════════════════════════════════
+// No sustituye a localStorage (que sigue siendo la fuente de verdad local),
+// solo manda una copia a Supabase para que el Modo Profesor pueda mostrar
+// el avance de cada estudiante sin depender de exportar/importar archivos.
+// Cada estudiante conserva su propio mercado simulado (no se unifica el
+// precio entre estudiantes en esta fase); lo que se sincroniza es SU
+// resultado: efectivo, valor total, retorno y cantidad de operaciones.
+let _ultimoSyncNube = 0;
+let _ultimaLongitudTxSincronizada = 0;
+
+function sincronizarProgresoNube(forzar){
+  if(!sb || !currentUser || !currentUser.usuario_id || !currentUser.sesion_id || guestMode) return;
+  const ahora = Date.now();
+  if(!forzar && ahora - _ultimoSyncNube < 4000) return; // no más de una vez cada 4s, salvo forzado
+  _ultimoSyncNube = ahora;
+
+  try {
+    // Registrar como operaciones (log de actividad) solo las transacciones nuevas
+    // desde la última sincronización. txHistory usa unshift, así que las más
+    // recientes están al principio del arreglo.
+    const nuevas = txHistory.length - _ultimaLongitudTxSincronizada;
+    if(nuevas > 0 && nuevas <= txHistory.length){
+      const registros = txHistory.slice(0, nuevas).map(tx => ({
+        usuario_id: currentUser.usuario_id,
+        sesion_id: currentUser.sesion_id,
+        simbolo: tx.name || '—',
+        tipo: tx.action === 'Compra' ? 'compra' : 'venta',
+        cantidad: tx.qty || 0,
+        precio_ejecucion: tx.price || 0,
+      }));
+      sb.from('operaciones').insert(registros).then(({error})=>{
+        if(error) console.warn('No se pudo registrar la operación en la nube:', error.message);
+      });
+    }
+    _ultimaLongitudTxSincronizada = txHistory.length;
+
+    // Foto del estado actual de la cartera (efectivo + valor de posiciones a precio actual)
+    const valorPosiciones = portfolio.reduce((s,p)=>s+((p.currentPrice||p.buyPrice||0)*p.qty), 0);
+    const valorTotal = capital + valorPosiciones;
+    const retornoPct = ((valorTotal - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
+
+    sb.from('portafolios').upsert({
+      usuario_id: currentUser.usuario_id,
+      sesion_id: currentUser.sesion_id,
+      efectivo_disponible: capital,
+      valor_total: valorTotal,
+      retorno_pct: retornoPct,
+      num_operaciones: txHistory.length,
+      ultima_actividad: new Date().toISOString(),
+      actualizado_en: new Date().toISOString(),
+    }, { onConflict: 'usuario_id,sesion_id' }).then(({error})=>{
+      if(error) console.warn('No se pudo sincronizar la cartera con la nube:', error.message);
+    });
+  } catch(e){
+    console.warn('Sincronización con la nube omitida:', e.message);
   }
 }
 
