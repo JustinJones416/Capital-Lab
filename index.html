@@ -1486,6 +1486,19 @@ function generarCodigoSesion(){
   return out;
 }
 
+// Si una llamada a Supabase se queda colgada (sin responder NI fallar — típico de un
+// bloqueador de anuncios o un filtro de red bloqueando la petición en silencio), esto
+// hace que después de 12 segundos se muestre un error claro en vez de dejar el botón
+// girando para siempre sin que la persona sepa qué pasó.
+function conTiempoLimite(promesa, segundos=12){
+  return Promise.race([
+    promesa,
+    new Promise((_, reject)=>setTimeout(()=>reject(new Error(
+      'La conexión con el servidor tardó demasiado. Es posible que un bloqueador de anuncios o el filtro de red de tu institución esté bloqueando el acceso a Supabase — pruébalo desde otra red o desactiva el bloqueador para este sitio.'
+    )), segundos*1000))
+  ]);
+}
+
 async function authSignup(){
   if(!authConfigured()){ authMsg('Supabase aún no está configurado en este archivo. Revisa SUPABASE_URL y SUPABASE_ANON_KEY.', 'error'); return; }
   const nombre = document.getElementById('signup-name').value.trim();
@@ -1506,7 +1519,9 @@ async function authSignup(){
     // Para estudiantes, validar el código ANTES de crear la cuenta de autenticación,
     // así no queda una cuenta huérfana si el código no existe.
     if(rol==='estudiante'){
-      const { data: sesiones, error: buscarError } = await sb.rpc('buscar_sesion_por_codigo', { p_codigo: codigoIngresado });
+      const { data: sesiones, error: buscarError } = await conTiempoLimite(
+        sb.rpc('buscar_sesion_por_codigo', { p_codigo: codigoIngresado })
+      );
       if(buscarError) throw buscarError;
       if(!sesiones || sesiones.length===0) throw new Error('El código de sesión no es válido o la sesión ya no está activa. Verifícalo con tu docente.');
     }
@@ -1516,15 +1531,17 @@ async function authSignup(){
     // políticas de seguridad (RLS) exigen auth.uid() para poder escribir.
     // En su lugar, guardamos lo necesario en los metadatos de la cuenta y lo
     // completamos en authLoadProfileAndEnter() la primera vez que inicie sesión.
-    const { data: signUpData, error: signUpError } = await sb.auth.signUp({
-      email: correo, password,
-      options: { data: {
-        pending_nombre: nombre,
-        pending_rol: rol,
-        pending_sesion_codigo: codigoIngresado || null,
-        pending_sesion_nombre: sesionNombre || null,
-      }}
-    });
+    const { data: signUpData, error: signUpError } = await conTiempoLimite(
+      sb.auth.signUp({
+        email: correo, password,
+        options: { data: {
+          pending_nombre: nombre,
+          pending_rol: rol,
+          pending_sesion_codigo: codigoIngresado || null,
+          pending_sesion_nombre: sesionNombre || null,
+        }}
+      })
+    );
     if(signUpError) throw signUpError;
     if(!signUpData.user) throw new Error('No se pudo crear la cuenta. Intenta de nuevo.');
 
@@ -1552,7 +1569,7 @@ async function authLogin(){
   const btn = document.getElementById('btn-login');
   btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Verificando…';
   try {
-    const { error } = await sb.auth.signInWithPassword({ email: correo, password });
+    const { error } = await conTiempoLimite(sb.auth.signInWithPassword({ email: correo, password }));
     if(error) throw error;
     await authLoadProfileAndEnter();
   } catch(e){
@@ -1641,7 +1658,10 @@ async function authLoadProfileAndEnter(){
   if(!perfil){
     const meta = user.user_metadata || {};
     if(!meta.pending_rol){
-      authMsg('Tu cuenta no tiene un perfil asociado. Contacta al administrador.');
+      // Cuenta creada manualmente desde el panel de Supabase (sin pasar por el
+      // formulario de registro), por eso no trae los datos pendientes. En vez
+      // de dejarla en un callejón sin salida, se le pide completar su perfil aquí.
+      mostrarFormularioCompletarPerfil(user);
       return;
     }
     try {
@@ -1728,6 +1748,88 @@ function mostrarCodigoSesionPostLogin(codigo){
     </div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('#btn-cerrar-codigo-modal').onclick = () => overlay.remove();
+}
+
+// Para cuentas creadas directamente desde el panel de Supabase (Authentication →
+// Users → Add user), que no pasaron por el formulario de registro de la app y por
+// lo tanto no traen nombre/rol/sesión guardados. Se les pide completar esos datos
+// aquí, en su primer inicio de sesión, en vez de dejarlos sin poder entrar.
+function mostrarFormularioCompletarPerfil(user){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(4,7,12,.7);display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div class="auth-box" style="max-width:400px;">
+      <div class="auth-brand" style="font-size:18px;">Completa tu perfil</div>
+      <div class="auth-sub">Tu cuenta (${user.email}) todavía no tiene nombre ni rol asignado.</div>
+      <div class="auth-msg" id="cp-msg"></div>
+      <div class="auth-field">
+        <label>Nombre completo</label>
+        <input type="text" id="cp-nombre" placeholder="Nombre y apellido">
+      </div>
+      <div class="auth-field">
+        <label>Rol</label>
+        <div class="auth-role-row">
+          <div class="auth-role-opt active" id="cp-role-estudiante">Estudiante</div>
+          <div class="auth-role-opt" id="cp-role-docente">Docente</div>
+        </div>
+      </div>
+      <div class="auth-field" id="cp-field-estudiante">
+        <label>Código de sesión</label>
+        <input type="text" id="cp-codigo" placeholder="Ej. MF2026B" style="text-transform:uppercase;">
+      </div>
+      <div class="auth-field hidden" id="cp-field-docente">
+        <label>Nombre de la sesión de clase</label>
+        <input type="text" id="cp-sesion-nombre" placeholder='Ej. "Mercados Financieros — 2026-2"'>
+      </div>
+      <button class="auth-submit" id="cp-btn">Continuar</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  let cpRol = 'estudiante';
+  overlay.querySelector('#cp-role-estudiante').onclick = () => {
+    cpRol = 'estudiante';
+    overlay.querySelector('#cp-role-estudiante').classList.add('active');
+    overlay.querySelector('#cp-role-docente').classList.remove('active');
+    overlay.querySelector('#cp-field-estudiante').classList.remove('hidden');
+    overlay.querySelector('#cp-field-docente').classList.add('hidden');
+  };
+  overlay.querySelector('#cp-role-docente').onclick = () => {
+    cpRol = 'docente';
+    overlay.querySelector('#cp-role-docente').classList.add('active');
+    overlay.querySelector('#cp-role-estudiante').classList.remove('active');
+    overlay.querySelector('#cp-field-docente').classList.remove('hidden');
+    overlay.querySelector('#cp-field-estudiante').classList.add('hidden');
+  };
+
+  overlay.querySelector('#cp-btn').onclick = async () => {
+    const cpMsg = overlay.querySelector('#cp-msg');
+    const nombre = overlay.querySelector('#cp-nombre').value.trim();
+    const codigo = overlay.querySelector('#cp-codigo').value.trim();
+    const sesionNombre = overlay.querySelector('#cp-sesion-nombre').value.trim();
+    if(!nombre){ cpMsg.className='auth-msg show error'; cpMsg.textContent='Ingresa tu nombre.'; return; }
+    if(cpRol==='estudiante' && !codigo){ cpMsg.className='auth-msg show error'; cpMsg.textContent='Ingresa el código de sesión.'; return; }
+    if(cpRol==='docente' && !sesionNombre){ cpMsg.className='auth-msg show error'; cpMsg.textContent='Ingresa el nombre de la sesión a crear.'; return; }
+
+    const btn = overlay.querySelector('#cp-btn');
+    btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Guardando…';
+    try {
+      const meta = {
+        pending_rol: cpRol,
+        pending_nombre: nombre,
+        pending_sesion_codigo: cpRol==='estudiante' ? codigo : null,
+        pending_sesion_nombre: cpRol==='docente' ? sesionNombre : null,
+      };
+      const perfil = await completarRegistroPendiente(user, meta);
+      overlay.remove();
+      await authLoadProfileAndEnter();
+      if(perfil._codigoRecienGenerado){
+        setTimeout(()=>mostrarCodigoSesionPostLogin(perfil._codigoRecienGenerado), 400);
+      }
+    } catch(e){
+      cpMsg.className='auth-msg show error'; cpMsg.textContent = 'No se pudo guardar: ' + (e.message||e);
+      btn.disabled = false; btn.textContent = 'Continuar';
+    }
+  };
 }
 
 async function authBoot(){
