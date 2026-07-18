@@ -690,6 +690,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 .prof-join-badge{display:inline-block;background:rgba(0,196,255,.1);color:var(--accent2);font-size:10px;padding:2px 7px;border-radius:8px;margin-left:6px;animation:prof-join-pulse 2s ease-in-out 3;}
 @keyframes prof-join-pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
 @keyframes logro-entrada{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
 .grade-pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:10px;}
 .grade-pill.alta{background:rgba(0,208,132,.12);color:var(--green);}
 .grade-pill.media{background:rgba(212,175,55,.14);color:var(--gold);}
@@ -912,6 +913,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <button class="wl-nav-btn"        id="nav-calificaciones" onclick="goPage('calificaciones')"><i class="ti ti-certificate"></i> Calificaciones</button>
     <button class="wl-nav-btn"        id="nav-cuestionarios"  onclick="goPage('cuestionarios')"><i class="ti ti-list-check"></i> Cuestionarios</button>
     <button class="wl-nav-btn"        id="nav-posiciones"     onclick="goPage('posiciones')"><i class="ti ti-trophy"></i> Posiciones</button>
+    <button class="wl-nav-btn"        id="nav-logros"          onclick="goPage('logros')"><i class="ti ti-award"></i> Logros</button>
 
     <div class="wl-nav-section" id="wl-nav-section-gestion" style="display:none;">Gestión</div>
     <button class="wl-nav-btn"        id="nav-profesor"      onclick="goPage('profesor')" style="display:none;"><i class="ti ti-school"></i> Modo Profesor</button>
@@ -1024,8 +1026,8 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
                 <div class="tp-kpi"><div class="tp-kpi-label">En cartera</div><div class="tp-kpi-val mono" id="trade-held-show">0 u.</div></div>
               </div>
               <div class="trade-btns">
-                <button class="btn btn-buy" onclick="executeDirect('buy')"><i class="ti ti-plus"></i> Comprar</button>
-                <button class="btn btn-sell" onclick="executeDirect('sell')"><i class="ti ti-minus"></i> Vender</button>
+                <button class="btn btn-buy" onclick="confirmarYEjecutar('buy')"><i class="ti ti-plus"></i> Comprar</button>
+                <button class="btn btn-sell" onclick="confirmarYEjecutar('sell')"><i class="ti ti-minus"></i> Vender</button>
               </div>
               <div class="tp-orders">
                 <div class="tp-orders-title"><i class="ti ti-clock-bolt"></i> Órdenes avanzadas (límite / stop-loss)</div>
@@ -1441,6 +1443,14 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   </div>
 </div>
 
+<div id="page-logros" class="page">
+  <div class="page-header">
+    <div class="page-title">Logros</div>
+    <div class="page-sub" id="logros-page-sub">Insignias desbloqueadas por hitos alcanzados.</div>
+  </div>
+  <div id="logros-contenido"><div class="auth-hint">Cargando…</div></div>
+</div>
+
 <div id="page-posiciones" class="page">
   <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
     <div>
@@ -1479,13 +1489,19 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <div class="page-sub">Recopila y clasifica las carteras de tus estudiantes · Evaluación objetiva por desempeño</div>
   </div>
 
+  <div class="auth-tabs" style="max-width:340px;margin-bottom:16px;">
+    <div class="auth-tab active" id="prof-tab-lista" onclick="cambiarTabProfesor('lista')">Lista</div>
+    <div class="auth-tab" id="prof-tab-vivo" onclick="cambiarTabProfesor('vivo')"><i class="ti ti-broadcast" style="font-size:12px;margin-right:4px;"></i>Sala en vivo</div>
+  </div>
+
+  <div id="prof-panel-lista">
   <!-- ── Panel de estudiantes registrados en la nube (cuentas reales, Supabase) ── -->
   <div class="card" id="prof-cloud-card" style="margin-bottom:16px;">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
       <div class="card-title"><i class="ti ti-users-group" style="color:var(--accent2);"></i> Estudiantes de mi sesión <span id="prof-cloud-badge" class="nav-badge" style="margin-left:6px;">—</span></div>
       <div style="display:flex;gap:8px;align-items:center;">
         <span id="prof-cloud-live-dot" title="Actualización en vivo activa" style="width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);display:none;"></span>
-        <button class="btn btn-sm" onclick="cargarRosterProfesor(true)"><i class="ti ti-refresh"></i> Actualizar ahora</button>
+        <button class="btn btn-sm" id="prof-cloud-btn-actualizar" onclick="cargarRosterProfesor(true)"><i class="ti ti-refresh"></i> Actualizar ahora</button>
         <button class="btn btn-sm" onclick="exportarInformeSalonPDF()"><i class="ti ti-file-type-pdf"></i> Exportar informe del salón</button>
         <button class="btn btn-sm" onclick="abrirTomaAsistencia()"><i class="ti ti-clipboard-check"></i> Tomar asistencia</button>
       </div>
@@ -1505,6 +1521,28 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <tbody id="prof-cloud-tbody"></tbody>
       </table>
       <div id="prof-cloud-empty" style="text-align:center;padding:24px;color:var(--t3);font-size:12.5px;">Aún no se ha registrado ningún estudiante en tu sesión.</div>
+    </div>
+  </div>
+  </div><!-- /prof-panel-lista -->
+
+  <div id="prof-panel-vivo" style="display:none;">
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+        <div class="card-title"><i class="ti ti-heart-rate-monitor" style="color:var(--green);"></i> Mapa de calor en vivo</div>
+        <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);">
+          <span id="prof-vivo-dot" style="width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:prof-join-pulse 2s ease-in-out infinite;"></span>
+          En vivo
+        </span>
+      </div>
+      <div id="prof-vivo-heatmap" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;">
+        <div class="auth-hint">Cargando…</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-activity" style="color:var(--accent2);"></i> Actividad reciente</div>
+      <div id="prof-vivo-feed" style="margin-top:8px;max-height:420px;overflow-y:auto;">
+        <div class="auth-hint">Esperando actividad… las operaciones de tus estudiantes van a aparecer aquí en cuanto sucedan.</div>
+      </div>
     </div>
   </div>
 
@@ -2477,6 +2515,7 @@ async function cargarRosterProfesor(esManual){
   const tbody = document.getElementById('prof-cloud-tbody');
   const empty = document.getElementById('prof-cloud-empty');
   const badge = document.getElementById('prof-cloud-badge');
+  const btnActualizar = document.getElementById('prof-cloud-btn-actualizar');
   if(!info || !tbody) return;
 
   if(guestMode){
@@ -2486,7 +2525,12 @@ async function cargarRosterProfesor(esManual){
     return;
   }
 
-  if(esManual) info.textContent = 'Actualizando…';
+  // Retroalimentación visible del botón: mientras carga, gira el ícono y
+  // se deshabilita, para que un clic nunca se sienta como que no hizo nada.
+  if(esManual && btnActualizar){
+    btnActualizar.disabled = true;
+    btnActualizar.innerHTML = '<i class="ti ti-refresh" style="animation:spin .7s linear infinite;"></i> Actualizando…';
+  }
 
   try {
     // sesion_id del docente: si currentUser.sesion_id no está (docente creado antes de
@@ -2503,8 +2547,6 @@ async function cargarRosterProfesor(esManual){
       badge.textContent = '0'; tbody.innerHTML=''; empty.style.display='block';
       return;
     }
-
-    info.innerHTML = `<b>${sesionNombre}</b> · Código <span style="font-family:var(--font-mono);color:var(--accent2);">${sesionCodigo}</span>`;
 
     const { data: estudiantes, error } = await conTiempoLimite(
       sb.from('usuarios').select('id,nombre,correo,creado_en').eq('sesion_id', sesionId).eq('rol','estudiante').order('creado_en', {ascending:false})
@@ -2524,8 +2566,17 @@ async function cargarRosterProfesor(esManual){
 
     badge.textContent = (estudiantes||[]).length;
     renderRosterProfesorTabla(estudiantes||[], sesionId, sesionNombre);
+
+    info.innerHTML = `<b>${sesionNombre}</b> · Código <span style="font-family:var(--font-mono);color:var(--accent2);">${sesionCodigo}</span>
+      <span style="color:var(--t3);"> · Actualizado ${new Date().toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'})}</span>`;
+    if(esManual) notify('Lista actualizada.', 'success');
   } catch(e){
     info.textContent = 'No se pudo cargar la lista: ' + (e.message||e);
+  } finally {
+    if(esManual && btnActualizar){
+      btnActualizar.disabled = false;
+      btnActualizar.innerHTML = '<i class="ti ti-refresh"></i> Actualizar ahora';
+    }
   }
 }
 
@@ -2587,6 +2638,119 @@ function detenerRealtimeProfesor(){
   if(profRealtimeChannel && sb){ sb.removeChannel(profRealtimeChannel); profRealtimeChannel = null; }
   const dot = document.getElementById('prof-cloud-live-dot');
   if(dot) dot.style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════
+// SALA EN VIVO — mapa de calor y feed de actividad en tiempo real
+// ══════════════════════════════════════════════════
+let salaVivoChannel = null;
+let salaVivoUsuarios = {}; // usuario_id -> nombre, para no repetir consultas
+
+function cambiarTabProfesor(tab){
+  const tabLista = document.getElementById('prof-tab-lista');
+  const tabVivo = document.getElementById('prof-tab-vivo');
+  const panelLista = document.getElementById('prof-panel-lista');
+  const panelVivo = document.getElementById('prof-panel-vivo');
+  if(!tabLista || !tabVivo || !panelLista || !panelVivo) return;
+  tabLista.classList.toggle('active', tab==='lista');
+  tabVivo.classList.toggle('active', tab==='vivo');
+  panelLista.style.display = tab==='lista' ? '' : 'none';
+  panelVivo.style.display = tab==='vivo' ? '' : 'none';
+  if(tab==='vivo') iniciarSalaEnVivo();
+  else detenerSalaEnVivo();
+}
+
+async function iniciarSalaEnVivo(){
+  if(!sb || !currentUser || !currentUser.sesion_id || guestMode) return;
+  const sesionId = currentUser.sesion_id;
+  const heatmap = document.getElementById('prof-vivo-heatmap');
+  const feed = document.getElementById('prof-vivo-feed');
+  if(!heatmap || !feed) return;
+
+  detenerSalaEnVivo(); // por si ya había una suscripción de una visita anterior
+
+  try {
+    const { data: estudiantes } = await sb.from('usuarios').select('id,nombre').eq('sesion_id', sesionId).eq('rol','estudiante');
+    salaVivoUsuarios = {}; (estudiantes||[]).forEach(e=>{ salaVivoUsuarios[e.id] = e.nombre; });
+
+    const { data: ports } = await sb.from('portafolios').select('usuario_id,valor_total,retorno_pct,ultima_actividad').eq('sesion_id', sesionId);
+    renderHeatmapSalaVivo(ports||[]);
+  } catch(e){
+    heatmap.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
+  }
+
+  salaVivoChannel = sb.channel('sala-vivo-'+sesionId)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'operaciones', filter:`sesion_id=eq.${sesionId}` }, (payload) => {
+      agregarAlFeedSalaVivo(payload.new);
+    })
+    .on('postgres_changes', { event:'*', schema:'public', table:'portafolios', filter:`sesion_id=eq.${sesionId}` }, async () => {
+      const { data: ports } = await sb.from('portafolios').select('usuario_id,valor_total,retorno_pct,ultima_actividad').eq('sesion_id', sesionId);
+      renderHeatmapSalaVivo(ports||[]);
+    })
+    .subscribe();
+}
+
+function detenerSalaEnVivo(){
+  if(salaVivoChannel && sb){ sb.removeChannel(salaVivoChannel); salaVivoChannel = null; }
+}
+
+function renderHeatmapSalaVivo(ports){
+  const heatmap = document.getElementById('prof-vivo-heatmap');
+  if(!heatmap) return;
+  const nombres = Object.keys(salaVivoUsuarios);
+  if(!nombres.length){ heatmap.innerHTML = '<div class="auth-hint">Todavía no hay estudiantes registrados en esta sesión.</div>'; return; }
+
+  const portMap = {}; ports.forEach(p=>{ portMap[p.usuario_id] = p; });
+  heatmap.innerHTML = nombres.map(uid => {
+    const nombre = salaVivoUsuarios[uid];
+    const p = portMap[uid];
+    const retorno = p?.retorno_pct!=null ? Number(p.retorno_pct) : null;
+    let fondo = 'var(--c3)', textoColor = 'var(--t3)';
+    if(retorno!==null){
+      const intensidad = Math.min(Math.abs(retorno)/15, 1); // satura a los ±15%
+      fondo = retorno>=0
+        ? `rgba(0,208,132,${0.12+intensidad*0.35})`
+        : `rgba(255,71,87,${0.12+intensidad*0.35})`;
+      textoColor = retorno>=0 ? 'var(--green)' : 'var(--red)';
+    }
+    const activoHaceRato = p?.ultima_actividad && (Date.now() - new Date(p.ultima_actividad).getTime()) < 120000;
+    return `<div data-uid="${uid}" style="background:${fondo};border-radius:var(--r);padding:10px;text-align:center;position:relative;transition:background .4s;">
+      ${activoHaceRato ? '<span style="position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--accent2);box-shadow:0 0 5px var(--accent2);"></span>' : ''}
+      <div style="font-size:12px;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nombre}</div>
+      <div style="font-size:15px;font-weight:700;color:${textoColor};">${retorno!==null?(retorno>=0?'+':'')+retorno.toFixed(1)+'%':'—'}</div>
+    </div>`;
+  }).join('');
+}
+
+function agregarAlFeedSalaVivo(op){
+  const feed = document.getElementById('prof-vivo-feed');
+  if(!feed) return;
+  const placeholder = feed.querySelector('.auth-hint');
+  if(placeholder) placeholder.remove();
+
+  const nombre = salaVivoUsuarios[op.usuario_id] || 'Estudiante';
+  const esCompra = op.tipo === 'compra';
+  const el = document.createElement('div');
+  el.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--c3);animation:logro-entrada .3s ease;';
+  el.innerHTML = `
+    <div style="width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${esCompra?'rgba(0,208,132,.15)':'rgba(255,71,87,.15)'};">
+      <i class="ti ${esCompra?'ti-arrow-up-right':'ti-arrow-down-right'}" style="font-size:14px;color:${esCompra?'var(--green)':'var(--red)'};"></i>
+    </div>
+    <div style="flex:1;font-size:12.5px;">
+      <b>${nombre}</b> ${esCompra?'compró':'vendió'} ${op.cantidad}u de <b>${op.simbolo}</b> a $${Number(op.precio_ejecucion).toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2})}
+      <div style="color:var(--t3);font-size:10.5px;">hace un momento</div>
+    </div>`;
+  feed.insertBefore(el, feed.firstChild);
+  // Mantener el feed a un tamaño manejable
+  while(feed.children.length > 30) feed.removeChild(feed.lastChild);
+  // Destella brevemente la tarjeta de ese estudiante en el mapa de calor,
+  // para que sea fácil ver de un vistazo quién acaba de operar.
+  const tarjeta = document.querySelector(`#prof-vivo-heatmap [data-uid="${op.usuario_id}"]`);
+  if(tarjeta){
+    const fondoOriginal = tarjeta.style.background;
+    tarjeta.style.background = 'rgba(0,196,255,.35)';
+    setTimeout(()=>{ tarjeta.style.background = fondoOriginal; }, 900);
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -2782,8 +2946,17 @@ async function desbloquearLogro(codigo){
 function mostrarCelebracionLogro(codigo){
   const l = CATALOGO_LOGROS[codigo];
   if(!l) return;
+  // Contenedor compartido: cada nueva celebración se apila debajo de la
+  // anterior en vez de superponerse todas en el mismo punto de la pantalla.
+  let stack = document.getElementById('logro-toast-stack');
+  if(!stack){
+    stack = document.createElement('div');
+    stack.id = 'logro-toast-stack';
+    stack.style.cssText = 'position:fixed;top:70px;right:20px;z-index:4000;display:flex;flex-direction:column;gap:10px;pointer-events:none;';
+    document.body.appendChild(stack);
+  }
   const el = document.createElement('div');
-  el.style.cssText = 'position:fixed;top:70px;right:20px;z-index:4000;background:var(--c1);border:1px solid var(--gold);border-radius:var(--r2);padding:14px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:320px;animation:logro-entrada .35s ease;';
+  el.style.cssText = 'background:var(--c1);border:1px solid var(--gold);border-radius:var(--r2);padding:14px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:320px;animation:logro-entrada .35s ease;pointer-events:auto;';
   el.innerHTML = `
     <div style="width:42px;height:42px;border-radius:50%;background:rgba(212,175,55,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
       <i class="ti ${l.icono}" style="font-size:20px;color:var(--gold);"></i>
@@ -2793,7 +2966,7 @@ function mostrarCelebracionLogro(codigo){
       <div style="font-weight:700;font-size:13.5px;">${l.titulo}</div>
       <div style="font-size:11.5px;color:var(--t3);">${l.desc}</div>
     </div>`;
-  document.body.appendChild(el);
+  stack.appendChild(el);
   setTimeout(()=>{ el.style.transition='opacity .4s'; el.style.opacity='0'; setTimeout(()=>el.remove(), 400); }, 5000);
 }
 
@@ -2832,6 +3005,56 @@ async function tarjetaLogrosHTML(){
         }).join('')}
       </div>
     </div>`;
+}
+
+// Página dedicada "Logros" — el mismo catálogo, ahora con la fecha exacta
+// de cada insignia y su descripción completa a la vista, no solo el ícono.
+async function renderLogrosPage(){
+  const cont = document.getElementById('logros-contenido');
+  const sub = document.getElementById('logros-page-sub');
+  if(!cont || !currentUser) return;
+
+  if(guestMode){
+    sub.textContent = 'El modo de prueba no guarda logros reales.';
+    cont.innerHTML = '<div class="card"><div class="auth-hint">Crea una cuenta real para empezar a desbloquear logros.</div></div>';
+    return;
+  }
+
+  const esDocente = currentUser.rol==='docente' || currentUser.rol==='superadmin';
+  if(esDocente){
+    sub.textContent = 'Los logros son individuales de cada estudiante.';
+    cont.innerHTML = `<div class="card"><div style="font-size:13px;color:var(--t2);line-height:1.6;">Los logros los desbloquean tus estudiantes a medida que usan el simulador. Para ver los de alguien en particular, entra a <b>Modo Profesor</b> y abre el detalle de ese estudiante con el ícono del ojo.</div><button class="btn" style="margin-top:12px;" onclick="goPage('profesor')"><i class="ti ti-school"></i> Ir a Modo Profesor</button></div>`;
+    return;
+  }
+
+  sub.textContent = 'Insignias que vas desbloqueando mientras usas el simulador.';
+  cont.innerHTML = '<div class="auth-hint">Cargando…</div>';
+  try {
+    const { data, error } = await sb.from('logros_desbloqueados').select('codigo_logro,desbloqueado_en').eq('usuario_id', currentUser.usuario_id).eq('sesion_id', currentUser.sesion_id);
+    if(error) throw error;
+    const fechaPorCodigo = {}; (data||[]).forEach(d=>{ fechaPorCodigo[d.codigo_logro] = d.desbloqueado_en; });
+    const codigos = Object.keys(CATALOGO_LOGROS);
+    cont.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;">
+      ${codigos.map(cod => {
+        const l = CATALOGO_LOGROS[cod];
+        const logrado = !!fechaPorCodigo[cod];
+        return `<div class="card" style="${logrado?'':'opacity:.55;'}">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <div style="width:44px;height:44px;flex-shrink:0;border-radius:50%;background:${logrado?'rgba(212,175,55,.18)':'var(--c3)'};display:flex;align-items:center;justify-content:center;">
+              <i class="ti ${l.icono}" style="font-size:20px;color:${logrado?'var(--gold)':'var(--t3)'};"></i>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:14px;">${l.titulo}</div>
+              <div style="font-size:10.5px;color:${logrado?'var(--gold)':'var(--t3)'};">${logrado ? 'Desbloqueado · '+formatearFechaHora(fechaPorCodigo[cod]) : 'Bloqueado'}</div>
+            </div>
+          </div>
+          <div style="font-size:12.5px;color:var(--t2);">${l.desc}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudieron cargar tus logros: '+(e.message||e)+'</div>';
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -2938,7 +3161,32 @@ async function renderInicioPage(){
         }
       }
 
-      cont.innerHTML = `
+      // Guía de primeros pasos: mezcla hitos reales (logros ya guardados en
+      // la nube) con visitas simples a ciertas páginas (guardadas solo en
+      // este navegador). Se oculta sola una vez completados los cuatro.
+      const logrosSet = await cargarLogrosDesbloqueados();
+      const pasos = [
+        { hecho: localStorage.getItem('cl_visito_mercado_'+sesionId)==='1', texto:'Explora el Mercado', pagina:'mercado', icono:'ti-chart-candle' },
+        { hecho: logrosSet.has('primera_operacion'), texto:'Realiza tu primera operación', pagina:'mercado', icono:'ti-flag' },
+        { hecho: logrosSet.has('primer_cuestionario'), texto:'Resuelve tu primer cuestionario', pagina:'cuestionarios', icono:'ti-list-check' },
+        { hecho: localStorage.getItem('cl_visito_calificaciones_'+sesionId)==='1', texto:'Revisa tus calificaciones', pagina:'calificaciones', icono:'ti-certificate' },
+      ];
+      const todosHechos = pasos.every(p=>p.hecho);
+      const guiaHTML = todosHechos ? '' : `
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title"><i class="ti ti-map-2" style="color:var(--accent2);"></i> Primeros pasos</div>
+          <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px;">
+            ${pasos.map(p => `
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--c3);${p.hecho?'':'cursor:pointer;'}" ${p.hecho?'':`onclick="goPage('${p.pagina}')"`}>
+                <div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${p.hecho?'var(--green)':'var(--c3)'};">
+                  <i class="ti ${p.hecho?'ti-check':p.icono}" style="font-size:12px;color:${p.hecho?'#04342c':'var(--t3)'};"></i>
+                </div>
+                <span style="font-size:13px;color:${p.hecho?'var(--t3)':'var(--t1)'};text-decoration:${p.hecho?'line-through':'none'};">${p.texto}</span>
+              </div>`).join('')}
+          </div>
+        </div>`;
+
+      cont.innerHTML = guiaHTML + `
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;">
           <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
             <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Valor de cartera</div>
@@ -2982,6 +3230,14 @@ async function renderInicioPage(){
 // ══════════════════════════════════════════════════
 // CUESTIONARIOS — banco de preguntas de opción múltiple
 // ══════════════════════════════════════════════════
+let cuestionariosCache = {};
+
+function editarCuestionarioDesdeCache(id){
+  const c = cuestionariosCache[id];
+  if(!c){ notify('No se encontró el cuestionario.', 'error'); return; }
+  abrirEditorCuestionario(c);
+}
+
 async function renderCuestionariosPage(){
   if(!currentUser || guestMode || !currentUser.sesion_id){
     document.getElementById('cuest-lista').innerHTML = '';
@@ -3001,6 +3257,7 @@ async function renderCuestionariosPage(){
     const { data: cuestionarios, error } = await sb.from('cuestionarios').select('*').eq('sesion_id', currentUser.sesion_id).order('creado_en',{ascending:false});
     if(error) throw error;
     if(!cuestionarios || !cuestionarios.length){ cont.innerHTML=''; empty.style.display='block'; return; }
+    cuestionariosCache = {}; cuestionarios.forEach(c=>{ cuestionariosCache[c.id] = c; });
 
     let misIntentos = {};
     if(!esDocente){
@@ -3024,6 +3281,7 @@ async function renderCuestionariosPage(){
         <div style="display:flex;gap:8px;align-items:center;">
           ${esDocente
             ? `<button class="btn btn-sm" onclick="verResultadosCuestionario('${c.id}','${c.titulo.replace(/'/g,"\\'")}')"><i class="ti ti-chart-bar"></i> Resultados</button>
+               <button class="btn btn-sm" onclick="editarCuestionarioDesdeCache('${c.id}')"><i class="ti ti-pencil"></i> Editar</button>
                <button class="btn btn-sm" onclick="alternarActivoCuestionario('${c.id}',${c.activo===false})">${c.activo===false?'Activar':'Desactivar'}</button>
                <button class="btn btn-sm" style="color:var(--red);" onclick="borrarCuestionario('${c.id}')"><i class="ti ti-trash"></i></button>`
             : (yaResuelto
@@ -3085,29 +3343,31 @@ const PLANTILLAS_CUESTIONARIOS = [
   },
 ];
 
-function abrirEditorCuestionario(){
+function abrirEditorCuestionario(cuestionarioExistente){
   if(!currentUser || !currentUser.sesion_id) return;
+  const esEdicion = !!cuestionarioExistente;
   let preguntas = [{ texto:'', opciones:['',''], correcta:0 }];
   const overlay = document.createElement('div');
   overlay.className = 'grade-modal-overlay';
   overlay.innerHTML = `<div class="grade-modal" style="max-width:560px;">
-    <h3>Nuevo cuestionario</h3>
+    <h3>${esEdicion ? 'Editar cuestionario' : 'Nuevo cuestionario'}</h3>
     <div class="sub">Opción múltiple, calificado automáticamente. Los estudiantes no pueden ver la respuesta correcta.</div>
+    ${esEdicion ? '' : `
     <div class="grade-field">
       <label>Empezar desde una plantilla (opcional)</label>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
         ${PLANTILLAS_CUESTIONARIOS.map((t,ti) => `<button class="btn btn-sm" data-plantilla="${ti}" style="font-size:11.5px;">${t.titulo}</button>`).join('')}
       </div>
       <div class="auth-hint">Carga el título y las preguntas de ejemplo; puedes editar cualquier parte antes de guardar.</div>
-    </div>
+    </div>`}
     <div class="grade-field"><label>Título</label><input type="text" id="cq-titulo" placeholder='Ej. "Repaso: mercado de bonos"'></div>
     <div class="grade-field"><label>Descripción (opcional)</label><input type="text" id="cq-desc" placeholder="Instrucciones breves para el estudiante"></div>
-    <div id="cq-preguntas"></div>
-    <button class="btn btn-sm" id="cq-btn-agregar" style="margin-bottom:12px;"><i class="ti ti-plus"></i> Agregar pregunta</button>
+    <div id="cq-preguntas">${esEdicion ? '<div class="auth-hint">Cargando preguntas…</div>' : ''}</div>
+    <button class="btn btn-sm" id="cq-btn-agregar" style="margin-bottom:12px;" ${esEdicion?'disabled':''}><i class="ti ti-plus"></i> Agregar pregunta</button>
     <div class="auth-msg" id="cq-msg"></div>
     <div style="display:flex;gap:10px;">
       <button class="btn btn-ghost" id="cq-cancelar" style="flex:1;">Cancelar</button>
-      <button class="auth-submit" id="cq-guardar" style="flex:1;margin-top:0;">Guardar cuestionario</button>
+      <button class="auth-submit" id="cq-guardar" style="flex:1;margin-top:0;" ${esEdicion?'disabled':''}>${esEdicion?'Guardar cambios':'Guardar cuestionario'}</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
@@ -3143,7 +3403,7 @@ function abrirEditorCuestionario(){
     });
     cont.querySelectorAll('[data-quitar-p]').forEach(el => el.onclick = () => { preguntas.splice(+el.dataset.quitarP,1); renderPreguntas(); });
   }
-  renderPreguntas();
+  if(!esEdicion) renderPreguntas();
   overlay.querySelector('#cq-btn-agregar').onclick = () => { preguntas.push({texto:'',opciones:['',''],correcta:0}); renderPreguntas(); };
   overlay.querySelectorAll('[data-plantilla]').forEach(btn => btn.onclick = () => {
     const t = PLANTILLAS_CUESTIONARIOS[+btn.dataset.plantilla];
@@ -3153,6 +3413,29 @@ function abrirEditorCuestionario(){
     renderPreguntas();
     notify('Plantilla cargada — puedes editar cualquier parte antes de guardar.', 'success');
   });
+
+  if(esEdicion){
+    (async () => {
+      const msg = overlay.querySelector('#cq-msg');
+      try {
+        overlay.querySelector('#cq-titulo').value = cuestionarioExistente.titulo;
+        overlay.querySelector('#cq-desc').value = cuestionarioExistente.descripcion || '';
+        const { data: pregs, error } = await sb.from('preguntas').select('*, respuestas_correctas(indice_correcto)').eq('cuestionario_id', cuestionarioExistente.id).order('orden');
+        if(error) throw error;
+        preguntas = (pregs||[]).map(p => ({
+          texto: p.texto,
+          opciones: [...(p.opciones||[])],
+          correcta: p.respuestas_correctas?.indice_correcto ?? 0,
+        }));
+        if(!preguntas.length) preguntas = [{ texto:'', opciones:['',''], correcta:0 }];
+        renderPreguntas();
+        overlay.querySelector('#cq-btn-agregar').disabled = false;
+        overlay.querySelector('#cq-guardar').disabled = false;
+      } catch(e){
+        msg.className='auth-msg show error'; msg.textContent = 'No se pudieron cargar las preguntas: ' + (e.message||e);
+      }
+    })();
+  }
 
   overlay.querySelector('#cq-guardar').onclick = async () => {
     const msg = overlay.querySelector('#cq-msg');
@@ -3166,26 +3449,40 @@ function abrirEditorCuestionario(){
     const btn = overlay.querySelector('#cq-guardar');
     btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Guardando…';
     try {
-      const { data: cuestionario, error: e1 } = await conTiempoLimite(sb.from('cuestionarios').insert({
-        sesion_id: currentUser.sesion_id, docente_id: currentUser.auth_id, titulo, descripcion,
-      }).select('id').single());
-      if(e1) throw e1;
+      let cuestionarioId;
+      if(esEdicion){
+        const { error: eUpd } = await conTiempoLimite(sb.from('cuestionarios').update({ titulo, descripcion }).eq('id', cuestionarioExistente.id));
+        if(eUpd) throw eUpd;
+        cuestionarioId = cuestionarioExistente.id;
+        // Se reemplazan todas las preguntas por las actuales del formulario —
+        // más simple y confiable que tratar de calcular diferencias, y como
+        // `respuestas_correctas` depende de `preguntas` con on delete cascade,
+        // se limpia sola al borrar las preguntas viejas.
+        const { error: eDel } = await sb.from('preguntas').delete().eq('cuestionario_id', cuestionarioId);
+        if(eDel) throw eDel;
+      } else {
+        const { data: cuestionario, error: e1 } = await conTiempoLimite(sb.from('cuestionarios').insert({
+          sesion_id: currentUser.sesion_id, docente_id: currentUser.auth_id, titulo, descripcion,
+        }).select('id').single());
+        if(e1) throw e1;
+        cuestionarioId = cuestionario.id;
+      }
 
       for(let i=0;i<preguntas.length;i++){
         const p = preguntas[i];
         const { data: pregunta, error: e2 } = await sb.from('preguntas').insert({
-          cuestionario_id: cuestionario.id, texto: p.texto.trim(), opciones: p.opciones.map(o=>o.trim()), orden: i,
+          cuestionario_id: cuestionarioId, texto: p.texto.trim(), opciones: p.opciones.map(o=>o.trim()), orden: i,
         }).select('id').single();
         if(e2) throw e2;
         const { error: e3 } = await sb.from('respuestas_correctas').insert({ pregunta_id: pregunta.id, indice_correcto: p.correcta });
         if(e3) throw e3;
       }
       overlay.remove();
-      notify('Cuestionario creado.', 'success');
+      notify(esEdicion ? 'Cuestionario actualizado.' : 'Cuestionario creado.', 'success');
       renderCuestionariosPage();
     } catch(e){
       msg.className='auth-msg show error'; msg.textContent = 'No se pudo guardar: ' + (e.message||e);
-      btn.disabled = false; btn.textContent = 'Guardar cuestionario';
+      btn.disabled = false; btn.textContent = esEdicion ? 'Guardar cambios' : 'Guardar cuestionario';
     }
   };
 }
@@ -4848,11 +5145,14 @@ function goPage(p){
   if(p==='laboratorio'){renderLabHistory();renderLabPicker();}
   if(p==='resultados-lab')renderResultsLab();
   if(p==='profesor'){ renderTeacher(); cargarRosterProfesor(); iniciarRealtimeProfesor(); }
-  else { detenerRealtimeProfesor(); }
+  else { detenerRealtimeProfesor(); detenerSalaEnVivo(); }
   if(p==='inicio') renderInicioPage();
+  if(p==='mercado' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_mercado_'+currentUser.sesion_id, '1');
+  if(p==='calificaciones' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_calificaciones_'+currentUser.sesion_id, '1');
   if(p==='calificaciones') renderCalificacionesPage();
   if(p==='cuestionarios') renderCuestionariosPage();
   if(p==='posiciones') renderPosicionesPage();
+  if(p==='logros') renderLogrosPage();
   if(p==='admin') renderAdminPage();
   if(p==='noticias')renderNewsCenter();
   // Close mobile drawer on navigation
@@ -5167,6 +5467,49 @@ function updateTradeCalc(){
   }
   const held=portfolio.find(x=>x.id===selectedAsset.id);
   document.getElementById('trade-held-show').textContent=held?(held.qty+' u.'):'0 u.';
+}
+
+// Antes de ejecutar una compra o venta, muestra un resumen claro (cantidad,
+// precio de ejecución, comisión, total) para evitar que un clic accidental
+// mueva dinero virtual sin querer. No duplica la lógica de executeDirect,
+// solo repite el mismo cálculo de precio/comisión para el resumen, en modo
+// de solo lectura, y al confirmar llama a executeDirect exactamente igual
+// que antes.
+function confirmarYEjecutar(op){
+  if(!selectedAsset){ notify('Selecciona un activo primero','error'); return; }
+  const qty = +document.getElementById('trade-qty').value;
+  if(qty<=0){ notify('Ingresa una cantidad válida','error'); return; }
+
+  const mid = selectedAsset.currentPrice || selectedAsset.price;
+  const px = execPrice(mid, selectedAsset.type, op);
+  const gross = qty*px;
+  const fee = commissionFor(gross);
+  const total = op==='buy' ? gross+fee : gross-fee;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:400px;">
+    <h3>${op==='buy'?'Confirmar compra':'Confirmar venta'}</h3>
+    <div class="sub">${selectedAsset.name} (${selectedAsset.ticker})</div>
+    <div style="background:var(--c2);border-radius:var(--r);padding:14px;margin:14px 0;">
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span style="color:var(--t3);">Cantidad</span><span>${qty}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span style="color:var(--t3);">Precio de ejecución</span><span>$${fmt(px)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span style="color:var(--t3);">Subtotal</span><span>$${fmt(gross)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span style="color:var(--t3);">Comisión</span><span>$${fmt(fee)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:6px;border-top:1px solid var(--c4);font-size:14.5px;font-weight:700;"><span>${op==='buy'?'Total a pagar':'Total a recibir'}</span><span>$${fmt(total)}</span></div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" id="cf-cancelar" style="flex:1;">Cancelar</button>
+      <button class="${op==='buy'?'btn btn-buy':'btn btn-sell'}" id="cf-confirmar" style="flex:1;">Confirmar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+  overlay.querySelector('#cf-cancelar').onclick = () => overlay.remove();
+  overlay.querySelector('#cf-confirmar').onclick = () => {
+    overlay.remove();
+    executeDirect(op);
+  };
 }
 
 function executeDirect(op){
