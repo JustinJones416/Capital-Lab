@@ -565,6 +565,13 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   }
   .page.active{display:block;}
 
+  /* ── TABLAS: en vez de arreglar cada tabla suelta por separado, esta
+     regla hace que CUALQUIER tabla de la app se pueda deslizar hacia los
+     lados en pantallas angostas, en vez de recortarse o forzar el ancho
+     de toda la página. Es la corrección al desbordamiento reportado en
+     Resultados y Resultados Lab, aplicada de forma general. ── */
+  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+
   /* ── TOPBAR elements ── */
   .hamburger-btn{display:flex;}
   .topbar-brand{font-size:15px;}
@@ -1400,7 +1407,9 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
   <div class="card" style="margin-bottom:14px;">
     <div class="card-title"><i class="ti ti-table"></i> Resultados por posición</div>
-    <table><thead><tr><th>Activo</th><th>Tipo</th><th>Invertido</th><th>Valor actual</th><th>Retorno %</th><th>G/P ($)</th><th>Riesgo σ</th><th>Estado</th></tr></thead><tbody id="res-table"></tbody></table>
+    <div style="overflow-x:auto;">
+      <table><thead><tr><th>Activo</th><th>Tipo</th><th>Invertido</th><th>Valor actual</th><th>Retorno %</th><th>G/P ($)</th><th>Riesgo σ</th><th>Estado</th></tr></thead><tbody id="res-table"></tbody></table>
+    </div>
   </div>
 
   <!-- Market session log -->
@@ -1524,9 +1533,12 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <div class="page-sub">Recopila y clasifica las carteras de tus estudiantes · Evaluación objetiva por desempeño</div>
   </div>
 
-  <div class="auth-tabs" style="max-width:340px;margin-bottom:16px;">
-    <div class="auth-tab active" id="prof-tab-lista" onclick="cambiarTabProfesor('lista')">Lista</div>
-    <div class="auth-tab" id="prof-tab-vivo" onclick="cambiarTabProfesor('vivo')"><i class="ti ti-broadcast" style="font-size:12px;margin-right:4px;"></i>Sala en vivo</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+    <div class="auth-tabs" style="max-width:340px;margin-bottom:0;">
+      <div class="auth-tab active" id="prof-tab-lista" onclick="cambiarTabProfesor('lista')">Lista</div>
+      <div class="auth-tab" id="prof-tab-vivo" onclick="cambiarTabProfesor('vivo')"><i class="ti ti-broadcast" style="font-size:12px;margin-right:4px;"></i>Sala en vivo</div>
+    </div>
+    <button class="btn btn-sm" onclick="abrirModoPresentacion()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-presentation"></i> Presentar</button>
   </div>
 
   <div id="prof-panel-lista">
@@ -1927,6 +1939,8 @@ async function authLoadProfileAndEnter(){
   if(navAdmin) navAdmin.style.display = (currentUser.rol==='superadmin') ? '' : 'none';
   const seccionGestion = document.getElementById('wl-nav-section-gestion');
   if(seccionGestion) seccionGestion.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
+  const capHint = document.querySelector('.cap-edit-hint');
+  if(capHint) capHint.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
   if(typeof initApp === 'function') initApp();
   actualizarBadgeNotificaciones();
   renderInicioPage();
@@ -2680,6 +2694,76 @@ function detenerRealtimeProfesor(){
 // ══════════════════════════════════════════════════
 let salaVivoChannel = null;
 let salaVivoUsuarios = {}; // usuario_id -> nombre, para no repetir consultas
+
+// ══════════════════════════════════════════════════
+// MODO PRESENTACIÓN — pantalla completa para proyectar en clase, con
+// código QR para que los estudiantes se unan escaneando con el celular.
+// ══════════════════════════════════════════════════
+let presentacionInterval = null;
+
+async function abrirModoPresentacion(){
+  if(!currentUser || !currentUser.sesion_id || guestMode){ notify('Necesitas una sesión de clase activa para presentar.', 'error'); return; }
+  const sesionNombre = currentUser.sesion_nombre || '';
+  const sesionCodigo = currentUser.sesion_codigo || '';
+  const urlUnion = window.location.origin + window.location.pathname + '?codigo=' + encodeURIComponent(sesionCodigo);
+  const qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=10&color=0-0-0&bgcolor=255-255-255&data=' + encodeURIComponent(urlUnion);
+
+  const overlay = document.createElement('div');
+  overlay.id = 'presentacion-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:6000;background:radial-gradient(circle at 50% 0%, #0d1a2e, #04070c 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;color:#fff;text-align:center;';
+  overlay.innerHTML = `
+    <button onclick="cerrarModoPresentacion()" style="position:absolute;top:24px;right:24px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:16px;"><i class="ti ti-x"></i></button>
+    <div style="font-size:13px;letter-spacing:.15em;text-transform:uppercase;color:var(--accent2);margin-bottom:10px;">CapitalLab · Sesión de clase</div>
+    <div style="font-family:var(--font-head);font-size:clamp(28px,5vw,52px);font-weight:700;margin-bottom:28px;max-width:900px;">${sesionNombre}</div>
+    <div style="display:flex;gap:60px;align-items:center;flex-wrap:wrap;justify-content:center;margin-bottom:32px;">
+      <div>
+        <img src="${qrSrc}" alt="Código QR para unirse" style="width:220px;height:220px;border-radius:16px;background:#fff;padding:12px;box-shadow:0 20px 50px rgba(0,0,0,.4);">
+        <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:10px;">Escanea con la cámara del celular</div>
+      </div>
+      <div>
+        <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em;">O entra con el código</div>
+        <div style="font-family:var(--font-mono);font-size:clamp(48px,8vw,90px);font-weight:700;letter-spacing:.1em;color:var(--gold);">${sesionCodigo}</div>
+      </div>
+    </div>
+    <div id="pres-stats" style="display:flex;gap:40px;flex-wrap:wrap;justify-content:center;">
+      <div class="auth-hint" style="color:rgba(255,255,255,.5);">Cargando estadísticas en vivo…</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  try { await document.documentElement.requestFullscreen?.(); } catch(e){ /* algunos navegadores lo bloquean, no pasa nada */ }
+
+  const actualizarStats = async () => {
+    if(!sb || !document.getElementById('presentacion-overlay')) return;
+    try {
+      const { data: estudiantes } = await sb.from('usuarios').select('id').eq('sesion_id', currentUser.sesion_id).eq('rol','estudiante');
+      const { data: ports } = await sb.from('portafolios').select('retorno_pct').eq('sesion_id', currentUser.sesion_id);
+      const retornos = (ports||[]).map(p=>p.retorno_pct).filter(r=>r!=null);
+      const promedio = retornos.length ? (retornos.reduce((a,b)=>a+Number(b),0)/retornos.length).toFixed(1) : '—';
+      const cont = document.getElementById('pres-stats');
+      if(cont) cont.innerHTML = `
+        <div><div style="font-size:34px;font-weight:700;">${(estudiantes||[]).length}</div><div style="font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;">Estudiantes unidos</div></div>
+        <div><div style="font-size:34px;font-weight:700;color:${promedio!=='—'&&promedio>=0?'#00d084':'#ff4757'};">${promedio!=='—'?(promedio>=0?'+':'')+promedio+'%':'—'}</div><div style="font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;">Retorno promedio</div></div>
+      `;
+    } catch(e){ /* silencioso: no interrumpir la presentación por un error de red */ }
+  };
+  actualizarStats();
+  presentacionInterval = setInterval(actualizarStats, 8000);
+
+  document.addEventListener('keydown', cerrarPresentacionConEscape);
+}
+
+function cerrarPresentacionConEscape(e){
+  if(e.key==='Escape') cerrarModoPresentacion();
+}
+
+function cerrarModoPresentacion(){
+  const overlay = document.getElementById('presentacion-overlay');
+  if(overlay) overlay.remove();
+  if(presentacionInterval){ clearInterval(presentacionInterval); presentacionInterval = null; }
+  document.removeEventListener('keydown', cerrarPresentacionConEscape);
+  if(document.fullscreenElement) document.exitFullscreen?.().catch(()=>{});
+}
 
 function cambiarTabProfesor(tab){
   const tabLista = document.getElementById('prof-tab-lista');
@@ -4099,6 +4183,17 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
 }
 
 async function authBoot(){
+  // Si se entra desde un enlace o código QR compartido (?codigo=XXXXX), se
+  // deja la pestaña de registro lista, en modo estudiante, con el código
+  // ya escrito — así solo falta poner nombre, correo y contraseña.
+  const parametros = new URLSearchParams(window.location.search);
+  const codigoURL = parametros.get('codigo');
+  if(codigoURL){
+    const campo = document.getElementById('signup-sesion-codigo');
+    if(campo) campo.value = codigoURL.toUpperCase();
+    if(typeof authSetRole==='function') authSetRole('estudiante');
+    if(typeof authSwitchView==='function') authSwitchView('signup');
+  }
   if(!authConfigured()){
     authMsg('Este archivo aún no tiene configuradas las credenciales de Supabase (SUPABASE_URL / SUPABASE_ANON_KEY). Edítalas antes de usar el inicio de sesión, o usa el modo de prueba sin cuenta.', 'error');
     return;
@@ -5100,6 +5195,14 @@ function computePrices(months){
 
 // ═══════════════════ CAPITAL EDITOR ═══════════════════
 function openCapModal(){
+  // Un estudiante con cuenta real no puede editarse el capital a mano: eso
+  // invalidaría el retorno del que dependen sus calificaciones, la tabla
+  // de posiciones y los logros. Sigue disponible en modo de prueba y para
+  // docentes/superadmin que quieran explorar el simulador libremente.
+  if(currentUser && currentUser.rol==='estudiante' && !guestMode){
+    notify('No puedes editar tu capital: tu retorno se usa para calificaciones, el ranking y los logros. Si necesitas reiniciar tu progreso, pídeselo a tu docente.', 'error');
+    return;
+  }
   document.getElementById('cap-modal-current').textContent=fmt(capital);
   document.getElementById('cap-modal-input').value=Math.round(capital);
   document.getElementById('cap-modal').classList.add('open');
