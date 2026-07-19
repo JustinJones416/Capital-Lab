@@ -426,6 +426,31 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 .save-indicator{width:7px;height:7px;border-radius:50%;background:var(--green);opacity:0;transition:opacity .4s;}
 .save-indicator.flash{opacity:1;}
 
+/* ── MENÚ DESPLEGABLE DE EXPORTAR (unifica PDF / para el profesor / respaldo / cargar) ── */
+.export-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);box-shadow:0 10px 30px rgba(0,0,0,.4);padding:6px;min-width:230px;z-index:500;}
+.export-menu.open{display:block;}
+.export-menu button{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;background:transparent;border:none;border-radius:var(--r);color:var(--t1);font-size:12.5px;font-family:var(--font-body);text-align:left;cursor:pointer;white-space:nowrap;}
+.export-menu button:hover{background:var(--c3);}
+.export-menu button i{font-size:14px;color:var(--t3);width:16px;text-align:center;}
+.export-menu-sep{height:1px;background:var(--c4);margin:5px 2px;}
+
+/* ── BUSCADOR UNIVERSAL (Ctrl+K) ── */
+.cmdk-trigger{display:flex;align-items:center;gap:7px;height:28px;padding:0 10px;margin-left:10px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t3);font-size:12px;font-family:var(--font-body);cursor:pointer;flex-shrink:0;}
+.cmdk-trigger:hover{border-color:var(--accent2);color:var(--t2);}
+.cmdk-trigger-kbd{background:var(--c3);border-radius:4px;padding:1px 6px;font-size:10px;font-family:var(--font-mono);color:var(--t3);}
+.cmdk-overlay{position:fixed;inset:0;z-index:5000;background:rgba(4,7,12,.7);display:flex;align-items:flex-start;justify-content:center;padding-top:12vh;}
+.cmdk-box{background:var(--c1);border:1px solid var(--c4);border-radius:var(--r3);width:100%;max-width:560px;max-height:60vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5);margin:0 16px;}
+.cmdk-input-row{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--c4);flex-shrink:0;}
+.cmdk-input-row i{color:var(--t3);font-size:16px;}
+.cmdk-input-row input{flex:1;background:transparent;border:none;outline:none;color:var(--t1);font-size:15px;font-family:var(--font-body);}
+.cmdk-results{overflow-y:auto;padding:8px;}
+.cmdk-group-label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;padding:8px 10px 4px;}
+.cmdk-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r);cursor:pointer;font-size:13px;}
+.cmdk-item:hover,.cmdk-item.active{background:var(--c3);}
+.cmdk-item i{font-size:15px;color:var(--accent2);width:18px;text-align:center;flex-shrink:0;}
+.cmdk-item-sub{color:var(--t3);font-size:11px;margin-left:auto;}
+@media(max-width:900px){.cmdk-trigger-txt,.cmdk-trigger-kbd{display:none;}.cmdk-trigger{padding:0 8px;margin-left:6px;}}
+
 /* ── MODAL CONFIRM ── */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9998;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
 .modal-bg.open{opacity:1;pointer-events:all;}
@@ -547,7 +572,10 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   .persist-btns{gap:3px;}
   .pbtn{height:28px;padding:0 8px;font-size:0;}
   .pbtn i{font-size:14px;}
-  .cap-pill{padding:3px 8px;font-size:11px;}
+  .cap-pill{padding:3px 8px;font-size:11px;flex-shrink:0;}
+  .topbar-right{gap:6px;}
+  .export-menu{left:auto;right:0;min-width:210px;}
+  .export-menu button{font-size:12px;padding:8px;}
   .cap-edit-hint{display:none;}
   #nav-pnl-badge{display:none!important;}
 
@@ -815,15 +843,22 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <span></span><span></span><span></span>
   </button>
   <div class="topbar-brand">Capital<span>Lab</span></div>
+  <button id="cmdk-trigger" class="cmdk-trigger" onclick="abrirBuscadorUniversal()" title="Buscar (Ctrl+K)"><i class="ti ti-search"></i><span class="cmdk-trigger-txt">Buscar</span><span class="cmdk-trigger-kbd">Ctrl K</span></button>
   <div class="topbar-sep"></div>
   <span style="font-size:11px;color:var(--t3);">Simulador de Mercados Financieros · Facultad de Economía UP</span>
   <div class="topbar-right">
     <div class="persist-btns">
       <div class="save-indicator" id="save-dot" title="Progreso guardado"></div>
-      <button class="pbtn pbtn-export" onclick="exportProgress()" title="Descargar respaldo del progreso (.json)"><i class="ti ti-download" style="font-size:12px;"></i> Exportar</button>
-      <button class="pbtn" style="background:rgba(0,196,255,.12);color:var(--accent2);border:1px solid rgba(0,196,255,.28);" onclick="exportForTeacher()" title="Exportar tu desempeño para entregar al profesor"><i class="ti ti-school" style="font-size:12px;"></i> Para profesor</button>
-      <button class="pbtn pbtn-load" onclick="document.getElementById('import-file').click()" title="Cargar progreso desde archivo"><i class="ti ti-upload" style="font-size:12px;"></i> Importar</button>
-      <button class="pbtn" style="background:rgba(41,98,255,.12);color:#7aa4ff;border:1px solid rgba(41,98,255,.28);" onclick="exportPDF()" title="Exportar reporte completo en PDF"><i class="ti ti-file-type-pdf" style="font-size:12px;"></i> PDF</button>
+      <div style="position:relative;">
+        <button class="pbtn pbtn-export" onclick="toggleExportMenu()" title="Exportar o cargar tu progreso"><i class="ti ti-file-export" style="font-size:12px;"></i> Exportar</button>
+        <div id="export-menu" class="export-menu">
+          <button onclick="exportPDF();toggleExportMenu(false);"><i class="ti ti-file-type-pdf"></i> Reporte completo (PDF)</button>
+          <button onclick="exportForTeacher();toggleExportMenu(false);"><i class="ti ti-school"></i> Para el profesor (.json)</button>
+          <button onclick="exportProgress();toggleExportMenu(false);"><i class="ti ti-download"></i> Respaldo de mi progreso (.json)</button>
+          <div class="export-menu-sep"></div>
+          <button onclick="document.getElementById('import-file').click();toggleExportMenu(false);"><i class="ti ti-upload"></i> Cargar progreso (.json)</button>
+        </div>
+      </div>
       <button class="pbtn pbtn-reset" onclick="confirmReset()" title="Reiniciar sesión desde cero"><i class="ti ti-refresh" style="font-size:12px;"></i> Reiniciar</button>
       <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importProgress(event)">
     </div>
@@ -5103,6 +5138,155 @@ document.addEventListener('click',e=>{
 })();
 
 // ═══════════════════ MOBILE SIDEBAR ═══════════════════
+// Menú unificado de exportar/importar: junta lo que antes eran cuatro
+// botones sueltos en la topbar (Exportar, Para profesor, PDF, Importar)
+// en uno solo, para liberar espacio, sobre todo en el celular.
+// ══════════════════════════════════════════════════
+// BUSCADOR UNIVERSAL (Ctrl+K) — saltar a cualquier página, activo o
+// estudiante sin tener que navegar el menú entero.
+// ══════════════════════════════════════════════════
+const CMDK_PAGINAS = [
+  { pagina:'inicio', texto:'Inicio', icono:'ti-home' },
+  { pagina:'mercado', texto:'Mercado', icono:'ti-chart-candle' },
+  { pagina:'analisis', texto:'Análisis', icono:'ti-chart-bar' },
+  { pagina:'personalizado', texto:'Personalizado', icono:'ti-adjustments-horizontal' },
+  { pagina:'cartera', texto:'Mi Cartera', icono:'ti-briefcase' },
+  { pagina:'laboratorio', texto:'Laboratorio', icono:'ti-flask' },
+  { pagina:'resultados', texto:'Resultados', icono:'ti-award' },
+  { pagina:'resultados-lab', texto:'Resultados Lab', icono:'ti-report-analytics' },
+  { pagina:'noticias', texto:'Noticias', icono:'ti-news' },
+  { pagina:'calificaciones', texto:'Calificaciones', icono:'ti-certificate' },
+  { pagina:'cuestionarios', texto:'Cuestionarios', icono:'ti-list-check' },
+  { pagina:'posiciones', texto:'Posiciones', icono:'ti-trophy' },
+  { pagina:'logros', texto:'Logros', icono:'ti-award' },
+  { pagina:'profesor', texto:'Modo Profesor', icono:'ti-school', soloDocente:true },
+  { pagina:'admin', texto:'Administración', icono:'ti-shield-cog', soloSuperadmin:true },
+];
+let cmdkEstudiantesCache = null;
+let cmdkIndiceActivo = 0;
+
+function abrirBuscadorUniversal(){
+  if(document.getElementById('cmdk-overlay')) return; // ya está abierto
+  const overlay = document.createElement('div');
+  overlay.id = 'cmdk-overlay';
+  overlay.className = 'cmdk-overlay';
+  overlay.innerHTML = `
+    <div class="cmdk-box">
+      <div class="cmdk-input-row">
+        <i class="ti ti-search"></i>
+        <input type="text" id="cmdk-input" placeholder="Busca una página, un activo del mercado${(currentUser&&(currentUser.rol==='docente'||currentUser.rol==='superadmin'))?', o un estudiante':''}…" autocomplete="off">
+      </div>
+      <div class="cmdk-results" id="cmdk-results"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) cerrarBuscadorUniversal(); };
+
+  const input = overlay.querySelector('#cmdk-input');
+  input.focus();
+  input.oninput = () => renderResultadosCmdk(input.value.trim());
+  input.onkeydown = (e) => {
+    const items = () => Array.from(document.querySelectorAll('.cmdk-item'));
+    if(e.key==='ArrowDown'){ e.preventDefault(); cmdkIndiceActivo = Math.min(cmdkIndiceActivo+1, items().length-1); marcarActivoCmdk(); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); cmdkIndiceActivo = Math.max(cmdkIndiceActivo-1, 0); marcarActivoCmdk(); }
+    else if(e.key==='Enter'){ e.preventDefault(); const el = items()[cmdkIndiceActivo]; if(el) el.click(); }
+    else if(e.key==='Escape'){ cerrarBuscadorUniversal(); }
+  };
+
+  renderResultadosCmdk('');
+
+  // Si es docente, precarga la lista de estudiantes de su sesión activa en
+  // segundo plano, para que buscar por nombre responda al instante.
+  if(currentUser && (currentUser.rol==='docente'||currentUser.rol==='superadmin') && currentUser.sesion_id && sb && !cmdkEstudiantesCache){
+    sb.from('usuarios').select('id,nombre').eq('sesion_id', currentUser.sesion_id).eq('rol','estudiante').then(({data})=>{
+      cmdkEstudiantesCache = data || [];
+      renderResultadosCmdk(input.value.trim());
+    });
+  }
+}
+
+function cerrarBuscadorUniversal(){
+  const overlay = document.getElementById('cmdk-overlay');
+  if(overlay) overlay.remove();
+}
+
+function marcarActivoCmdk(){
+  document.querySelectorAll('.cmdk-item').forEach((el,i)=>el.classList.toggle('active', i===cmdkIndiceActivo));
+  const activo = document.querySelector('.cmdk-item.active');
+  if(activo) activo.scrollIntoView({block:'nearest'});
+}
+
+function renderResultadosCmdk(query){
+  cmdkIndiceActivo = 0;
+  const cont = document.getElementById('cmdk-results');
+  if(!cont) return;
+  const q = query.toLowerCase();
+  const esDocente = currentUser && (currentUser.rol==='docente'||currentUser.rol==='superadmin');
+
+  const paginas = CMDK_PAGINAS.filter(p => {
+    if(p.soloDocente && !esDocente) return false;
+    if(p.soloSuperadmin && (!currentUser||currentUser.rol!=='superadmin')) return false;
+    return !q || p.texto.toLowerCase().includes(q);
+  }).slice(0, 8);
+
+  let activos = [];
+  if(q.length>=2 && typeof allAssets==='function'){
+    activos = allAssets().filter(a => a.name.toLowerCase().includes(q) || (a.ticker&&a.ticker.toLowerCase().includes(q))).slice(0, 6);
+  }
+
+  let estudiantes = [];
+  if(q.length>=2 && esDocente && cmdkEstudiantesCache){
+    estudiantes = cmdkEstudiantesCache.filter(e => e.nombre.toLowerCase().includes(q)).slice(0, 6);
+  }
+
+  if(!paginas.length && !activos.length && !estudiantes.length){
+    cont.innerHTML = '<div class="auth-hint" style="padding:20px;text-align:center;">Sin resultados.</div>';
+    return;
+  }
+
+  let html = '';
+  if(paginas.length){
+    html += '<div class="cmdk-group-label">Páginas</div>';
+    html += paginas.map(p => `<div class="cmdk-item" onclick="cerrarBuscadorUniversal();goPage('${p.pagina}');"><i class="ti ${p.icono}"></i>${p.texto}</div>`).join('');
+  }
+  if(activos.length){
+    html += '<div class="cmdk-group-label">Activos del mercado</div>';
+    html += activos.map(a => `<div class="cmdk-item" onclick="cerrarBuscadorUniversal();goPage('mercado');showAssetDetail('${a.id}','${a.type}');"><i class="ti ti-chart-line"></i>${a.name}<span class="cmdk-item-sub">${a.ticker||''}</span></div>`).join('');
+  }
+  if(estudiantes.length){
+    html += '<div class="cmdk-group-label">Estudiantes</div>';
+    html += estudiantes.map(e => `<div class="cmdk-item" onclick="cerrarBuscadorUniversal();goPage('profesor');setTimeout(()=>abrirDetalleEstudiante('${e.id}','${e.nombre.replace(/'/g,"\\'")}','${currentUser.sesion_id}'),300);"><i class="ti ti-user"></i>${e.nombre}</div>`).join('');
+  }
+  cont.innerHTML = html;
+  marcarActivoCmdk();
+}
+
+// Atajo global: Ctrl+K o Cmd+K abre el buscador desde cualquier parte de la app.
+function cmdkAtajoGlobal(e){
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){
+    e.preventDefault();
+    abrirBuscadorUniversal();
+  }
+}
+document.addEventListener('keydown', cmdkAtajoGlobal);
+
+function toggleExportMenu(forzar){
+  const menu = document.getElementById('export-menu');
+  if(!menu) return;
+  const abrir = forzar!==undefined ? forzar : !menu.classList.contains('open');
+  menu.classList.toggle('open', abrir);
+  if(abrir){
+    setTimeout(()=>document.addEventListener('click', cerrarExportMenuFuera), 0);
+  } else {
+    document.removeEventListener('click', cerrarExportMenuFuera);
+  }
+}
+function cerrarExportMenuFuera(e){
+  const menu = document.getElementById('export-menu');
+  if(menu && !menu.contains(e.target) && !e.target.closest('.pbtn-export')){
+    toggleExportMenu(false);
+  }
+}
+
 function toggleMobileSidebar(){
   const sidebar  = document.querySelector('.sidebar');
   const overlay  = document.getElementById('sidebar-overlay');
@@ -6206,21 +6390,47 @@ function checkMarginCall(){
   }
 }
 
+// Antes de vender una posición completa desde la Cartera, pide confirmación
+// con el mismo criterio que ya se usa al comprar/vender desde el Mercado
+// (evitar que un clic accidental liquide una posición sin querer).
 function sellFromPortfolio(id,type){
   const pos=portfolio.find(p=>p.id===id&&p.type===type);
   if(!pos||pos.qty<=0){notify('Sin unidades para vender','error');return;}
   const mid=pos.currentPrice||pos.buyPrice;
-  const px =execPrice(mid, pos.type, 'sell');        // venta cruza el bid (−½ spread)
+  const px =execPrice(mid, pos.type, 'sell');
   const gross=pos.qty*px;
   const fee=commissionFor(gross);
-  const cashIn=gross-fee;                            // efectivo neto recibido
-  capital+=cashIn;
-  txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:pos.name,type:pos.type,qty:pos.qty,price:px,total:gross,fee:+fee.toFixed(2)});
-  portfolio=portfolio.filter(x=>!(x.id===id&&x.type===type));
-  updateNavCapital();
-  notify(`Venta total de ${pos.ticker||pos.name} · costo $${fmt(fee)} ✓`);
-  autosave();
-  renderPortfolio();
+  const cashIn=gross-fee;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:400px;">
+    <h3>Confirmar venta</h3>
+    <div class="sub">${pos.name}${pos.ticker?' ('+pos.ticker+')':''} · venta total de ${pos.qty} unidades</div>
+    <div style="background:var(--c2);border-radius:var(--r);padding:14px;margin:14px 0;">
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span style="color:var(--t3);">Precio de ejecución</span><span>$${fmt(px)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span style="color:var(--t3);">Subtotal</span><span>$${fmt(gross)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span style="color:var(--t3);">Comisión</span><span>$${fmt(fee)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:6px;border-top:1px solid var(--c4);font-size:14.5px;font-weight:700;"><span>Total a recibir</span><span>$${fmt(cashIn)}</span></div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" id="vp-cancelar" style="flex:1;">Cancelar</button>
+      <button class="btn btn-sell" id="vp-confirmar" style="flex:1;">Confirmar venta</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+  overlay.querySelector('#vp-cancelar').onclick = () => overlay.remove();
+  overlay.querySelector('#vp-confirmar').onclick = () => {
+    overlay.remove();
+    capital+=cashIn;
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:pos.name,type:pos.type,qty:pos.qty,price:px,total:gross,fee:+fee.toFixed(2)});
+    portfolio=portfolio.filter(x=>!(x.id===id&&x.type===type));
+    updateNavCapital();
+    notify(`Venta total de ${pos.ticker||pos.name} · costo $${fmt(fee)} ✓`);
+    autosave();
+    renderPortfolio();
+  };
 }
 function renderPortfolio(){
   updateNavCapital();
