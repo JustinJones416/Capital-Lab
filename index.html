@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CapitalLab — Simulador de Cartera de Inversiones</title>
+<script>
+  // Aplica el tema guardado ANTES de que se pinte cualquier cosa, para
+  // que no haya un parpadeo del tema oscuro por defecto al cargar en claro.
+  (function(){
+    try {
+      const t = localStorage.getItem('capitallab_tema');
+      if(t==='light') document.documentElement.setAttribute('data-theme','light');
+    } catch(e){}
+  })();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" media="print" onload="this.media='all'">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -14,6 +24,14 @@
   --t1:#e8edf8;--t2:#7a8ab0;--t3:#3d4d72;--t4:#2a3650;
   --font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;--font-mono:'DM Mono',monospace;
   --r:8px;--r2:12px;--r3:16px;
+}
+/* ── TEMA CLARO ── mismas variables, otra paleta. Todo el resto del CSS
+   referencia estas variables, así que el resto de la app no necesita
+   ningún otro cambio para adaptarse. */
+[data-theme="light"]{
+  --c0:#eef1f6;--c1:#ffffff;--c2:#f4f6fa;--c3:#e8ebf2;--c4:#d7dce6;--c5:#b9c1d4;
+  --accent:#2962ff;--accent2:#0088b8;--green:#00915f;--red:#d81d34;--amber:#b8790a;--gold:#93741c;
+  --t1:#161b26;--t2:#525f80;--t3:#8892ac;--t4:#aab2c6;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;}
@@ -571,6 +589,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
      de toda la página. Es la corrección al desbordamiento reportado en
      Resultados y Resultados Lab, aplicada de forma general. ── */
   table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .auth-box{padding:22px 18px;max-height:92vh;}
 
   /* ── TOPBAR elements ── */
   .hamburger-btn{display:flex;}
@@ -578,6 +597,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   .topbar-sep,.topbar-sep+span{display:none;}
   .persist-btns{gap:3px;}
   .pbtn{height:28px;padding:0 8px;font-size:0;}
+  .btn-buy,.btn-sell{min-height:44px;padding:10px 18px;font-size:14px;}
   .pbtn i{font-size:14px;}
   .cap-pill{padding:3px 8px;font-size:11px;flex-shrink:0;}
   .topbar-right{gap:6px;}
@@ -664,7 +684,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 #auth-gate{position:fixed;inset:0;z-index:2000;background:var(--c0);display:flex;align-items:center;justify-content:center;padding:20px;}
 #auth-gate.hidden{display:none;}
 .auth-bg-glow{position:absolute;inset:0;background:radial-gradient(circle at 20% 15%, rgba(41,98,255,.14), transparent 45%),radial-gradient(circle at 85% 85%, rgba(0,196,255,.10), transparent 40%);pointer-events:none;}
-.auth-box{position:relative;width:100%;max-width:400px;background:var(--c1);border:1px solid var(--c4);border-radius:var(--r3);padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,.45);}
+.auth-box{position:relative;width:100%;max-width:400px;max-height:88vh;overflow-y:auto;background:var(--c1);border:1px solid var(--c4);border-radius:var(--r3);padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,.45);}
 .auth-brand{font-family:var(--font-head);font-size:22px;font-weight:700;color:var(--t1);text-align:center;margin-bottom:4px;}
 .auth-brand span{color:var(--accent2);}
 .auth-sub{text-align:center;font-size:12px;color:var(--t2);margin-bottom:22px;}
@@ -1522,8 +1542,14 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       Mostrar a mis estudiantes
     </label>
   </div>
+
+  <div id="reto-card" class="card" style="margin-bottom:16px;display:none;">
+    <div id="reto-contenido"></div>
+  </div>
+
   <div class="card">
-    <div id="pos-lista"><div class="auth-hint">Cargando…</div></div>
+    <div class="card-title"><i class="ti ti-list-numbers" style="color:var(--accent2);"></i> Ranking general de la sesión</div>
+    <div id="pos-lista" style="margin-top:8px;"><div class="auth-hint">Cargando…</div></div>
     <div id="pos-empty" style="display:none;text-align:center;padding:40px 20px;color:var(--t3);font-size:13px;">
       <i class="ti ti-trophy" style="font-size:32px;display:block;margin-bottom:10px;opacity:.5;"></i>
       Todavía no hay datos suficientes para armar la tabla de posiciones.
@@ -1674,6 +1700,30 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
+// ══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════
+// TEMA CLARO / OSCURO
+// ══════════════════════════════════════════════════
+function alternarTema(){
+  const esClaro = document.documentElement.getAttribute('data-theme') === 'light';
+  if(esClaro){
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.setItem('capitallab_tema', 'dark');
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('capitallab_tema', 'light');
+  }
+  actualizarBotonTema();
+}
+function actualizarBotonTema(){
+  const btn = document.getElementById('theme-toggle-icon');
+  if(!btn) return;
+  const esClaro = document.documentElement.getAttribute('data-theme') === 'light';
+  btn.className = 'ti ' + (esClaro ? 'ti-moon' : 'ti-sun');
+  const label = document.getElementById('theme-toggle-label');
+  if(label) label.textContent = esClaro ? 'Cambiar a oscuro' : 'Cambiar a claro';
+}
+
 // ══════════════════════════════════════════════════
 // AUTENTICACIÓN — Supabase (correo/contraseña, roles, sesiones de clase)
 // ══════════════════════════════════════════════════
@@ -2168,12 +2218,19 @@ async function mostrarInfoSesion(){
         <div class="auth-code-result" style="display:block;">
           <div class="auth-code-label">Modo de prueba</div>
           <div class="auth-hint">Estás en modo de prueba sin cuenta, no hay sesiones de clase reales que gestionar aquí.</div>
-          <button class="auth-submit" style="margin-top:12px;" id="btn-cerrar-info-sesion">Cerrar</button>
         </div>
+        <div class="auth-field" style="margin:16px 0 0;">
+          <label>Apariencia</label>
+          <button class="btn btn-sm" onclick="alternarTema()" style="width:100%;justify-content:center;">
+            <i class="ti ti-sun" id="theme-toggle-icon"></i> <span id="theme-toggle-label">Cambiar a claro</span>
+          </button>
+        </div>
+        <button class="auth-submit" style="margin-top:12px;" id="btn-cerrar-info-sesion">Cerrar</button>
       </div>`;
     document.body.appendChild(overlay);
     overlay.querySelector('#btn-cerrar-info-sesion').onclick = () => overlay.remove();
     overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+    actualizarBotonTema();
     return;
   }
 
@@ -2187,6 +2244,12 @@ async function mostrarInfoSesion(){
           <input type="text" id="ms-mi-nombre" value="${currentUser.nombre.replace(/"/g,'&quot;')}" style="flex:1;">
           <button class="btn btn-sm" id="ms-btn-guardar-nombre"><i class="ti ti-check"></i></button>
         </div>
+      </div>
+      <div class="auth-field" style="margin-bottom:18px;">
+        <label>Apariencia</label>
+        <button class="btn btn-sm" onclick="alternarTema()" style="width:100%;justify-content:center;">
+          <i class="ti ti-sun" id="theme-toggle-icon"></i> <span id="theme-toggle-label">Cambiar a claro</span>
+        </button>
       </div>
       <div class="auth-brand" style="font-size:18px;">Mis sesiones de clase</div>
       <div class="auth-sub">${esDocente ? 'Las clases que administras. La marcada como activa es la que ves en Modo Profesor.' : 'Las clases a las que perteneces. La marcada como activa es en la que estás operando ahora.'}</div>
@@ -2214,6 +2277,7 @@ async function mostrarInfoSesion(){
   document.body.appendChild(overlay);
   overlay.querySelector('#btn-cerrar-info-sesion').onclick = () => overlay.remove();
   overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+  actualizarBotonTema();
   overlay.querySelector('#ms-btn-guardar-nombre').onclick = async () => {
     const nuevoNombre = overlay.querySelector('#ms-mi-nombre').value.trim();
     const msg = overlay.querySelector('#ms-msg');
@@ -3733,9 +3797,10 @@ async function renderPosicionesPage(){
   const cont = document.getElementById('pos-lista');
   const empty = document.getElementById('pos-empty');
   const toggleWrap = document.getElementById('pos-toggle-wrap');
-  if(!currentUser || guestMode || !currentUser.sesion_id){ cont.innerHTML=''; empty.style.display='block'; toggleWrap.style.display='none'; return; }
+  if(!currentUser || guestMode || !currentUser.sesion_id){ cont.innerHTML=''; empty.style.display='block'; toggleWrap.style.display='none'; document.getElementById('reto-card').style.display='none'; return; }
   const esDocente = currentUser.rol==='docente' || currentUser.rol==='superadmin';
   cont.innerHTML = '<div class="auth-hint">Cargando…</div>'; empty.style.display='none';
+  renderRetoActivo();
 
   try {
     const { data: sesion } = await sb.from('sesiones_clase').select('nombre,mostrar_ranking').eq('id', currentUser.sesion_id).maybeSingle();
@@ -3782,6 +3847,162 @@ async function alternarVisibilidadRanking(visible){
     notify(visible ? 'Tus estudiantes ya pueden ver la tabla de posiciones.' : 'La tabla de posiciones quedó oculta para tus estudiantes.', 'success');
   } catch(e){
     notify('No se pudo actualizar: ' + (e.message||e), 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// RETOS SEMANALES — desafíos cortos con meta y cuenta regresiva, con su
+// propia tabla de posiciones aparte del ranking general de la sesión.
+// ══════════════════════════════════════════════════
+let retoIntervaloCuentaRegresiva = null;
+
+function formatearCuentaRegresiva(fechaFin){
+  const restante = new Date(fechaFin).getTime() - Date.now();
+  if(restante <= 0) return 'Terminado';
+  const dias = Math.floor(restante / 86400000);
+  const horas = Math.floor((restante % 86400000) / 3600000);
+  const min = Math.floor((restante % 3600000) / 60000);
+  if(dias > 0) return `${dias}d ${horas}h restantes`;
+  if(horas > 0) return `${horas}h ${min}m restantes`;
+  return `${min}m restantes`;
+}
+
+async function renderRetoActivo(){
+  const card = document.getElementById('reto-card');
+  const cont = document.getElementById('reto-contenido');
+  if(!card || !cont || !currentUser || !currentUser.sesion_id) return;
+  if(retoIntervaloCuentaRegresiva){ clearInterval(retoIntervaloCuentaRegresiva); retoIntervaloCuentaRegresiva = null; }
+
+  const esDocente = currentUser.rol==='docente' || currentUser.rol==='superadmin';
+  try {
+    const { data: retos } = await sb.from('retos').select('*').eq('sesion_id', currentUser.sesion_id).eq('activo', true).order('creado_en',{ascending:false}).limit(1);
+    const reto = retos && retos[0];
+
+    if(!reto){
+      if(!esDocente){ card.style.display = 'none'; return; }
+      card.style.display = 'block';
+      cont.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <div>
+            <div class="card-title" style="margin-bottom:2px;"><i class="ti ti-swords" style="color:var(--gold);"></i> Reto semanal</div>
+            <div style="font-size:12.5px;color:var(--t3);">Lanza un desafío corto con su propia tabla de posiciones.</div>
+          </div>
+          <button class="btn btn-sm" onclick="abrirCrearReto()"><i class="ti ti-plus"></i> Crear un reto</button>
+        </div>`;
+      return;
+    }
+
+    card.style.display = 'block';
+    const { data: participantes } = await sb.from('retos_participantes').select('usuario_id,valor_inicial').eq('reto_id', reto.id);
+    const idsParticipantes = new Set((participantes||[]).map(p=>p.usuario_id));
+
+    // Si el estudiante todavía no está inscrito en este reto, se une ahora
+    // mismo, tomando el valor actual de su cartera como línea base.
+    if(!esDocente && !idsParticipantes.has(currentUser.usuario_id)){
+      const valorPosiciones = portfolio.reduce((s,p)=>s+((p.currentPrice||p.buyPrice||0)*p.qty), 0);
+      const valorActual = capital + valorPosiciones;
+      await sb.from('retos_participantes').insert({ reto_id: reto.id, usuario_id: currentUser.usuario_id, valor_inicial: valorActual }).then(()=>{}, ()=>{});
+    }
+
+    const { data: portsActuales } = await sb.from('portafolios').select('usuario_id,valor_total').eq('sesion_id', currentUser.sesion_id);
+    const valorActualMap = {}; (portsActuales||[]).forEach(p=>{ valorActualMap[p.usuario_id] = p.valor_total; });
+
+    const { data: usuarios } = await sb.from('usuarios').select('id,nombre').eq('sesion_id', currentUser.sesion_id);
+    const nombreMap = {}; (usuarios||[]).forEach(u=>{ nombreMap[u.id] = u.nombre; });
+
+    const ranking = (participantes||[]).map(p => {
+      const actual = valorActualMap[p.usuario_id];
+      const retorno = (actual!=null && p.valor_inicial>0) ? ((actual - p.valor_inicial)/p.valor_inicial)*100 : null;
+      return { usuario_id: p.usuario_id, nombre: nombreMap[p.usuario_id]||'Estudiante', retorno };
+    }).sort((a,b)=>(b.retorno??-999)-(a.retorno??-999));
+
+    const terminado = new Date(reto.fecha_fin).getTime() <= Date.now();
+    const miFila = ranking.find(r=>r.usuario_id===currentUser.usuario_id);
+
+    cont.innerHTML = `
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+        <div>
+          <div class="card-title" style="margin-bottom:2px;"><i class="ti ti-swords" style="color:var(--gold);"></i> ${reto.titulo}</div>
+          <div style="font-size:12.5px;color:var(--t3);">Meta: <b style="color:var(--t1);">${reto.meta_retorno>=0?'+':''}${reto.meta_retorno}%</b> de retorno${!esDocente&&miFila&&miFila.retorno!=null?` · Vas en <b style="color:${miFila.retorno>=0?'var(--green)':'var(--red)'};">${miFila.retorno>=0?'+':''}${miFila.retorno.toFixed(2)}%</b>`:''}</div>
+        </div>
+        <div style="text-align:right;">
+          <span class="nav-badge" style="background:${terminado?'var(--c3)':'rgba(212,175,55,.15)'};color:${terminado?'var(--t3)':'var(--gold)'};font-size:11.5px;">${formatearCuentaRegresiva(reto.fecha_fin)}</span>
+          ${esDocente ? `<button class="btn btn-sm" style="margin-left:8px;color:var(--red);" onclick="finalizarReto('${reto.id}')" title="Finalizar reto"><i class="ti ti-flag"></i></button>` : ''}
+        </div>
+      </div>
+      ${ranking.length ? ranking.slice(0,8).map((r,i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--r);margin-bottom:4px;${r.usuario_id===currentUser.usuario_id?'background:rgba(0,196,255,.08);border:1px solid var(--accent2);':''}">
+          <div style="width:20px;text-align:center;font-size:12px;color:var(--t3);">${i+1}</div>
+          <div style="flex:1;font-size:12.5px;">${r.nombre}${r.usuario_id===currentUser.usuario_id?' <span style="color:var(--accent2);">(tú)</span>':''}</div>
+          <div style="font-size:12.5px;font-weight:700;color:${r.retorno==null?'var(--t3)':(r.retorno>=0?'var(--green)':'var(--red)')};">${r.retorno!=null?(r.retorno>=0?'+':'')+r.retorno.toFixed(2)+'%':'—'}</div>
+        </div>`).join('') : '<div class="auth-hint">Todavía nadie tiene datos suficientes en este reto.</div>'}
+    `;
+
+    retoIntervaloCuentaRegresiva = setInterval(() => {
+      const badge = card.querySelector('.nav-badge');
+      if(badge && !terminado) badge.textContent = formatearCuentaRegresiva(reto.fecha_fin);
+    }, 30000);
+  } catch(e){
+    card.style.display = 'none';
+  }
+}
+
+function abrirCrearReto(){
+  if(!currentUser || !currentUser.sesion_id) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  const manana = new Date(Date.now()+7*86400000).toISOString().slice(0,16);
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:420px;">
+    <h3>Nuevo reto semanal</h3>
+    <div class="sub">Se crea con su propia tabla de posiciones, aparte del ranking general.</div>
+    <div class="grade-field"><label>Título</label><input type="text" id="rt-titulo" placeholder='Ej. "Reto de la semana: bonos"'></div>
+    <div class="grade-field"><label>Meta de retorno (%)</label><input type="number" id="rt-meta" value="5" step="0.5"></div>
+    <div class="grade-field"><label>Termina</label><input type="datetime-local" id="rt-fin" value="${manana}"></div>
+    <div class="auth-msg" id="rt-msg"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" id="rt-cancelar" style="flex:1;">Cancelar</button>
+      <button class="auth-submit" id="rt-guardar" style="flex:1;margin-top:0;">Lanzar reto</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#rt-cancelar').onclick = () => overlay.remove();
+  overlay.querySelector('#rt-guardar').onclick = async () => {
+    const msg = overlay.querySelector('#rt-msg');
+    const titulo = overlay.querySelector('#rt-titulo').value.trim();
+    const meta = +overlay.querySelector('#rt-meta').value;
+    const fin = overlay.querySelector('#rt-fin').value;
+    if(!titulo){ msg.className='auth-msg show error'; msg.textContent='Ponle un título al reto.'; return; }
+    if(!fin){ msg.className='auth-msg show error'; msg.textContent='Elige cuándo termina.'; return; }
+    const btn = overlay.querySelector('#rt-guardar');
+    btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Creando…';
+    try {
+      // Desactiva cualquier reto anterior de esta sesión antes de lanzar el nuevo.
+      await sb.from('retos').update({ activo: false }).eq('sesion_id', currentUser.sesion_id).eq('activo', true);
+      const { error } = await conTiempoLimite(sb.from('retos').insert({
+        sesion_id: currentUser.sesion_id, docente_id: currentUser.auth_id, titulo,
+        meta_retorno: meta, fecha_fin: new Date(fin).toISOString(),
+      }));
+      if(error) throw error;
+      overlay.remove();
+      notify('Reto lanzado.', 'success');
+      renderRetoActivo();
+    } catch(e){
+      msg.className='auth-msg show error'; msg.textContent = 'No se pudo crear: ' + (e.message||e);
+      btn.disabled = false; btn.textContent = 'Lanzar reto';
+    }
+  };
+}
+
+async function finalizarReto(id){
+  if(!confirm('¿Finalizar este reto ahora? Ya no se podrá reactivar.')) return;
+  try {
+    const { error } = await sb.from('retos').update({ activo: false }).eq('id', id);
+    if(error) throw error;
+    notify('Reto finalizado.', 'success');
+    renderRetoActivo();
+  } catch(e){
+    notify('No se pudo finalizar: ' + (e.message||e), 'error');
   }
 }
 
