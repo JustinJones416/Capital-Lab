@@ -1007,6 +1007,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <div class="mt-price g mono" id="mkt-price">—</div>
         <div class="mt-change" id="mkt-change">—</div>
         <div class="mt-badges" id="mkt-badges"></div>
+        <button class="pbtn" onclick="abrirSelectorActivos()" style="height:30px;padding:0 12px;font-size:11px;flex-shrink:0;" title="Cambiar de activo"><i class="ti ti-replace"></i> Cambiar activo</button>
       </div>
       <div class="market-body">
         <!-- session control bar -->
@@ -1026,10 +1027,25 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
           </div>
         </div>
 
-        <div id="mkt-no-selection" style="display:flex;align-items:center;justify-content:center;height:300px;color:var(--t3);flex-direction:column;gap:10px;">
-          <i class="ti ti-chart-candle" style="font-size:40px;opacity:.3;"></i>
-          <span style="font-size:14px;">Selecciona un activo del Watchlist</span>
-          <span style="font-size:12px;color:var(--t3);opacity:.7;">Usa el panel lateral izquierdo para elegir cualquier activo</span>
+        <div id="mkt-no-selection" style="display:flex;align-items:center;justify-content:center;min-height:340px;color:var(--t3);flex-direction:column;gap:6px;padding:20px;">
+          <i class="ti ti-chart-candle" style="font-size:36px;opacity:.3;margin-bottom:8px;"></i>
+          <div style="display:flex;flex-direction:column;gap:14px;max-width:340px;width:100%;">
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+              <div style="width:24px;height:24px;border-radius:50%;background:var(--accent2);color:#031320;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+              <div style="text-align:left;">
+                <div style="font-size:13px;color:var(--t1);font-weight:600;">Elige un activo para empezar</div>
+                <div style="font-size:11.5px;color:var(--t3);margin-top:2px;">Cualquier acción, bono, divisa, futuro o derivado del catálogo.</div>
+              </div>
+            </div>
+            <button class="btn" onclick="abrirSelectorActivos()" style="width:100%;justify-content:center;padding:12px;font-size:13px;"><i class="ti ti-list-search"></i> Elegir un activo</button>
+            <div style="display:flex;align-items:flex-start;gap:12px;margin-top:6px;">
+              <div style="width:24px;height:24px;border-radius:50%;background:var(--c3);color:var(--t3);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
+              <div style="text-align:left;">
+                <div style="font-size:13px;color:var(--t1);font-weight:600;">Compra o vende al precio que veas</div>
+                <div style="font-size:11.5px;color:var(--t3);margin-top:2px;">El botón "Abrir mercado" de arriba es opcional, solo hace que los precios se muevan en vivo. No hace falta para poder operar.</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div id="mkt-detail" style="display:none;">
@@ -5267,6 +5283,84 @@ const CMDK_PAGINAS = [
 ];
 let cmdkEstudiantesCache = null;
 let cmdkIndiceActivo = 0;
+
+// ══════════════════════════════════════════════════
+// SELECTOR DE ACTIVOS — acceso directo desde la propia pantalla de
+// Mercado, sin depender de encontrar el Watchlist dentro del menú lateral
+// (que en el celular queda escondido detrás del botón de hamburguesa,
+// debajo de más de una decena de botones de navegación).
+// ══════════════════════════════════════════════════
+let selectorActivosFiltro = 'all';
+
+function abrirSelectorActivos(){
+  if(document.getElementById('selector-activos-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'selector-activos-overlay';
+  overlay.className = 'cmdk-overlay';
+  overlay.innerHTML = `
+    <div class="cmdk-box" style="max-height:75vh;">
+      <div class="cmdk-input-row">
+        <i class="ti ti-search"></i>
+        <input type="text" id="sa-input" placeholder="Busca por nombre o símbolo…" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:6px;padding:10px 12px 0;flex-wrap:wrap;">
+        ${[['all','Todos'],['accion','Acciones'],['bono','Bonos'],['divisa','Divisas'],['futuro','Futuros'],['derivado','Derivados']].map(([v,l]) =>
+          `<button class="wf-btn ${v==='all'?'active':''}" data-sa-filtro="${v}" style="font-size:11px;">${l}</button>`).join('')}
+      </div>
+      <div class="cmdk-results" id="sa-results" style="padding-top:10px;"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) cerrarSelectorActivos(); };
+
+  overlay.querySelectorAll('[data-sa-filtro]').forEach(btn => btn.onclick = () => {
+    selectorActivosFiltro = btn.dataset.saFiltro;
+    overlay.querySelectorAll('[data-sa-filtro]').forEach(b=>b.classList.toggle('active', b===btn));
+    renderResultadosSelectorActivos(overlay.querySelector('#sa-input').value.trim());
+  });
+
+  const input = overlay.querySelector('#sa-input');
+  input.focus();
+  input.oninput = () => renderResultadosSelectorActivos(input.value.trim());
+  input.onkeydown = (e) => { if(e.key==='Escape') cerrarSelectorActivos(); };
+
+  selectorActivosFiltro = 'all';
+  renderResultadosSelectorActivos('');
+}
+
+function cerrarSelectorActivos(){
+  const overlay = document.getElementById('selector-activos-overlay');
+  if(overlay) overlay.remove();
+}
+
+function renderResultadosSelectorActivos(query){
+  const cont = document.getElementById('sa-results');
+  if(!cont || typeof allAssets!=='function') return;
+  const q = query.toLowerCase();
+  const resultados = allAssets().filter(a => {
+    if(selectorActivosFiltro!=='all' && a.type!==selectorActivosFiltro) return false;
+    return !q || a.name.toLowerCase().includes(q) || (a.ticker&&a.ticker.toLowerCase().includes(q));
+  }).slice(0, 60);
+
+  if(!resultados.length){
+    cont.innerHTML = '<div class="auth-hint" style="padding:20px;text-align:center;">Sin resultados.</div>';
+    return;
+  }
+  cont.innerHTML = resultados.map(a => {
+    const chg = a.change||0;
+    const p = a.currentPrice||a.price;
+    return `<div class="cmdk-item" onclick="cerrarSelectorActivos();goPage('mercado');showAssetDetail('${a.id}','${a.type}');">
+      <i class="ti ti-chart-line"></i>
+      <div style="flex:1;min-width:0;">
+        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name}</div>
+        <div style="font-size:10.5px;color:var(--t3);">${a.ticker||''}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="mono" style="font-size:12px;">$${p.toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+        <div style="font-size:10.5px;color:${chg>=0?'var(--green)':'var(--red)'};">${chg>=0?'+':''}${chg.toFixed(2)}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
 function abrirBuscadorUniversal(){
   if(document.getElementById('cmdk-overlay')) return; // ya está abierto
