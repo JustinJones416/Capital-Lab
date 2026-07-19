@@ -924,7 +924,6 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       <span class="role-badge" id="user-role-badge">—</span>
       <span class="chip-name" id="user-name-label">—</span>
       <button onclick="mostrarNotificaciones()" title="Notificaciones" style="position:relative;"><i class="ti ti-bell" style="font-size:12px;"></i><span id="notif-dot" style="display:none;position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--accent2);"></span></button>
-      <button onclick="mostrarInfoSesion()" title="Ver mi sesión de clase"><i class="ti ti-info-circle" style="font-size:12px;"></i></button>
       <button onclick="authLogout()" title="Cerrar sesión"><i class="ti ti-logout" style="font-size:12px;"></i></button>
     </div>
   </div>
@@ -1623,6 +1622,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       </div>
     </div>
     <div class="card-sub" id="prof-cloud-sesion-info">Cargando información de tu sesión…</div>
+    <input type="text" id="prof-cloud-buscar" placeholder="Buscar estudiante por nombre o correo…" oninput="filtrarRosterProfesor(this.value)" style="width:100%;margin-top:10px;padding:8px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12.5px;">
     <div style="overflow-x:auto;margin-top:10px;">
       <table id="prof-cloud-table" style="width:100%;border-collapse:collapse;font-size:12.5px;">
         <thead>
@@ -2234,53 +2234,35 @@ async function borrarAnuncio(id){
   }
 }
 
-async function mostrarInfoSesion(){
-  if(!currentUser) return;
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(4,7,12,.7);display:flex;align-items:center;justify-content:center;padding:20px;';
-
-  if(guestMode){
-    overlay.innerHTML = `
-      <div class="auth-box" style="max-width:380px;">
-        <div class="auth-code-result" style="display:block;">
-          <div class="auth-code-label">Modo de prueba</div>
-          <div class="auth-hint">Estás en modo de prueba sin cuenta, no hay sesiones de clase reales que gestionar aquí.</div>
-        </div>
-        <div class="auth-field" style="margin:16px 0 0;">
-          <label>Apariencia</label>
-          <button class="btn btn-sm" onclick="alternarTema()" style="width:100%;justify-content:center;">
-            <i class="ti ti-sun" id="theme-toggle-icon"></i> <span id="theme-toggle-label">Cambiar a claro</span>
-          </button>
-        </div>
-        <button class="auth-submit" style="margin-top:12px;" id="btn-cerrar-info-sesion">Cerrar</button>
-      </div>`;
-    document.body.appendChild(overlay);
-    overlay.querySelector('#btn-cerrar-info-sesion').onclick = () => overlay.remove();
-    overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
-    actualizarBotonTema();
-    return;
-  }
-
+// Antes era una ventana emergente disparada desde la topbar; ahora vive
+// como una sección normal dentro del Panel de Inicio. En un celular, la
+// topbar es un espacio demasiado angosto para cualquier texto largo
+// ("Mi cuenta", nombres de sesión, etc.) — sacarlo de ahí evita el
+// problema de raíz en vez de perseguir píxeles cada vez que se agrega algo.
+async function renderMiCuenta(cont){
+  if(!currentUser || !cont) return;
   const esDocente = currentUser.rol === 'docente' || currentUser.rol === 'superadmin';
-  overlay.innerHTML = `
-    <div class="auth-box" style="max-width:420px;">
-      <div class="auth-brand" style="font-size:18px;">Mi cuenta</div>
-      <div class="auth-field" style="margin-bottom:18px;">
+  cont.innerHTML = `
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title"><i class="ti ti-user-circle" style="color:var(--accent2);"></i> Mi cuenta</div>
+      <div class="auth-field" style="margin-bottom:14px;">
         <label>Nombre</label>
         <div style="display:flex;gap:8px;">
           <input type="text" id="ms-mi-nombre" value="${currentUser.nombre.replace(/"/g,'&quot;')}" style="flex:1;">
           <button class="btn btn-sm" id="ms-btn-guardar-nombre"><i class="ti ti-check"></i></button>
         </div>
       </div>
-      <div class="auth-field" style="margin-bottom:18px;">
+      <div class="auth-field" style="margin-bottom:0;">
         <label>Apariencia</label>
-        <button class="btn btn-sm" onclick="alternarTema()" style="width:100%;justify-content:center;">
+        <button class="btn btn-sm" onclick="alternarTema()" style="width:100%;justify-content:center;max-width:260px;">
           <i class="ti ti-sun" id="theme-toggle-icon"></i> <span id="theme-toggle-label">Cambiar a claro</span>
         </button>
       </div>
-      <div class="auth-brand" style="font-size:18px;">Mis sesiones de clase</div>
-      <div class="auth-sub">${esDocente ? 'Las clases que administras. La marcada como activa es la que ves en Modo Profesor.' : 'Las clases a las que perteneces. La marcada como activa es en la que estás operando ahora.'}</div>
-      <div id="ms-msg" class="auth-msg"></div>
+      <div class="auth-msg" id="ms-msg"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-school" style="color:var(--accent2);"></i> Mis sesiones de clase</div>
+      <div class="card-sub" style="margin-bottom:12px;">${esDocente ? 'Las clases que administras. La marcada como activa es la que ves en Modo Profesor.' : 'Las clases a las que perteneces. La marcada como activa es en la que estás operando ahora.'}</div>
       <div id="ms-lista" style="margin-bottom:16px;"><div class="auth-hint">Cargando…</div></div>
       ${esDocente ? `
         <div class="auth-field">
@@ -2299,15 +2281,11 @@ async function mostrarInfoSesion(){
           </div>
         </div>
       `}
-      <button class="btn btn-ghost" style="width:100%;margin-top:6px;" id="btn-cerrar-info-sesion">Cerrar</button>
     </div>`;
-  document.body.appendChild(overlay);
-  overlay.querySelector('#btn-cerrar-info-sesion').onclick = () => overlay.remove();
-  overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
   actualizarBotonTema();
-  overlay.querySelector('#ms-btn-guardar-nombre').onclick = async () => {
-    const nuevoNombre = overlay.querySelector('#ms-mi-nombre').value.trim();
-    const msg = overlay.querySelector('#ms-msg');
+  cont.querySelector('#ms-btn-guardar-nombre').onclick = async () => {
+    const nuevoNombre = cont.querySelector('#ms-mi-nombre').value.trim();
+    const msg = cont.querySelector('#ms-msg');
     if(!nuevoNombre){ msg.className='auth-msg show error'; msg.textContent='El nombre no puede quedar vacío.'; return; }
     try {
       const { error } = await sb.from('usuarios').update({ nombre: nuevoNombre }).eq('id', currentUser.usuario_id);
@@ -2321,7 +2299,7 @@ async function mostrarInfoSesion(){
   };
 
   async function cargarListaSesiones(){
-    const cont = overlay.querySelector('#ms-lista');
+    const listaCont = cont.querySelector('#ms-lista');
     try {
       let filas = [];
       if(esDocente){
@@ -2333,14 +2311,14 @@ async function mostrarInfoSesion(){
         if(error) throw error;
         filas = (data||[]).map(r=>r.sesiones_clase).filter(Boolean);
       }
-      if(!filas.length){ cont.innerHTML = '<div class="auth-hint">Todavía no perteneces a ninguna sesión.</div>'; return; }
-      cont.innerHTML = filas.map(s => `
+      if(!filas.length){ listaCont.innerHTML = '<div class="auth-hint">Todavía no perteneces a ninguna sesión.</div>'; return; }
+      listaCont.innerHTML = filas.map(s => `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--c4);border-radius:var(--r);margin-bottom:8px;${s.id===currentUser.sesion_id?'border-color:var(--accent2);background:rgba(0,196,255,.06);':''}${s.activa===false?'opacity:.55;':''}">
           <div style="min-width:0;">
             <div style="font-weight:600;font-size:13px;">${s.nombre} ${s.activa===false?'<span class="nav-badge" style="margin-left:4px;">Archivada</span>':''}</div>
             <div style="font-size:11px;color:var(--t3);font-family:var(--font-mono);">${s.codigo}</div>
           </div>
-          <div style="display:flex;gap:6px;align-items:center;">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             ${s.id===currentUser.sesion_id
               ? '<span class="nav-badge" style="background:var(--accent2);color:#031320;">Activa</span>'
               : `<button class="btn btn-sm" onclick="cambiarSesionActiva('${s.id}','${s.nombre.replace(/'/g,"\\'")}','${s.codigo}')">Cambiar</button>`}
@@ -2349,16 +2327,16 @@ async function mostrarInfoSesion(){
           </div>
         </div>`).join('');
     } catch(e){
-      cont.innerHTML = '<div class="auth-hint">No se pudo cargar la lista: '+(e.message||e)+'</div>';
+      listaCont.innerHTML = '<div class="auth-hint">No se pudo cargar la lista: '+(e.message||e)+'</div>';
     }
   }
   window._recargarListaSesionesActual = cargarListaSesiones;
   cargarListaSesiones();
 
   if(esDocente){
-    overlay.querySelector('#ms-btn-crear').onclick = async () => {
-      const nombre = overlay.querySelector('#ms-nueva-sesion').value.trim();
-      const msg = overlay.querySelector('#ms-msg');
+    cont.querySelector('#ms-btn-crear').onclick = async () => {
+      const nombre = cont.querySelector('#ms-nueva-sesion').value.trim();
+      const msg = cont.querySelector('#ms-msg');
       if(!nombre){ msg.className='auth-msg show error'; msg.textContent='Ponle un nombre a la sesión.'; return; }
       msg.className='auth-msg';
       try {
@@ -2372,7 +2350,7 @@ async function mostrarInfoSesion(){
           if(error.code !== '23505') throw error;
           if(intento===3) throw error;
         }
-        overlay.querySelector('#ms-nueva-sesion').value='';
+        cont.querySelector('#ms-nueva-sesion').value='';
         await cargarListaSesiones();
         msg.className='auth-msg show success'; msg.textContent=`Sesión creada. Código: ${codigoGenerado}`;
         cambiarSesionActiva(sesionId, nombre, codigoGenerado);
@@ -2381,9 +2359,9 @@ async function mostrarInfoSesion(){
       }
     };
   } else {
-    overlay.querySelector('#ms-btn-unirse').onclick = async () => {
-      const codigo = overlay.querySelector('#ms-nuevo-codigo').value.trim();
-      const msg = overlay.querySelector('#ms-msg');
+    cont.querySelector('#ms-btn-unirse').onclick = async () => {
+      const codigo = cont.querySelector('#ms-nuevo-codigo').value.trim();
+      const msg = cont.querySelector('#ms-msg');
       if(!codigo){ msg.className='auth-msg show error'; msg.textContent='Ingresa un código de sesión.'; return; }
       msg.className='auth-msg';
       try {
@@ -2393,7 +2371,7 @@ async function mostrarInfoSesion(){
         const s = sesiones[0];
         const { error: insError } = await sb.from('inscripciones').insert({ usuario_id: currentUser.usuario_id, sesion_id: s.id });
         if(insError && insError.code !== '23505') throw insError; // 23505 = ya estaba inscrito, no pasa nada
-        overlay.querySelector('#ms-nuevo-codigo').value='';
+        cont.querySelector('#ms-nuevo-codigo').value='';
         await cargarListaSesiones();
         msg.className='auth-msg show success'; msg.textContent=`Te uniste a "${s.nombre}".`;
         cambiarSesionActiva(s.id, s.nombre, codigo.toUpperCase());
@@ -2721,7 +2699,9 @@ async function cargarRosterProfesor(esManual){
     (portRows||[]).forEach(p=>{ profPortafolios[p.usuario_id] = p; });
 
     badge.textContent = (estudiantes||[]).length;
-    renderRosterProfesorTabla(estudiantes||[], sesionId, sesionNombre);
+    rosterProfesorCache = { estudiantes: estudiantes||[], sesionId, sesionNombre };
+    const filtroActual = (document.getElementById('prof-cloud-buscar')||{}).value || '';
+    renderRosterProfesorTabla(filtrarEstudiantes(estudiantes||[], filtroActual), sesionId, sesionNombre);
 
     info.innerHTML = `<b>${sesionNombre}</b> · Código <span style="font-family:var(--font-mono);color:var(--accent2);">${sesionCodigo}</span>
       <span style="color:var(--t3);"> · Actualizado ${new Date().toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'})}</span>`;
@@ -2736,10 +2716,31 @@ async function cargarRosterProfesor(esManual){
   }
 }
 
+// Se guarda la última lista completa de estudiantes para poder filtrarla
+// al instante mientras se escribe, sin volver a consultar la nube.
+let rosterProfesorCache = { estudiantes: [], sesionId: null, sesionNombre: '' };
+
+function filtrarEstudiantes(estudiantes, query){
+  const q = (query||'').trim().toLowerCase();
+  if(!q) return estudiantes;
+  return estudiantes.filter(e => e.nombre.toLowerCase().includes(q) || (e.correo||'').toLowerCase().includes(q));
+}
+
+function filtrarRosterProfesor(query){
+  const { estudiantes, sesionId, sesionNombre } = rosterProfesorCache;
+  renderRosterProfesorTabla(filtrarEstudiantes(estudiantes, query), sesionId, sesionNombre);
+}
+
 function renderRosterProfesorTabla(estudiantes, sesionId, sesionNombre){
   const tbody = document.getElementById('prof-cloud-tbody');
   const empty = document.getElementById('prof-cloud-empty');
-  if(!estudiantes.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  const hayFiltro = !!(document.getElementById('prof-cloud-buscar')||{}).value;
+  if(!estudiantes.length){
+    tbody.innerHTML='';
+    empty.textContent = hayFiltro ? 'Ningún estudiante coincide con esa búsqueda.' : 'Aún no se ha registrado ningún estudiante en tu sesión.';
+    empty.style.display='block';
+    return;
+  }
   empty.style.display='none';
   tbody.innerHTML = estudiantes.map(est=>{
     const cals = profCalificaciones[est.id] || [];
@@ -3032,6 +3033,101 @@ function bloqueEstudiantePDF(estNombre, estCorreo, port, calificaciones, labHist
 
 // Informe de UN estudiante — pensado para descargarlo y enviárselo directamente,
 // incluye su cartera, sus sesiones de laboratorio y toda su retroalimentación.
+// ══════════════════════════════════════════════════
+// PORTAFOLIO DE EVIDENCIAS — el informe más completo que existe: junta
+// cartera, laboratorio, calificaciones, asistencia, cuestionarios, logros
+// y retos en un solo documento, con la gráfica de evolución real
+// renderizada como imagen (no solo números), pensado para servir como
+// evidencia formal de evaluación.
+// ══════════════════════════════════════════════════
+
+// Versión de la gráfica de evolución segura para la ventana de impresión:
+// usa colores fijos en vez de variables CSS (la ventana de impresión no
+// carga la hoja de estilos de la app, solo pdfStyles()).
+function graficaEvolucionSVGImpresion(puntos){
+  if(!puntos || puntos.length < 2) return '<div class="empty">No hay suficientes datos para graficar la evolución.</div>';
+  const w = 680, h = 160, pad = 10;
+  const valores = puntos.map(p=>p.valor);
+  const min = Math.min(...valores), max = Math.max(...valores);
+  const rango = (max - min) || 1;
+  const xStep = (w - pad*2) / (puntos.length - 1);
+  const coords = puntos.map((p,i) => {
+    const x = pad + i*xStep;
+    const y = h - pad - ((p.valor - min) / rango) * (h - pad*2);
+    return [x,y];
+  });
+  const linea = coords.map(([x,y],i) => (i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)).join(' ');
+  const area = linea + ` L${coords[coords.length-1][0].toFixed(1)},${h-pad} L${coords[0][0].toFixed(1)},${h-pad} Z`;
+  const subio = puntos[puntos.length-1].valor >= puntos[0].valor;
+  const color = subio ? '#00a86b' : '#d81d34';
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:120px;">
+    <path d="${area}" fill="${color}" opacity="0.1"></path>
+    <path d="${linea}" fill="none" stroke="${color}" stroke-width="2"></path>
+  </svg>`;
+}
+
+async function exportarPortafolioEvidenciasPDF(usuarioId, nombre, sesionId){
+  if(!sb){ notify('No hay conexión con la nube para exportar.', 'error'); return; }
+  notify('Generando Portafolio de Evidencias…', 'success');
+  try {
+    const [{data:usr},{data:port},{data:cals},{data:sesion},{data:asist},{data:intentos},{data:logros},{data:retosPart}] = await Promise.all([
+      sb.from('usuarios').select('nombre,correo').eq('id', usuarioId).maybeSingle(),
+      sb.from('portafolios').select('*').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).maybeSingle(),
+      sb.from('calificaciones').select('*').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).order('creado_en',{ascending:false}),
+      sb.from('sesiones_clase').select('nombre,codigo').eq('id', sesionId).maybeSingle(),
+      sb.from('asistencia').select('fecha,presente').eq('usuario_id', usuarioId).eq('sesion_id', sesionId),
+      sb.from('intentos_cuestionario').select('nota,completado_en,cuestionarios(titulo)').eq('usuario_id', usuarioId).eq('sesion_id', sesionId),
+      sb.from('logros_desbloqueados').select('codigo_logro,desbloqueado_en').eq('usuario_id', usuarioId).eq('sesion_id', sesionId),
+      sb.from('retos_participantes').select('valor_inicial,retos(titulo,meta_retorno,fecha_fin)').eq('usuario_id', usuarioId),
+    ]);
+
+    const nombreFinal = usr?.nombre || nombre;
+    const valorActual = port?.valor_total;
+
+    const bloqueBase = bloqueEstudiantePDF(nombreFinal, usr?.correo, port, cals||[], port?.lab_historial||[], asist||[]);
+
+    const bloqueCuestionarios = `
+      <div class="section"><div class="section-title" style="font-size:10pt;">Cuestionarios resueltos</div></div>
+      ${(intentos&&intentos.length) ? `
+        <table><tr><th>Cuestionario</th><th class="right">Nota</th><th>Fecha</th></tr>
+          ${intentos.map(i=>`<tr><td>${i.cuestionarios?.titulo||'—'}</td><td class="right ${i.nota>=60?'g':'r'}">${i.nota??'—'}/100</td><td>${formatearFechaHora(i.completado_en)}</td></tr>`).join('')}
+        </table>` : `<div class="empty">Todavía no ha resuelto ningún cuestionario.</div>`}`;
+
+    const bloqueLogros = `
+      <div class="section"><div class="section-title" style="font-size:10pt;">Logros desbloqueados</div></div>
+      ${(logros&&logros.length) ? `
+        <table><tr><th>Logro</th><th>Fecha</th></tr>
+          ${logros.map(l=>`<tr><td>${CATALOGO_LOGROS[l.codigo_logro]?.titulo||l.codigo_logro}</td><td>${formatearFechaHora(l.desbloqueado_en)}</td></tr>`).join('')}
+        </table>` : `<div class="empty">Todavía no ha desbloqueado ningún logro.</div>`}`;
+
+    const bloqueRetos = `
+      <div class="section"><div class="section-title" style="font-size:10pt;">Retos semanales</div></div>
+      ${(retosPart&&retosPart.length) ? `
+        <table><tr><th>Reto</th><th class="right">Meta</th><th class="right">Resultado</th></tr>
+          ${retosPart.filter(r=>r.retos).map(r=>{
+            const ret = valorActual!=null && r.valor_inicial>0 ? ((valorActual-r.valor_inicial)/r.valor_inicial)*100 : null;
+            return `<tr><td>${r.retos.titulo}</td><td class="right">${r.retos.meta_retorno>=0?'+':''}${r.retos.meta_retorno}%</td><td class="right ${ret!=null&&ret>=r.retos.meta_retorno?'g':'r'}">${ret!=null?(ret>=0?'+':'')+ret.toFixed(2)+'%':'—'}</td></tr>`;
+          }).join('')}
+        </table>` : `<div class="empty">No ha participado en ningún reto todavía.</div>`}`;
+
+    const bloqueEvolucion = `
+      <div class="section"><div class="section-title" style="font-size:10pt;">Evolución del valor de cartera</div></div>
+      ${graficaEvolucionSVGImpresion(port?.valor_historial)}`;
+
+    const body = pdfHeader('Portafolio de Evidencias — ' + (sesion?.nombre||''))
+      + bloqueBase
+      + `<div style="page-break-before:always;"></div>`
+      + bloqueEvolucion
+      + bloqueCuestionarios
+      + bloqueLogros
+      + bloqueRetos
+      + pdfFooter();
+    openPrintWindow(body, `Portafolio de Evidencias — ${nombreFinal}`);
+  } catch(e){
+    notify('No se pudo generar el portafolio: ' + (e.message||e), 'error');
+  }
+}
+
 async function exportarInformeEstudiantePDF(usuarioId, nombre, sesionId){
   if(!sb){ notify('No hay conexión con la nube para exportar.', 'error'); return; }
   notify('Generando informe…', 'success');
@@ -3260,7 +3356,9 @@ async function renderLogrosPage(){
     if(error) throw error;
     const fechaPorCodigo = {}; (data||[]).forEach(d=>{ fechaPorCodigo[d.codigo_logro] = d.desbloqueado_en; });
     const codigos = Object.keys(CATALOGO_LOGROS);
-    cont.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;">
+    cont.innerHTML = `
+      <button class="btn" style="margin-bottom:16px;background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);" onclick="exportarPortafolioEvidenciasPDF('${currentUser.usuario_id}','${currentUser.nombre.replace(/'/g,"\\'")}','${currentUser.sesion_id}')"><i class="ti ti-folder-star"></i> Exportar mi Portafolio de Evidencias</button>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;">
       ${codigos.map(cod => {
         const l = CATALOGO_LOGROS[cod];
         const logrado = !!fechaPorCodigo[cod];
@@ -3300,11 +3398,18 @@ async function renderInicioPage(){
   if(guestMode){
     sub.textContent = 'Estás en modo de prueba, sin cuenta real.';
     cont.innerHTML = `
-      <div class="card">
+      <div class="card" style="margin-bottom:16px;">
         <div class="card-title"><i class="ti ti-flask" style="color:var(--accent2);"></i> Modo de prueba</div>
         <div style="font-size:13px;color:var(--t2);line-height:1.6;">Puedes explorar todo el simulador libremente, pero nada de lo que hagas aquí se guarda en una cuenta real. Cuando quieras, cierra sesión y crea una cuenta para conservar tu progreso.</div>
         <button class="btn" style="margin-top:12px;" onclick="goPage('mercado')"><i class="ti ti-chart-candle"></i> Ir al mercado</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-sun" style="color:var(--accent2);"></i> Apariencia</div>
+        <button class="btn btn-sm" onclick="alternarTema()" style="max-width:260px;justify-content:center;">
+          <i class="ti ti-sun" id="theme-toggle-icon"></i> <span id="theme-toggle-label">Cambiar a claro</span>
+        </button>
       </div>`;
+    actualizarBotonTema();
     return;
   }
 
@@ -3312,7 +3417,8 @@ async function renderInicioPage(){
 
   if(!currentUser.sesion_id){
     sub.textContent = 'Todavía no perteneces a ninguna sesión de clase.';
-    cont.innerHTML = `<div class="card"><div style="font-size:13px;color:var(--t2);">Usa el ícono de información junto a tu nombre, arriba a la derecha, para unirte a una sesión con un código o crear una nueva.</div></div>`;
+    cont.innerHTML = `<div id="mi-cuenta-card"></div>`;
+    renderMiCuenta(document.getElementById('mi-cuenta-card'));
     return;
   }
 
@@ -3361,7 +3467,9 @@ async function renderInicioPage(){
             <div class="card-title"><i class="ti ti-speakerphone" style="color:var(--accent2);"></i> Tus últimos anuncios</div>
             ${(anuncios&&anuncios.length) ? anuncios.map(a=>`<div style="padding:6px 0;border-bottom:1px solid var(--c3);font-size:12.5px;">${a.titulo}<div style="color:var(--t3);font-size:10.5px;">${formatearFechaHora(a.creado_en)}</div></div>`).join('') : '<div class="auth-hint">Todavía no has publicado ningún anuncio.</div>'}
           </div>
-        </div>`;
+        </div>
+        <div id="mi-cuenta-card" style="margin-top:16px;"></div>`;
+      renderMiCuenta(document.getElementById('mi-cuenta-card'));
     } else {
       const sesionId = currentUser.sesion_id;
       const valorPosiciones = portfolio.reduce((s,p)=>s+((p.currentPrice||p.buyPrice||0)*p.qty), 0);
@@ -3446,7 +3554,9 @@ async function renderInicioPage(){
             ${(misCals&&misCals.length) ? misCals.map(c=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--c3);font-size:12.5px;"><span>${c.titulo}</span><span class="grade-pill ${nivelCalificacion(c.nota_general)}">${c.nota_general??'—'}</span></div>`).join('') : '<div class="auth-hint">Sin calificaciones todavía.</div>'}
           </div>
         </div>
-        <div style="margin-top:14px;">${await tarjetaLogrosHTML()}</div>`;
+        <div style="margin-top:14px;">${await tarjetaLogrosHTML()}</div>
+        <div id="mi-cuenta-card" style="margin-top:16px;"></div>`;
+      renderMiCuenta(document.getElementById('mi-cuenta-card'));
     }
   } catch(e){
     cont.innerHTML = '<div class="auth-hint">No se pudo cargar tu resumen: '+(e.message||e)+'</div>';
@@ -3508,6 +3618,7 @@ async function renderCuestionariosPage(){
           ${esDocente
             ? `<button class="btn btn-sm" onclick="verResultadosCuestionario('${c.id}','${c.titulo.replace(/'/g,"\\'")}')"><i class="ti ti-chart-bar"></i> Resultados</button>
                <button class="btn btn-sm" onclick="editarCuestionarioDesdeCache('${c.id}')"><i class="ti ti-pencil"></i> Editar</button>
+               <button class="btn btn-sm" onclick="abrirDuplicarCuestionario('${c.id}')" title="Duplicar a otra sesión"><i class="ti ti-copy"></i></button>
                <button class="btn btn-sm" onclick="alternarActivoCuestionario('${c.id}',${c.activo===false})">${c.activo===false?'Activar':'Desactivar'}</button>
                <button class="btn btn-sm" style="color:var(--red);" onclick="borrarCuestionario('${c.id}')"><i class="ti ti-trash"></i></button>`
             : (yaResuelto
@@ -3526,6 +3637,17 @@ async function renderCuestionariosPage(){
 // la nube hasta que el docente las guarda como cuestionario propio — solo
 // llenan el editor con contenido de partida para que sea fácil entender
 // cómo se arma uno, sin tener que empezar desde cero.
+// Plantillas rápidas para el modal de calificar: solo llenan categoría y
+// título, la nota y el comentario los pone el docente para cada estudiante.
+const PLANTILLAS_RUBRICA = [
+  { categoria: 'Examen', titulo: 'Examen parcial' },
+  { categoria: 'Examen', titulo: 'Examen final' },
+  { categoria: 'Participación', titulo: 'Participación en clase' },
+  { categoria: 'Rentabilidad', titulo: 'Desempeño de cartera — corte del mes' },
+  { categoria: 'Gestión de riesgo', titulo: 'Diversificación y manejo de riesgo' },
+  { categoria: 'Otro', titulo: 'Cumplimiento del Laboratorio' },
+];
+
 const PLANTILLAS_CUESTIONARIOS = [
   {
     titulo: 'Repaso: Mercado de Acciones',
@@ -3730,6 +3852,68 @@ async function borrarCuestionario(id){
     notify('Cuestionario borrado.', 'success');
     renderCuestionariosPage();
   } catch(e){ notify('No se pudo borrar: ' + (e.message||e), 'error'); }
+}
+
+// Copia un cuestionario completo (título, descripción, preguntas y sus
+// respuestas correctas) a otra sesión del mismo docente, para no tener
+// que reconstruirlo si da la misma materia en varias clases.
+async function abrirDuplicarCuestionario(id){
+  if(!currentUser) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:400px;">
+    <h3>Duplicar cuestionario</h3>
+    <div class="sub">Se copian todas las preguntas y sus respuestas correctas.</div>
+    <div id="dq-lista"><div class="auth-hint">Cargando tus otras sesiones…</div></div>
+    <button class="btn btn-ghost" id="dq-cerrar" style="width:100%;margin-top:14px;">Cerrar</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#dq-cerrar').onclick = () => overlay.remove();
+
+  try {
+    const { data: sesiones, error } = await sb.from('sesiones_clase').select('id,nombre,codigo').eq('docente_id', currentUser.auth_id).neq('id', currentUser.sesion_id).order('creado_en',{ascending:false});
+    if(error) throw error;
+    const cont = overlay.querySelector('#dq-lista');
+    if(!sesiones || !sesiones.length){
+      cont.innerHTML = '<div class="auth-hint">No tienes otras sesiones de clase todavía. Crea una desde "Mis sesiones" antes de duplicar.</div>';
+      return;
+    }
+    cont.innerHTML = sesiones.map(s => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 10px;border:1px solid var(--c4);border-radius:var(--r);margin-bottom:6px;">
+        <div style="font-size:13px;font-weight:600;">${s.nombre}</div>
+        <button class="btn btn-sm" onclick="duplicarCuestionarioA('${id}','${s.id}')">Copiar aquí</button>
+      </div>`).join('');
+  } catch(e){
+    overlay.querySelector('#dq-lista').innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
+  }
+}
+
+async function duplicarCuestionarioA(idOrigen, sesionDestinoId){
+  try {
+    notify('Duplicando…', 'success');
+    const { data: original, error: e1 } = await sb.from('cuestionarios').select('titulo,descripcion').eq('id', idOrigen).single();
+    if(e1) throw e1;
+    const { data: preguntas, error: e2 } = await sb.from('preguntas').select('*, respuestas_correctas(indice_correcto)').eq('cuestionario_id', idOrigen).order('orden');
+    if(e2) throw e2;
+
+    const { data: nuevo, error: e3 } = await sb.from('cuestionarios').insert({
+      sesion_id: sesionDestinoId, docente_id: currentUser.auth_id, titulo: original.titulo, descripcion: original.descripcion,
+    }).select('id').single();
+    if(e3) throw e3;
+
+    for(const p of (preguntas||[])){
+      const { data: preguntaNueva, error: e4 } = await sb.from('preguntas').insert({
+        cuestionario_id: nuevo.id, texto: p.texto, opciones: p.opciones, orden: p.orden,
+      }).select('id').single();
+      if(e4) throw e4;
+      await sb.from('respuestas_correctas').insert({ pregunta_id: preguntaNueva.id, indice_correcto: p.respuestas_correctas?.indice_correcto ?? 0 });
+    }
+    document.querySelectorAll('.grade-modal-overlay').forEach(o=>o.remove());
+    notify('Cuestionario duplicado correctamente.', 'success');
+  } catch(e){
+    notify('No se pudo duplicar: ' + (e.message||e), 'error');
+  }
 }
 
 async function verResultadosCuestionario(id, titulo){
@@ -4182,6 +4366,13 @@ function abrirModalCalificar(usuarioId, nombre, sesionId, editando){
     <div class="grade-modal">
       <h3>${esEdicion ? 'Editar calificación' : 'Calificar a '+nombre}</h3>
       <div class="sub">${esEdicion ? `Estás editando una calificación de ${nombre}.` : 'Puedes agregar varias calificaciones distintas para el mismo estudiante (exámenes, participación, etc.). El estudiante sí puede ver estas calificaciones en su sección "Calificaciones".'}</div>
+      ${esEdicion ? '' : `
+      <div class="grade-field">
+        <label>Plantilla rápida (opcional)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${PLANTILLAS_RUBRICA.map((t,ti) => `<button class="btn btn-sm" data-rubrica="${ti}" style="font-size:11px;">${t.titulo}</button>`).join('')}
+        </div>
+      </div>`}
       <div class="grade-field">
         <label>Categoría</label>
         <select id="gm-categoria">
@@ -4229,6 +4420,11 @@ function abrirModalCalificar(usuarioId, nombre, sesionId, editando){
   document.body.appendChild(overlay);
   overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
   overlay.querySelector('#gm-cancelar').onclick = () => overlay.remove();
+  overlay.querySelectorAll('[data-rubrica]').forEach(btn => btn.onclick = () => {
+    const t = PLANTILLAS_RUBRICA[+btn.dataset.rubrica];
+    overlay.querySelector('#gm-categoria').value = t.categoria;
+    overlay.querySelector('#gm-titulo').value = t.titulo;
+  });
   if(esEdicion && overlay.querySelector('#gm-borrar')){
     overlay.querySelector('#gm-borrar').onclick = async () => {
       if(!confirm(`¿Borrar la calificación "${editando.titulo}"? Esto no se puede deshacer.`)) return;
@@ -4399,9 +4595,10 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
         </div>
       `).join('') : '<div class="auth-hint">Todavía no tiene calificaciones.</div>'}
 
-      <div style="display:flex;gap:10px;margin-top:16px;">
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
         <button class="btn btn-ghost" id="det-cerrar" style="flex:1;">Cerrar</button>
-        <button class="btn" id="det-exportar" style="flex:1;"><i class="ti ti-file-type-pdf"></i> Exportar informe</button>
+        <button class="btn" id="det-exportar" title="Informe rápido"><i class="ti ti-file-type-pdf"></i></button>
+        <button class="btn" id="det-portafolio" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);" title="Portafolio de Evidencias completo"><i class="ti ti-folder-star"></i> Portafolio de Evidencias</button>
         <button class="auth-submit" id="det-calificar" style="flex:1;margin-top:0;">Calificar</button>
       </div>
     </div>`;
@@ -4409,6 +4606,7 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
   overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
   overlay.querySelector('#det-cerrar').onclick = () => overlay.remove();
   overlay.querySelector('#det-exportar').onclick = () => exportarInformeEstudiantePDF(usuarioId, nombreEsc, sesionId);
+  overlay.querySelector('#det-portafolio').onclick = () => exportarPortafolioEvidenciasPDF(usuarioId, nombreEsc, sesionId);
   overlay.querySelector('#det-calificar').onclick = () => { overlay.remove(); abrirModalCalificar(usuarioId, nombre, sesionId); };
 
   (async () => {
