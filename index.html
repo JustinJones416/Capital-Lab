@@ -4,16 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CapitalLab — Simulador de Cartera de Inversiones</title>
-<script>
-  // Aplica el tema guardado ANTES de que se pinte cualquier cosa, para
-  // que no haya un parpadeo del tema oscuro por defecto al cargar en claro.
-  (function(){
-    try {
-      const t = localStorage.getItem('capitallab_tema');
-      if(t==='light') document.documentElement.setAttribute('data-theme','light');
-    } catch(e){}
-  })();
-</script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" media="print" onload="this.media='all'">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -24,14 +14,6 @@
   --t1:#e8edf8;--t2:#7a8ab0;--t3:#3d4d72;--t4:#2a3650;
   --font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;--font-mono:'DM Mono',monospace;
   --r:8px;--r2:12px;--r3:16px;
-}
-/* ── TEMA CLARO ── mismas variables, otra paleta. Todo el resto del CSS
-   referencia estas variables, así que el resto de la app no necesita
-   ningún otro cambio para adaptarse. */
-[data-theme="light"]{
-  --c0:#eef1f6;--c1:#ffffff;--c2:#f4f6fa;--c3:#e8ebf2;--c4:#d7dce6;--c5:#b9c1d4;
-  --accent:#2962ff;--accent2:#0088b8;--green:#00915f;--red:#d81d34;--amber:#b8790a;--gold:#93741c;
-  --t1:#161b26;--t2:#525f80;--t3:#8892ac;--t4:#aab2c6;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;}
@@ -1524,6 +1506,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <button class="btn btn-sm" id="cal-btn-exportar" onclick="exportarDesdeCalificaciones()"><i class="ti ti-file-type-pdf"></i> Exportar</button>
   </div>
   <div class="card">
+    <input type="text" id="cal-buscar" placeholder="Buscar por estudiante o título…" oninput="filtrarCalificacionesPagina(this.value)" style="width:100%;margin-bottom:12px;padding:8px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12.5px;display:none;">
     <div id="cal-lista"><div class="auth-hint">Cargando…</div></div>
     <div id="cal-empty" style="display:none;text-align:center;padding:40px 20px;color:var(--t3);font-size:13px;">
       <i class="ti ti-certificate" style="font-size:32px;display:block;margin-bottom:10px;opacity:.5;"></i>
@@ -1728,30 +1711,6 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // ══════════════════════════════════════════════════
-// ══════════════════════════════════════════════════
-// TEMA CLARO / OSCURO
-// ══════════════════════════════════════════════════
-function alternarTema(){
-  const esClaro = document.documentElement.getAttribute('data-theme') === 'light';
-  if(esClaro){
-    document.documentElement.removeAttribute('data-theme');
-    localStorage.setItem('capitallab_tema', 'dark');
-  } else {
-    document.documentElement.setAttribute('data-theme', 'light');
-    localStorage.setItem('capitallab_tema', 'light');
-  }
-  actualizarBotonTema();
-}
-function actualizarBotonTema(){
-  const btn = document.getElementById('theme-toggle-icon');
-  if(!btn) return;
-  const esClaro = document.documentElement.getAttribute('data-theme') === 'light';
-  btn.className = 'ti ' + (esClaro ? 'ti-moon' : 'ti-sun');
-  const label = document.getElementById('theme-toggle-label');
-  if(label) label.textContent = esClaro ? 'Cambiar a oscuro' : 'Cambiar a claro';
-}
-
-// ══════════════════════════════════════════════════
 // AUTENTICACIÓN — Supabase (correo/contraseña, roles, sesiones de clase)
 // ══════════════════════════════════════════════════
 // TODO antes de publicar: reemplazar con las credenciales reales del proyecto Supabase
@@ -1944,6 +1903,7 @@ async function authResendConfirmation(){
 
 async function authLogout(){
   if(guestMode){ location.reload(); return; }
+  if(!confirm('¿Cerrar tu sesión? Tu progreso ya está guardado, puedes volver a entrar cuando quieras.')) return;
   if(sb){ try { await sb.auth.signOut(); } catch(e){} }
   currentUser = null;
   location.reload();
@@ -2253,16 +2213,16 @@ async function renderMiCuenta(cont){
         </div>
       </div>
       <div class="auth-field" style="margin-bottom:0;">
-        <label>Apariencia</label>
-        <button class="btn btn-sm" onclick="alternarTema()" style="width:100%;justify-content:center;max-width:260px;">
-          <i class="ti ti-sun" id="theme-toggle-icon"></i> <span id="theme-toggle-label">Cambiar a claro</span>
+        <button class="btn btn-sm" onclick="authLogout()" style="width:100%;justify-content:center;max-width:260px;color:var(--red);">
+          <i class="ti ti-logout"></i> Cerrar sesión
         </button>
       </div>
       <div class="auth-msg" id="ms-msg"></div>
     </div>
     <div class="card">
-      <div class="card-title"><i class="ti ti-school" style="color:var(--accent2);"></i> Mis sesiones de clase</div>
+      <div class="card-title"><i class="ti ti-school" style="color:var(--accent2);"></i> Mis sesiones de clase <span class="nav-badge" id="ms-contador" style="margin-left:6px;">—</span></div>
       <div class="card-sub" style="margin-bottom:12px;">${esDocente ? 'Las clases que administras. La marcada como activa es la que ves en Modo Profesor.' : 'Las clases a las que perteneces. La marcada como activa es en la que estás operando ahora.'}</div>
+      ${esDocente ? `<button class="btn btn-sm" onclick="abrirCompararSesiones()" style="margin-bottom:12px;"><i class="ti ti-chart-dots"></i> Comparar mis sesiones</button>` : ''}
       <div id="ms-lista" style="margin-bottom:16px;"><div class="auth-hint">Cargando…</div></div>
       ${esDocente ? `
         <div class="auth-field">
@@ -2282,7 +2242,6 @@ async function renderMiCuenta(cont){
         </div>
       `}
     </div>`;
-  actualizarBotonTema();
   cont.querySelector('#ms-btn-guardar-nombre').onclick = async () => {
     const nuevoNombre = cont.querySelector('#ms-mi-nombre').value.trim();
     const msg = cont.querySelector('#ms-msg');
@@ -2311,6 +2270,8 @@ async function renderMiCuenta(cont){
         if(error) throw error;
         filas = (data||[]).map(r=>r.sesiones_clase).filter(Boolean);
       }
+      const contadorEl = cont.querySelector('#ms-contador');
+      if(contadorEl) contadorEl.textContent = filas.length;
       if(!filas.length){ listaCont.innerHTML = '<div class="auth-hint">Todavía no perteneces a ninguna sesión.</div>'; return; }
       listaCont.innerHTML = filas.map(s => `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--c4);border-radius:var(--r);margin-bottom:8px;${s.id===currentUser.sesion_id?'border-color:var(--accent2);background:rgba(0,196,255,.06);':''}${s.activa===false?'opacity:.55;':''}">
@@ -2379,6 +2340,77 @@ async function renderMiCuenta(cont){
         msg.className='auth-msg show error'; msg.textContent='No se pudo unir: '+(e.message||e);
       }
     };
+  }
+}
+
+// Compara todas las sesiones de clase de un docente lado a lado: cantidad
+// de estudiantes, retorno promedio, cuestionarios completados y
+// calificaciones dadas en cada una. Útil ahora que un docente puede dar
+// varias materias distintas a la vez.
+async function abrirCompararSesiones(){
+  if(!currentUser) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:640px;">
+    <h3>Comparar mis sesiones</h3>
+    <div class="sub">Panorama de todas tus clases, una junto a la otra.</div>
+    <div id="cs-lista" style="margin-top:12px;"><div class="auth-hint">Cargando…</div></div>
+    <button class="btn btn-ghost" id="cs-cerrar" style="width:100%;margin-top:14px;">Cerrar</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#cs-cerrar').onclick = () => overlay.remove();
+
+  const cont = overlay.querySelector('#cs-lista');
+  try {
+    const { data: sesiones, error } = await sb.from('sesiones_clase').select('id,nombre,codigo,activa').eq('docente_id', currentUser.auth_id).order('creado_en',{ascending:false});
+    if(error) throw error;
+    if(!sesiones || !sesiones.length){
+      cont.innerHTML = '<div class="auth-hint">Todavía no tienes ninguna sesión de clase.</div>';
+      return;
+    }
+
+    // Se piden los datos de todas las sesiones en paralelo, no una por una.
+    const datosPorSesion = await Promise.all(sesiones.map(async s => {
+      const [{data: estudiantes}, {data: ports}, {data: intentos}, {data: cals}] = await Promise.all([
+        sb.from('usuarios').select('id').eq('sesion_id', s.id).eq('rol','estudiante'),
+        sb.from('portafolios').select('retorno_pct').eq('sesion_id', s.id),
+        sb.from('intentos_cuestionario').select('id').eq('sesion_id', s.id),
+        sb.from('calificaciones').select('id').eq('sesion_id', s.id),
+      ]);
+      const retornos = (ports||[]).map(p=>p.retorno_pct).filter(r=>r!=null);
+      const promedio = retornos.length ? (retornos.reduce((a,b)=>a+Number(b),0)/retornos.length) : null;
+      return {
+        sesion: s,
+        estudiantes: (estudiantes||[]).length,
+        promedio,
+        cuestionariosCompletados: (intentos||[]).length,
+        calificacionesDadas: (cals||[]).length,
+      };
+    }));
+
+    cont.innerHTML = `<div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <thead><tr style="text-align:left;color:var(--t3);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--c4);">
+          <th style="padding:8px 10px;">Sesión</th>
+          <th style="padding:8px 10px;">Estudiantes</th>
+          <th style="padding:8px 10px;">Retorno promedio</th>
+          <th style="padding:8px 10px;">Cuestionarios resueltos</th>
+          <th style="padding:8px 10px;">Calificaciones dadas</th>
+        </tr></thead>
+        <tbody>
+          ${datosPorSesion.map(d => `<tr style="border-bottom:1px solid var(--c3);${d.sesion.id===currentUser.sesion_id?'background:rgba(0,196,255,.06);':''}">
+            <td style="padding:8px 10px;font-weight:600;">${d.sesion.nombre} ${d.sesion.activa===false?'<span class="nav-badge">Archivada</span>':''}</td>
+            <td style="padding:8px 10px;">${d.estudiantes}</td>
+            <td style="padding:8px 10px;color:${d.promedio===null?'var(--t3)':(d.promedio>=0?'var(--green)':'var(--red)')};font-weight:600;">${d.promedio!==null?(d.promedio>=0?'+':'')+d.promedio.toFixed(1)+'%':'—'}</td>
+            <td style="padding:8px 10px;">${d.cuestionariosCompletados}</td>
+            <td style="padding:8px 10px;">${d.calificacionesDadas}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar la comparación: '+(e.message||e)+'</div>';
   }
 }
 
@@ -3398,18 +3430,11 @@ async function renderInicioPage(){
   if(guestMode){
     sub.textContent = 'Estás en modo de prueba, sin cuenta real.';
     cont.innerHTML = `
-      <div class="card" style="margin-bottom:16px;">
+      <div class="card">
         <div class="card-title"><i class="ti ti-flask" style="color:var(--accent2);"></i> Modo de prueba</div>
         <div style="font-size:13px;color:var(--t2);line-height:1.6;">Puedes explorar todo el simulador libremente, pero nada de lo que hagas aquí se guarda en una cuenta real. Cuando quieras, cierra sesión y crea una cuenta para conservar tu progreso.</div>
         <button class="btn" style="margin-top:12px;" onclick="goPage('mercado')"><i class="ti ti-chart-candle"></i> Ir al mercado</button>
-      </div>
-      <div class="card">
-        <div class="card-title"><i class="ti ti-sun" style="color:var(--accent2);"></i> Apariencia</div>
-        <button class="btn btn-sm" onclick="alternarTema()" style="max-width:260px;justify-content:center;">
-          <i class="ti ti-sun" id="theme-toggle-icon"></i> <span id="theme-toggle-label">Cambiar a claro</span>
-        </button>
       </div>`;
-    actualizarBotonTema();
     return;
   }
 
@@ -4294,6 +4319,7 @@ async function renderCalificacionesPage(){
   }
 
   const esDocente = currentUser.rol==='docente' || currentUser.rol==='superadmin';
+  document.getElementById('cal-buscar').style.display = esDocente ? '' : 'none';
   cont.innerHTML = '<div class="auth-hint">Cargando…</div>'; empty.style.display='none';
 
   if(!esDocente){
@@ -4328,31 +4354,55 @@ async function renderCalificacionesPage(){
       if(error) throw error;
       if(!data || !data.length){ cont.innerHTML=''; empty.style.display='block'; return; }
       // Guardamos las calificaciones tal cual llegaron para que el botón de
-      // editar de esta página pueda encontrarlas sin volver a consultar la nube.
+      // editar de esta página pueda encontrarlas sin volver a consultar la nube,
+      // y también para poder filtrarlas al escribir sin volver a pedirlas.
       calPageDataMap = {}; data.forEach(h=>{ calPageDataMap[h.id] = h; });
-      cont.innerHTML = data.map(h => {
-        const nivel = nivelCalificacion(h.nota_general);
-        const nombreEst = (h.usuarios?.nombre || 'Estudiante').replace(/'/g,"\\'");
-        return `<div style="padding:14px;border:1px solid var(--c4);border-radius:var(--r2);margin-bottom:10px;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
-            <div>
-              <div style="font-size:10.5px;color:var(--accent2);font-weight:600;">${h.usuarios?.nombre || 'Estudiante'}</div>
-              <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;">${h.categoria || 'General'}</div>
-              <div style="font-weight:700;font-size:14.5px;">${h.titulo}</div>
-            </div>
-            <span style="display:flex;align-items:center;gap:8px;">
-              <span class="grade-pill ${nivel}" style="font-size:14px;">${h.nota_general ?? '—'}</span>
-              <button class="btn btn-sm" title="Editar" onclick="editarDesdeCalPage('${h.id}','${nombreEst}')"><i class="ti ti-pencil"></i></button>
-            </span>
-          </div>
-          ${h.comentario ? `<div style="color:var(--t2);font-size:13px;margin-top:8px;font-style:italic;">"${h.comentario}"</div>` : ''}
-          <div style="color:var(--t3);font-size:10.5px;margin-top:8px;">${formatearFechaHora(h.creado_en)}</div>
-        </div>`;
-      }).join('');
+      calPageDataCache = data;
+      renderFilasCalificacionesDocente(data);
     } catch(e){
       cont.innerHTML = '<div class="auth-hint">No se pudieron cargar las calificaciones: '+(e.message||e)+'</div>';
     }
   }
+}
+
+let calPageDataCache = [];
+function filtrarCalificacionesPagina(query){
+  const q = (query||'').trim().toLowerCase();
+  const filtradas = !q ? calPageDataCache : calPageDataCache.filter(h =>
+    (h.usuarios?.nombre||'').toLowerCase().includes(q) || (h.titulo||'').toLowerCase().includes(q));
+  renderFilasCalificacionesDocente(filtradas, !!q);
+}
+
+function renderFilasCalificacionesDocente(data, esFiltro){
+  const cont = document.getElementById('cal-lista');
+  const empty = document.getElementById('cal-empty');
+  if(!cont) return;
+  if(!data.length){
+    cont.innerHTML = '';
+    empty.style.display = 'block';
+    empty.innerHTML = `<i class="ti ti-certificate" style="font-size:32px;display:block;margin-bottom:10px;opacity:.5;"></i>${esFiltro?'Ninguna calificación coincide con esa búsqueda.':'Todavía no hay calificaciones registradas.'}`;
+    return;
+  }
+  empty.style.display = 'none';
+  cont.innerHTML = data.map(h => {
+    const nivel = nivelCalificacion(h.nota_general);
+    const nombreEst = (h.usuarios?.nombre || 'Estudiante').replace(/'/g,"\\'");
+    return `<div style="padding:14px;border:1px solid var(--c4);border-radius:var(--r2);margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div>
+          <div style="font-size:10.5px;color:var(--accent2);font-weight:600;">${h.usuarios?.nombre || 'Estudiante'}</div>
+          <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;">${h.categoria || 'General'}</div>
+          <div style="font-weight:700;font-size:14.5px;">${h.titulo}</div>
+        </div>
+        <span style="display:flex;align-items:center;gap:8px;">
+          <span class="grade-pill ${nivel}" style="font-size:14px;">${h.nota_general ?? '—'}</span>
+          <button class="btn btn-sm" title="Editar" onclick="editarDesdeCalPage('${h.id}','${nombreEst}')"><i class="ti ti-pencil"></i></button>
+        </span>
+      </div>
+      ${h.comentario ? `<div style="color:var(--t2);font-size:13px;margin-top:8px;font-style:italic;">"${h.comentario}"</div>` : ''}
+      <div style="color:var(--t3);font-size:10.5px;margin-top:8px;">${formatearFechaHora(h.creado_en)}</div>
+    </div>`;
+  }).join('');
 }
 
 // ── Calificación con rúbrica ──
