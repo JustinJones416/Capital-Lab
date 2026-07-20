@@ -1531,7 +1531,11 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <button class="btn btn-sm" onclick="abrirPublicarOfertaP2P()" id="p2p-btn-publicar" style="display:none;"><i class="ti ti-plus"></i> Publicar oferta</button>
   </div>
   <div class="card" style="margin-bottom:16px;">
-    <div class="card-title"><i class="ti ti-exchange" style="color:var(--accent2);"></i> Ofertas abiertas</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div class="card-title"><i class="ti ti-exchange" style="color:var(--accent2);"></i> Ofertas abiertas</div>
+      <button class="btn btn-sm" id="p2p-btn-actualizar" onclick="renderMercadoP2P(true)"><i class="ti ti-refresh"></i> Actualizar</button>
+    </div>
+    <div id="p2p-ultima-actualizacion" style="font-size:10.5px;color:var(--t3);margin-top:4px;"></div>
     <div id="p2p-ofertas-abiertas" style="margin-top:8px;"><div class="auth-hint">Cargando…</div></div>
   </div>
   <div class="card" id="p2p-mis-ofertas-card" style="display:none;">
@@ -6569,22 +6573,35 @@ async function cargarAlertasPrecio(forzar){
 // ══════════════════════════════════════════════════
 let p2pChannel = null;
 
-async function renderMercadoP2P(){
+async function renderMercadoP2P(esManual){
   const contAbiertas = document.getElementById('p2p-ofertas-abiertas');
   const contMisOfertas = document.getElementById('p2p-mis-ofertas');
   const cardMisOfertas = document.getElementById('p2p-mis-ofertas-card');
   const btnPublicar = document.getElementById('p2p-btn-publicar');
+  const btnActualizar = document.getElementById('p2p-btn-actualizar');
+  const marcaActualizacion = document.getElementById('p2p-ultima-actualizacion');
   if(!contAbiertas) return;
 
   if(!currentUser || guestMode || !currentUser.sesion_id || currentUser.rol!=='estudiante'){
     contAbiertas.innerHTML = '<div class="auth-hint">El mercado entre estudiantes es solo para cuentas de estudiante con una sesión activa.</div>';
     btnPublicar.style.display = 'none';
+    if(btnActualizar) btnActualizar.style.display = 'none';
     cardMisOfertas.style.display = 'none';
     return;
   }
   btnPublicar.style.display = '';
   cardMisOfertas.style.display = 'block';
-  contAbiertas.innerHTML = '<div class="auth-hint">Cargando…</div>';
+  if(!esManual) contAbiertas.innerHTML = '<div class="auth-hint">Cargando…</div>';
+
+  // El tiempo real (WebSocket) es poco confiable en algunos navegadores
+  // móviles, sobre todo Safari en iOS, que corta la conexión apenas la
+  // pantalla se bloquea o cambia de red — por eso este botón manual y la
+  // marca de "última actualización" existen: para que nunca dependa
+  // solo de que el tiempo real haya funcionado.
+  if(esManual && btnActualizar){
+    btnActualizar.disabled = true;
+    btnActualizar.innerHTML = '<i class="ti ti-refresh" style="animation:spin .7s linear infinite;"></i> Actualizando…';
+  }
 
   // Cada vez que se entra a esta página, se revisa si alguna de mis ofertas
   // de venta ya fue comprada por alguien mientras no estaba conectado.
@@ -6621,8 +6638,16 @@ async function renderMercadoP2P(){
           ? `<button class="btn btn-sm" style="color:var(--red);" onclick="cancelarOfertaP2P('${o.id}')">Cancelar</button>`
           : `<span class="nav-badge" style="background:rgba(0,208,132,.15);color:var(--green);">Vendida</span>`}
       </div>`).join('') : '<div class="auth-hint">No tienes ninguna oferta publicada.</div>';
+
+    if(marcaActualizacion) marcaActualizacion.textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'});
+    if(esManual) notify('Lista actualizada.', 'success');
   } catch(e){
     contAbiertas.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
+  } finally {
+    if(esManual && btnActualizar){
+      btnActualizar.disabled = false;
+      btnActualizar.innerHTML = '<i class="ti ti-refresh"></i> Actualizar';
+    }
   }
 }
 
@@ -6740,6 +6765,8 @@ async function aplicarVentasP2PPendientes(){
   } catch(e){ /* silencioso: se vuelve a intentar la próxima vez */ }
 }
 
+let p2pIntervaloRespaldo = null;
+
 function iniciarRealtimeP2P(){
   if(!sb || !currentUser || !currentUser.sesion_id || guestMode) return;
   detenerRealtimeP2P();
@@ -6748,9 +6775,15 @@ function iniciarRealtimeP2P(){
       renderMercadoP2P();
     })
     .subscribe();
+  // Respaldo: el tiempo real (WebSocket) se corta con frecuencia en
+  // navegadores móviles, sobre todo Safari en iOS con la pantalla
+  // bloqueada. Este refresco cada 20s asegura que la lista se ponga al
+  // día tarde o temprano aunque el tiempo real haya fallado en silencio.
+  p2pIntervaloRespaldo = setInterval(() => renderMercadoP2P(), 20000);
 }
 function detenerRealtimeP2P(){
   if(p2pChannel && sb){ sb.removeChannel(p2pChannel); p2pChannel = null; }
+  if(p2pIntervaloRespaldo){ clearInterval(p2pIntervaloRespaldo); p2pIntervaloRespaldo = null; }
 }
 
 function abrirCrearAlertaPrecio(){
