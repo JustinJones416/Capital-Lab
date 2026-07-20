@@ -1115,6 +1115,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
                 <button class="btn btn-buy" onclick="confirmarYEjecutar('buy')"><i class="ti ti-plus"></i> Comprar</button>
                 <button class="btn btn-sell" onclick="confirmarYEjecutar('sell')"><i class="ti ti-minus"></i> Vender</button>
               </div>
+              <button class="btn btn-ghost btn-xs" onclick="abrirCrearAlertaPrecio()" style="width:100%;margin-top:6px;"><i class="ti ti-bell-plus"></i> Avisarme cuando el precio cambie</button>
               <div class="tp-orders">
                 <div class="tp-orders-title"><i class="ti ti-clock-bolt"></i> Órdenes avanzadas (límite / stop-loss)</div>
                 <div class="tp-order-row">
@@ -1294,6 +1295,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       <span><i class="ti ti-history" style="color:var(--accent2);"></i> Historial completo de transacciones</span>
       <button class="btn btn-ghost btn-xs" onclick="exportTransactionsCSV()" title="Exportar libro de operaciones a CSV"><i class="ti ti-file-spreadsheet"></i> CSV</button>
     </div>
+    <input type="text" id="tx-buscar" placeholder="Buscar por activo o tipo de operación…" oninput="filtrarHistorialTx(this.value)" style="width:100%;margin:10px 0;padding:8px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12.5px;">
     <div id="port-history"></div>
   </div>
 </div>
@@ -2086,7 +2088,10 @@ async function actualizarBadgeNotificaciones(){
     const ultimaVista = localStorage.getItem(claveNotifVistas()) || '1970-01-01T00:00:00.000Z';
     const esDocente = currentUser.rol==='docente' || currentUser.rol==='superadmin';
     const consultas = [ sb.from('anuncios').select('id,creado_en').eq('sesion_id', currentUser.sesion_id).gt('creado_en', ultimaVista) ];
-    if(!esDocente) consultas.push(sb.from('calificaciones').select('id,creado_en').eq('usuario_id', currentUser.usuario_id).gt('creado_en', ultimaVista));
+    if(!esDocente){
+      consultas.push(sb.from('calificaciones').select('id,creado_en').eq('usuario_id', currentUser.usuario_id).gt('creado_en', ultimaVista));
+      consultas.push(sb.from('alertas_precio').select('id').eq('usuario_id', currentUser.usuario_id).not('disparada_en','is',null).gt('disparada_en', ultimaVista));
+    }
     const resultados = await Promise.all(consultas);
     const hayNuevo = resultados.some(r => r.data && r.data.length>0);
     const dot = document.getElementById('notif-dot');
@@ -2138,13 +2143,15 @@ async function mostrarNotificaciones(){
       if(!esDocente){
         const { data: cals } = await sb.from('calificaciones').select('*').eq('usuario_id', currentUser.usuario_id).order('creado_en',{ascending:false}).limit(15);
         items = items.concat((cals||[]).map(c => ({ tipo:'calificacion', fecha:c.creado_en, titulo:`Nueva calificación: ${c.titulo}`, cuerpo:c.nota_general!=null?`Nota: ${c.nota_general}/100`:null })));
+        const { data: alertas } = await sb.from('alertas_precio').select('*').eq('usuario_id', currentUser.usuario_id).not('disparada_en','is',null).order('disparada_en',{ascending:false}).limit(10);
+        items = items.concat((alertas||[]).map(a => ({ tipo:'alerta', fecha:a.disparada_en, titulo:`${a.activo_nombre} ${a.direccion==='arriba'?'subió hasta':'bajó hasta'} $${fmt(a.precio_objetivo)}`, cuerpo:null })));
       }
       items.sort((a,b)=> new Date(b.fecha) - new Date(a.fecha));
       if(!items.length){ cont.innerHTML = '<div class="auth-hint">Todavía no hay anuncios ni novedades en esta sesión.</div>'; return; }
       cont.innerHTML = items.slice(0,20).map(it => `
         <div style="padding:10px 0;border-bottom:1px solid var(--c3);">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-            <div style="font-weight:600;font-size:13px;"><i class="ti ti-${it.tipo==='anuncio'?'speakerphone':'certificate'}" style="font-size:12px;color:var(--accent2);margin-right:5px;"></i>${it.titulo}</div>
+            <div style="font-weight:600;font-size:13px;"><i class="ti ti-${it.tipo==='anuncio'?'speakerphone':it.tipo==='alerta'?'bell-ringing':'certificate'}" style="font-size:12px;color:var(--accent2);margin-right:5px;"></i>${it.titulo}</div>
             ${esDocente && it.tipo==='anuncio' ? `<button class="btn btn-sm" style="padding:2px 7px;" title="Borrar anuncio" onclick="borrarAnuncio('${it.id}')"><i class="ti ti-trash" style="font-size:11px;"></i></button>` : ''}
           </div>
           ${it.cuerpo ? `<div style="font-size:12.5px;color:var(--t2);margin-top:3px;">${it.cuerpo}</div>` : ''}
@@ -6352,6 +6359,118 @@ function updateTradeCalc(){
 // solo repite el mismo cálculo de precio/comisión para el resumen, en modo
 // de solo lectura, y al confirmar llama a executeDirect exactamente igual
 // que antes.
+// ══════════════════════════════════════════════════
+// ALERTAS DE PRECIO — avisar cuando un activo cruza un precio objetivo,
+// revisado en cada tick de precios mientras el mercado está abierto.
+// ══════════════════════════════════════════════════
+let alertasPrecioCache = null; // se carga una vez por sesión de uso, se actualiza al crear/borrar
+
+async function cargarAlertasPrecio(forzar){
+  if(!sb || !currentUser || !currentUser.usuario_id || guestMode) return [];
+  if(alertasPrecioCache && !forzar) return alertasPrecioCache;
+  try {
+    const { data } = await sb.from('alertas_precio').select('*').eq('usuario_id', currentUser.usuario_id).eq('activa', true);
+    alertasPrecioCache = data || [];
+  } catch(e){ alertasPrecioCache = []; }
+  return alertasPrecioCache;
+}
+
+function abrirCrearAlertaPrecio(){
+  if(!selectedAsset){ notify('Selecciona un activo primero', 'error'); return; }
+  if(!currentUser || guestMode){ notify('Las alertas de precio necesitan una cuenta real.', 'error'); return; }
+  const precioActual = selectedAsset.currentPrice || selectedAsset.price;
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:380px;">
+    <h3>Alerta de precio</h3>
+    <div class="sub">${selectedAsset.name} (${selectedAsset.ticker}) · precio actual $${fmt(precioActual)}</div>
+    <div class="grade-field">
+      <label>Avisarme cuando el precio…</label>
+      <select id="ap-direccion">
+        <option value="arriba">Suba hasta</option>
+        <option value="abajo">Baje hasta</option>
+      </select>
+    </div>
+    <div class="grade-field"><label>Precio objetivo ($)</label><input type="number" id="ap-precio" step="0.01" value="${(precioActual*1.05).toFixed(2)}"></div>
+    <div id="ap-lista-existentes" style="margin-bottom:10px;"></div>
+    <div class="auth-msg" id="ap-msg"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" id="ap-cancelar" style="flex:1;">Cancelar</button>
+      <button class="auth-submit" id="ap-guardar" style="flex:1;margin-top:0;">Crear alerta</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#ap-cancelar').onclick = () => overlay.remove();
+
+  (async () => {
+    const alertas = await cargarAlertasPrecio();
+    const delActivo = alertas.filter(a => a.activo_id===selectedAsset.id && a.activo_tipo===selectedAsset.type);
+    const cont = overlay.querySelector('#ap-lista-existentes');
+    if(delActivo.length){
+      cont.innerHTML = `<div style="font-size:11px;color:var(--t3);text-transform:uppercase;margin-bottom:6px;">Alertas activas en este activo</div>` +
+        delActivo.map(a => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--c3);font-size:12.5px;">
+          <span>${a.direccion==='arriba'?'Sube hasta':'Baja hasta'} $${fmt(a.precio_objetivo)}</span>
+          <button class="btn btn-sm" style="padding:2px 7px;color:var(--red);" onclick="borrarAlertaPrecio('${a.id}')"><i class="ti ti-trash" style="font-size:11px;"></i></button>
+        </div>`).join('');
+    }
+  })();
+
+  overlay.querySelector('#ap-guardar').onclick = async () => {
+    const msg = overlay.querySelector('#ap-msg');
+    const direccion = overlay.querySelector('#ap-direccion').value;
+    const precioObjetivo = +overlay.querySelector('#ap-precio').value;
+    if(!precioObjetivo || precioObjetivo<=0){ msg.className='auth-msg show error'; msg.textContent='Ingresa un precio válido.'; return; }
+    const btn = overlay.querySelector('#ap-guardar');
+    btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Creando…';
+    try {
+      const { error } = await conTiempoLimite(sb.from('alertas_precio').insert({
+        usuario_id: currentUser.usuario_id, sesion_id: currentUser.sesion_id,
+        activo_id: selectedAsset.id, activo_nombre: selectedAsset.name, activo_tipo: selectedAsset.type,
+        precio_objetivo: precioObjetivo, direccion,
+      }));
+      if(error) throw error;
+      await cargarAlertasPrecio(true);
+      overlay.remove();
+      notify('Alerta creada.', 'success');
+    } catch(e){
+      msg.className='auth-msg show error'; msg.textContent = 'No se pudo crear: ' + (e.message||e);
+      btn.disabled = false; btn.textContent = 'Crear alerta';
+    }
+  };
+}
+
+async function borrarAlertaPrecio(id){
+  try {
+    await sb.from('alertas_precio').delete().eq('id', id);
+    await cargarAlertasPrecio(true);
+    notify('Alerta borrada.', 'success');
+    document.querySelectorAll('.grade-modal-overlay').forEach(o=>o.remove());
+  } catch(e){ notify('No se pudo borrar: ' + (e.message||e), 'error'); }
+}
+
+// Revisa todas las alertas activas contra los precios actuales del
+// mercado; si alguna se cruza, la marca disparada y avisa al instante.
+async function verificarAlertasPrecio(){
+  if(!currentUser || !currentUser.usuario_id || guestMode || !sb) return;
+  const alertas = await cargarAlertasPrecio();
+  if(!alertas.length) return;
+  const activos = allAssets();
+  for(const a of alertas){
+    const activo = activos.find(x => x.id===a.activo_id && x.type===a.activo_tipo);
+    if(!activo) continue;
+    const precioActual = activo.currentPrice || activo.price;
+    const cruzada = a.direccion==='arriba' ? precioActual >= a.precio_objetivo : precioActual <= a.precio_objetivo;
+    if(!cruzada) continue;
+    try {
+      await sb.from('alertas_precio').update({ activa: false, disparada_en: new Date().toISOString() }).eq('id', a.id);
+      alertasPrecioCache = alertasPrecioCache.filter(x=>x.id!==a.id);
+      notify(`🔔 ${a.activo_nombre} ${a.direccion==='arriba'?'subió hasta':'bajó hasta'} $${fmt(precioActual)}`, 'success');
+      actualizarBadgeNotificaciones();
+    } catch(e){ /* silencioso: no interrumpir el mercado por esto */ }
+  }
+}
+
 function confirmarYEjecutar(op){
   if(!selectedAsset){ notify('Selecciona un activo primero','error'); return; }
   const qty = +document.getElementById('trade-qty').value;
@@ -6385,7 +6504,39 @@ function confirmarYEjecutar(op){
   overlay.querySelector('#cf-cancelar').onclick = () => overlay.remove();
   overlay.querySelector('#cf-confirmar').onclick = () => {
     overlay.remove();
+    const snapshot = tomarSnapshotEstado();
     executeDirect(op);
+    mostrarDeshacerToast(snapshot, `${op==='buy'?'Compra':'Venta'} de ${qty}u ${selectedAsset.ticker} realizada.`);
+  };
+}
+
+// ── Deshacer una operación reciente ──
+// No toca nada de la lógica de compra/venta en sí: solo guarda una foto
+// del estado justo antes de operar, y si el estudiante toca "Deshacer" a
+// tiempo, restaura esa foto tal cual. Cero riesgo para el motor de trading.
+function tomarSnapshotEstado(){
+  return { capital, portfolio: JSON.parse(JSON.stringify(portfolio)), txHistory: JSON.parse(JSON.stringify(txHistory)) };
+}
+function restaurarSnapshotEstado(snap){
+  capital = snap.capital; portfolio = snap.portfolio; txHistory = snap.txHistory;
+  updateNavCapital();
+  if(typeof renderPortfolio==='function') renderPortfolio();
+  if(typeof updateTradeCalc==='function') updateTradeCalc();
+  autosave();
+}
+function mostrarDeshacerToast(snapshot, mensaje){
+  document.querySelectorAll('.deshacer-toast').forEach(t=>t.remove());
+  const el = document.createElement('div');
+  el.className = 'deshacer-toast';
+  el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:4500;background:var(--c1);border:1px solid var(--c4);border-radius:var(--r2);padding:12px 16px;display:flex;align-items:center;gap:14px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:90vw;';
+  el.innerHTML = `<span style="font-size:12.5px;white-space:nowrap;">${mensaje}</span><button class="btn btn-sm" id="deshacer-btn" style="flex-shrink:0;">Deshacer</button>`;
+  document.body.appendChild(el);
+  const timeoutId = setTimeout(()=>el.remove(), 8000);
+  el.querySelector('#deshacer-btn').onclick = () => {
+    clearTimeout(timeoutId);
+    restaurarSnapshotEstado(snapshot);
+    notify('Operación deshecha.', 'success');
+    el.remove();
   };
 }
 
@@ -7116,6 +7267,7 @@ function sellFromPortfolio(id,type){
   overlay.querySelector('#vp-cancelar').onclick = () => overlay.remove();
   overlay.querySelector('#vp-confirmar').onclick = () => {
     overlay.remove();
+    const snapshot = tomarSnapshotEstado();
     capital+=cashIn;
     txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:pos.name,type:pos.type,qty:pos.qty,price:px,total:gross,fee:+fee.toFixed(2)});
     portfolio=portfolio.filter(x=>!(x.id===id&&x.type===type));
@@ -7123,8 +7275,15 @@ function sellFromPortfolio(id,type){
     notify(`Venta total de ${pos.ticker||pos.name} · costo $${fmt(fee)} ✓`);
     autosave();
     renderPortfolio();
+    mostrarDeshacerToast(snapshot, `Venta de ${pos.qty}u ${pos.ticker||pos.name} realizada.`);
   };
 }
+// Color de etiqueta según el tipo de activo — global porque tanto la
+// cartera como el historial de transacciones (funciones separadas) la usan.
+function typeBadgeCls(t){
+  return t==='accion'?'badge-blue':t==='bono'?'badge-green':t==='divisa'?'badge-amber':t==='futuro'?'badge-red':'badge-cyan';
+}
+
 function renderPortfolio(){
   updateNavCapital();
   const totalInv = portfolio.reduce((s,p)=>s+p.invested,0);
@@ -7147,8 +7306,6 @@ function renderPortfolio(){
   document.getElementById('port-pnl').className='metric-val mono '+(pnl>=0?'g':'r');
   document.getElementById('port-ret-pct').textContent=(retPct>=0?'+':'')+retPct.toFixed(2)+'%';
   document.getElementById('port-ret-pct').className='metric-val mono '+(retPct>=0?'g':'r');
-
-  const typeBadgeCls=t=>t==='accion'?'badge-blue':t==='bono'?'badge-green':t==='divisa'?'badge-amber':t==='futuro'?'badge-red':'badge-cyan';
 
   // ── Positions ──
   if(portfolio.length===0){
@@ -7333,10 +7490,61 @@ function renderPortfolio(){
   ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.03);"><span style="color:var(--t2);">${l}</span><span class="mono">${v}</span></div>`).join('');
 
   // ── Transaction history ──
-  document.getElementById('port-history').innerHTML=txHistory.length===0
-    ?'<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;">Aún no hay transacciones. Ve al Mercado para comenzar.</div>'
-    :`<table><thead><tr><th>Hora</th><th>Operación</th><th>Activo</th><th>Tipo</th><th>Qty</th><th>Precio</th><th>Total</th><th>Efecto</th></tr></thead>
-      <tbody>${txHistory.map(t=>{
+  renderTablaHistorialTx(aplicarFiltroYOrdenTx(txHistory));
+}
+
+// ── Buscador y orden por columnas del historial de transacciones ──
+let txFiltroActual = '';
+let txOrdenColumna = null;
+let txOrdenAscendente = false;
+
+function aplicarFiltroYOrdenTx(lista){
+  let out = lista;
+  const q = txFiltroActual.trim().toLowerCase();
+  if(q) out = out.filter(t => (t.name||'').toLowerCase().includes(q) || (t.action||'').toLowerCase().includes(q) || (t.type||'').toLowerCase().includes(q));
+  if(txOrdenColumna){
+    out = [...out].sort((a,b) => {
+      let va = a[txOrdenColumna], vb = b[txOrdenColumna];
+      if(typeof va === 'string') va = va.toLowerCase();
+      if(typeof vb === 'string') vb = vb.toLowerCase();
+      if(va < vb) return txOrdenAscendente ? -1 : 1;
+      if(va > vb) return txOrdenAscendente ? 1 : -1;
+      return 0;
+    });
+  }
+  return out;
+}
+
+function filtrarHistorialTx(query){
+  txFiltroActual = query;
+  renderTablaHistorialTx(aplicarFiltroYOrdenTx(txHistory));
+}
+
+function ordenarHistorialTx(columna){
+  if(txOrdenColumna === columna) txOrdenAscendente = !txOrdenAscendente;
+  else { txOrdenColumna = columna; txOrdenAscendente = true; }
+  renderTablaHistorialTx(aplicarFiltroYOrdenTx(txHistory));
+}
+
+function flechaOrden(columna){
+  if(txOrdenColumna !== columna) return '';
+  return txOrdenAscendente ? ' ↑' : ' ↓';
+}
+
+function renderTablaHistorialTx(lista){
+  const cont = document.getElementById('port-history');
+  if(!cont) return;
+  if(txHistory.length===0){
+    cont.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;">Aún no hay transacciones. Ve al Mercado para comenzar.</div>';
+    return;
+  }
+  if(lista.length===0){
+    cont.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;">Ninguna transacción coincide con esa búsqueda.</div>';
+    return;
+  }
+  const th = (col, label) => `<th style="cursor:pointer;user-select:none;" onclick="ordenarHistorialTx('${col}')">${label}${flechaOrden(col)}</th>`;
+  cont.innerHTML = `<table><thead><tr>${th('date','Hora')}${th('action','Operación')}${th('name','Activo')}${th('type','Tipo')}${th('qty','Qty')}${th('price','Precio')}${th('total','Total')}<th>Efecto</th></tr></thead>
+      <tbody>${lista.map(t=>{
         const isIncome = t.action==='Cupón'||t.action==='Dividendo';
         const badgeCls = t.action==='Compra'?'badge-green':isIncome?'badge-cyan':'badge-red';
         const effClass = t.action==='Compra'?'r':'g';
@@ -7351,7 +7559,7 @@ function renderPortfolio(){
         <td class="mono">$${fmt(t.total)}</td>
         <td class="mono ${effClass}">${effSign}${fmt(t.total)}</td>
       </tr>`;}).join('')}</tbody></table>
-      <div style="font-size:10px;color:var(--t3);text-align:right;margin-top:8px;">${txHistory.length} op. · Compras: ${txHistory.filter(t=>t.action==='Compra').length} · Ventas: ${txHistory.filter(t=>t.action==='Venta').length} · Ingresos: ${txHistory.filter(t=>t.action==='Cupón'||t.action==='Dividendo').length}</div>`;
+      <div style="font-size:10px;color:var(--t3);text-align:right;margin-top:8px;">${lista.length} de ${txHistory.length} op. · Compras: ${txHistory.filter(t=>t.action==='Compra').length} · Ventas: ${txHistory.filter(t=>t.action==='Venta').length} · Ingresos: ${txHistory.filter(t=>t.action==='Cupón'||t.action==='Dividendo').length}</div>`;
 }
 
 function renderLabPicker(){
@@ -8554,6 +8762,7 @@ function tickPrices() {
   const newsPage = document.getElementById('page-noticias');
   if (newsPage && newsPage.classList.contains('active')) { try { renderNewsCenter(); } catch(e){} }
   autosave();
+  verificarAlertasPrecio();
 }
 
 // Box-Muller transform: standard normal random variable
