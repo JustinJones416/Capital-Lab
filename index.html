@@ -2253,6 +2253,13 @@ async function alternarFijarAnuncio(id, fijar){
 // topbar es un espacio demasiado angosto para cualquier texto largo
 // ("Mi cuenta", nombres de sesión, etc.) — sacarlo de ahí evita el
 // problema de raíz en vez de perseguir píxeles cada vez que se agrega algo.
+function copiarCodigoSesion(codigo){
+  navigator.clipboard?.writeText(codigo).then(
+    () => notify(`Código ${codigo} copiado.`, 'success'),
+    () => notify('No se pudo copiar. Cópialo a mano: ' + codigo, 'error')
+  );
+}
+
 async function renderMiCuenta(cont){
   if(!currentUser || !cont) return;
   const esDocente = currentUser.rol === 'docente' || currentUser.rol === 'superadmin';
@@ -2331,7 +2338,7 @@ async function renderMiCuenta(cont){
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--c4);border-radius:var(--r);margin-bottom:8px;${s.id===currentUser.sesion_id?'border-color:var(--accent2);background:rgba(0,196,255,.06);':''}${s.activa===false?'opacity:.55;':''}">
           <div style="min-width:0;">
             <div style="font-weight:600;font-size:13px;">${s.nombre} ${s.activa===false?'<span class="nav-badge" style="margin-left:4px;">Archivada</span>':''}</div>
-            <div style="font-size:11px;color:var(--t3);font-family:var(--font-mono);">${s.codigo}</div>
+            <div style="font-size:11px;color:var(--t3);font-family:var(--font-mono);display:flex;align-items:center;gap:5px;">${s.codigo} <i class="ti ti-copy" style="font-size:11px;cursor:pointer;" title="Copiar código" onclick="copiarCodigoSesion('${s.codigo}')"></i></div>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             ${s.id===currentUser.sesion_id
@@ -2916,7 +2923,10 @@ async function abrirModoPresentacion(){
       </div>
       <div>
         <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em;">O entra con el código</div>
-        <div style="font-family:var(--font-mono);font-size:clamp(48px,8vw,90px);font-weight:700;letter-spacing:.1em;color:var(--gold);">${sesionCodigo}</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="font-family:var(--font-mono);font-size:clamp(48px,8vw,90px);font-weight:700;letter-spacing:.1em;color:var(--gold);">${sesionCodigo}</div>
+          <button onclick="copiarCodigoSesion('${sesionCodigo}')" title="Copiar código" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;width:36px;height:36px;border-radius:8px;cursor:pointer;flex-shrink:0;"><i class="ti ti-copy"></i></button>
+        </div>
       </div>
     </div>
     <div id="pres-stats" style="display:flex;gap:40px;flex-wrap:wrap;justify-content:center;">
@@ -6651,11 +6661,44 @@ async function renderMercadoP2P(esManual){
     if(error) throw error;
 
     const deOtros = (abiertas||[]).filter(o => o.vendedor_id !== currentUser.usuario_id);
+
+    // Si alguna subasta ya se acabó y yo tenía la mejor puja, se reclama
+    // sola — no hace falta que nadie toque nada para que la venta se cierre.
+    for(const o of deOtros){
+      if(o.tipo==='subasta' && new Date(o.fecha_fin).getTime()<=Date.now() && o.mejor_postor_id===currentUser.usuario_id){
+        reclamarSubastaGanada(o.id, o.activo_nombre);
+      }
+    }
+
     if(!deOtros.length){
-      contAbiertas.innerHTML = '<div class="auth-hint">Ningún compañero tiene ofertas abiertas por ahora.</div>';
+      contAbiertas.innerHTML = `<div style="text-align:center;padding:32px 16px;color:var(--t3);">
+        <i class="ti ti-users-group" style="font-size:34px;display:block;margin-bottom:10px;opacity:.4;"></i>
+        Ningún compañero tiene ofertas abiertas por ahora.<br>
+        <span style="font-size:11.5px;">Sé el primero — publica algo de tu cartera o lanza una subasta.</span>
+      </div>`;
     } else {
-      contAbiertas.innerHTML = deOtros.map(o => `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--c4);border-radius:var(--r2);margin-bottom:8px;flex-wrap:wrap;">
+      contAbiertas.innerHTML = deOtros.map(o => {
+        if(o.tipo==='subasta'){
+          const terminada = new Date(o.fecha_fin).getTime() <= Date.now();
+          const precioActual = o.precio_actual ?? o.precio_unitario;
+          const soyElMejor = o.mejor_postor_id===currentUser.usuario_id;
+          return `<div data-subasta-fin="${o.fecha_fin}" style="padding:12px;border:1px solid ${terminada?'var(--c4)':'var(--gold)'};border-radius:var(--r2);margin-bottom:8px;background:rgba(212,175,55,.04);">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+              <div style="min-width:0;">
+                <div style="font-weight:700;font-size:13.5px;"><i class="ti ti-gavel" style="font-size:12px;color:var(--gold);margin-right:3px;"></i>${o.activo_nombre} <span class="badge ${typeBadgeCls(o.activo_tipo)}" style="font-size:9px;">${o.activo_tipo}</span></div>
+                <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Compañero'} subasta ${o.cantidad}u ${soyElMejor?'· <span style="color:var(--gold);">vas ganando</span>':''}</div>
+              </div>
+              <span class="nav-badge subasta-cronometro" style="background:${terminada?'var(--c3)':'rgba(212,175,55,.15)'};color:${terminada?'var(--t3)':'var(--gold)'};font-family:var(--font-mono);">${terminada?'Terminada':'—:—'}</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;">
+              <div><span style="font-size:10.5px;color:var(--t3);">Puja actual</span><div style="font-weight:700;font-size:17px;color:var(--gold);">$${fmt(precioActual)}</div></div>
+              ${terminada
+                ? `<span class="nav-badge">Esperando cierre…</span>`
+                : `<button class="btn btn-sm" style="background:rgba(212,175,55,.15);color:var(--gold);border:1px solid rgba(212,175,55,.3);" onclick="abrirPujarSubasta('${o.id}','${o.activo_nombre.replace(/'/g,"\\'")}',${precioActual})"><i class="ti ti-gavel"></i> Pujar</button>`}
+            </div>
+          </div>`;
+        }
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--c4);border-radius:var(--r2);margin-bottom:8px;flex-wrap:wrap;">
           <div style="min-width:0;">
             <div style="font-weight:700;font-size:13.5px;">${o.activo_nombre} <span class="badge ${typeBadgeCls(o.activo_tipo)}" style="font-size:9px;">${o.activo_tipo}</span></div>
             <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Compañero'} vende ${o.cantidad}u a $${fmt(o.precio_unitario)} c/u</div>
@@ -6664,7 +6707,9 @@ async function renderMercadoP2P(esManual){
             <div style="font-weight:700;font-size:15px;">$${fmt(o.cantidad*o.precio_unitario)}</div>
             <button class="btn btn-buy btn-sm" onclick="comprarOfertaP2P('${o.id}')">Comprar</button>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
+      iniciarCronometrosSubastasP2P();
     }
 
     const mias = (abiertas||[]).filter(o => o.vendedor_id === currentUser.usuario_id);
@@ -6672,9 +6717,9 @@ async function renderMercadoP2P(esManual){
     const todasMias = [...mias, ...(miasCumplidas||[])];
     contMisOfertas.innerHTML = todasMias.length ? todasMias.map(o => `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--c3);font-size:12.5px;">
-        <div>${o.activo_nombre} · ${o.cantidad}u a $${fmt(o.precio_unitario)}</div>
+        <div>${o.tipo==='subasta'?'<i class="ti ti-gavel" style="font-size:11px;color:var(--gold);margin-right:3px;"></i>':''}${o.activo_nombre} · ${o.cantidad}u ${o.tipo==='subasta'?'· puja actual $'+fmt(o.precio_actual??o.precio_unitario):'a $'+fmt(o.precio_unitario)}</div>
         ${o.estado==='abierta'
-          ? `<button class="btn btn-sm" style="color:var(--red);" onclick="cancelarOfertaP2P('${o.id}')">Cancelar</button>`
+          ? `<button class="btn btn-sm" style="color:var(--red);" onclick="cancelarOfertaP2P('${o.id}',${!!o.mejor_postor_id})">Cancelar</button>`
           : `<span class="nav-badge" style="background:rgba(0,208,132,.15);color:var(--green);">Vendida</span>`}
       </div>`).join('') : '<div class="auth-hint">No tienes ninguna oferta publicada.</div>';
 
@@ -6696,13 +6741,21 @@ function abrirPublicarOfertaP2P(){
   overlay.className = 'grade-modal-overlay';
   overlay.innerHTML = `<div class="grade-modal" style="max-width:420px;">
     <h3>Publicar oferta de venta</h3>
-    <div class="sub">Cualquier compañero de tu sesión podrá comprarla al precio que fijes. Sin comisión.</div>
+    <div class="sub">Cualquier compañero de tu sesión podrá verla. Sin comisión.</div>
+    <div class="grade-field">
+      <label>Tipo de oferta</label>
+      <div class="auth-tabs" style="max-width:100%;">
+        <div class="auth-tab active" id="pp-tab-fija" onclick="cambiarTipoOfertaP2P('fija')">Precio fijo</div>
+        <div class="auth-tab" id="pp-tab-subasta" onclick="cambiarTipoOfertaP2P('subasta')"><i class="ti ti-gavel" style="font-size:12px;margin-right:4px;"></i>Subasta</div>
+      </div>
+    </div>
     <div class="grade-field">
       <label>Activo</label>
       <select id="pp-activo">${portfolio.map((p,i)=>`<option value="${i}">${p.name} (${p.qty}u disponibles)</option>`).join('')}</select>
     </div>
     <div class="grade-field"><label>Cantidad a vender</label><input type="number" id="pp-cantidad" min="1" value="1"></div>
-    <div class="grade-field"><label>Precio por unidad ($)</label><input type="number" id="pp-precio" step="0.01"></div>
+    <div class="grade-field" id="pp-campo-precio"><label>Precio por unidad ($)</label><input type="number" id="pp-precio" step="0.01"></div>
+    <div class="grade-field" id="pp-campo-duracion" style="display:none;"><label>Duración de la subasta (minutos)</label><input type="number" id="pp-duracion" min="1" value="5"></div>
     <div class="auth-msg" id="pp-msg"></div>
     <div style="display:flex;gap:10px;">
       <button class="btn btn-ghost" id="pp-cancelar" style="flex:1;">Cancelar</button>
@@ -6712,6 +6765,16 @@ function abrirPublicarOfertaP2P(){
   document.body.appendChild(overlay);
   overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
   overlay.querySelector('#pp-cancelar').onclick = () => overlay.remove();
+
+  let tipoActual = 'fija';
+  window.cambiarTipoOfertaP2P = (tipo) => {
+    tipoActual = tipo;
+    overlay.querySelector('#pp-tab-fija').classList.toggle('active', tipo==='fija');
+    overlay.querySelector('#pp-tab-subasta').classList.toggle('active', tipo==='subasta');
+    overlay.querySelector('#pp-campo-precio').querySelector('label').textContent = tipo==='subasta' ? 'Precio inicial ($)' : 'Precio por unidad ($)';
+    overlay.querySelector('#pp-campo-duracion').style.display = tipo==='subasta' ? '' : 'none';
+    overlay.querySelector('#pp-guardar').textContent = tipo==='subasta' ? 'Lanzar subasta' : 'Publicar';
+  };
 
   const actualizarPrecioSugerido = () => {
     const p = portfolio[+overlay.querySelector('#pp-activo').value];
@@ -6726,16 +6789,23 @@ function abrirPublicarOfertaP2P(){
     const p = portfolio[+overlay.querySelector('#pp-activo').value];
     const cantidad = +overlay.querySelector('#pp-cantidad').value;
     const precio = +overlay.querySelector('#pp-precio').value;
+    const duracion = +overlay.querySelector('#pp-duracion').value;
     if(!cantidad || cantidad<=0 || cantidad>p.qty){ msg.className='auth-msg show error'; msg.textContent='Cantidad inválida (máximo '+p.qty+').'; return; }
     if(!precio || precio<=0){ msg.className='auth-msg show error'; msg.textContent='Ingresa un precio válido.'; return; }
+    if(tipoActual==='subasta' && (!duracion || duracion<=0)){ msg.className='auth-msg show error'; msg.textContent='Ingresa una duración válida.'; return; }
     const btn = overlay.querySelector('#pp-guardar');
     btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Publicando…';
     try {
-      const { error } = await conTiempoLimite(sb.from('ofertas_p2p').insert({
+      const fila = {
         sesion_id: currentUser.sesion_id, vendedor_id: currentUser.usuario_id,
         activo_id: p.id, activo_nombre: p.name, activo_tipo: p.type,
-        cantidad, precio_unitario: precio,
-      }));
+        cantidad, precio_unitario: precio, tipo: tipoActual,
+      };
+      if(tipoActual==='subasta'){
+        fila.fecha_fin = new Date(Date.now() + duracion*60000).toISOString();
+        fila.precio_actual = precio;
+      }
+      const { error } = await conTiempoLimite(sb.from('ofertas_p2p').insert(fila));
       if(error) throw error;
       overlay.remove();
       notify('Oferta publicada — tus compañeros ya la pueden ver.', 'success');
@@ -6747,22 +6817,30 @@ function abrirPublicarOfertaP2P(){
   };
 }
 
+// Aplica una compra P2P (de precio fijo o subasta ganada) al estado local
+// del comprador — factorizado para que tanto comprar directo como
+// reclamar una subasta ganada usen exactamente la misma lógica.
+function aplicarCompraP2PLocal(data, etiqueta){
+  const costo = data.cantidad * data.precio_unitario;
+  if(costo > capital){
+    notify('Cuidado: esta compra deja tu capital en negativo (apalancado).', 'error');
+  }
+  capital -= costo;
+  const ex = portfolio.find(x=>x.id===data.activo_id && x.type===data.activo_tipo);
+  if(ex){ ex.qty += Number(data.cantidad); ex.invested = (ex.invested||0) + costo; }
+  else portfolio.push({ id:data.activo_id, name:data.activo_nombre, type:data.activo_tipo, ticker:data.activo_nombre, qty:Number(data.cantidad), invested:costo, buyPrice:data.precio_unitario, currentPrice:data.precio_unitario });
+  txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:data.activo_nombre+' ('+etiqueta+')',type:data.activo_tipo,qty:data.cantidad,price:data.precio_unitario,total:costo,fee:0});
+  updateNavCapital();
+  autosave();
+  return costo;
+}
+
 async function comprarOfertaP2P(ofertaId){
   if(!confirm('¿Comprar esta oferta? Se descuenta de tu capital al instante.')) return;
   try {
     const { data, error } = await conTiempoLimite(sb.rpc('comprar_oferta_p2p', { p_oferta_id: ofertaId }));
     if(error) throw error;
-    const costo = data.cantidad * data.precio_unitario;
-    if(costo > capital){
-      notify('Cuidado: esta compra deja tu capital en negativo (apalancado).', 'error');
-    }
-    capital -= costo;
-    const ex = portfolio.find(x=>x.id===data.activo_id && x.type===data.activo_tipo);
-    if(ex){ ex.qty += Number(data.cantidad); ex.invested = (ex.invested||0) + costo; }
-    else portfolio.push({ id:data.activo_id, name:data.activo_nombre, type:data.activo_tipo, ticker:data.activo_nombre, qty:Number(data.cantidad), invested:costo, buyPrice:data.precio_unitario, currentPrice:data.precio_unitario });
-    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:data.activo_nombre+' (compañero)',type:data.activo_tipo,qty:data.cantidad,price:data.precio_unitario,total:costo,fee:0});
-    updateNavCapital();
-    autosave();
+    aplicarCompraP2PLocal(data, 'compañero');
     notify(`Compraste ${data.cantidad}u de ${data.activo_nombre} directamente a un compañero.`, 'success');
     renderMercadoP2P();
   } catch(e){
@@ -6770,13 +6848,91 @@ async function comprarOfertaP2P(ofertaId){
   }
 }
 
-async function cancelarOfertaP2P(ofertaId){
+async function cancelarOfertaP2P(ofertaId, tieneOfertas){
+  if(tieneOfertas && !confirm('Esta subasta ya tiene una puja de un compañero. ¿Cancelarla de todas formas? No podrá cobrar esa puja.')) return;
   try {
     const { error } = await sb.from('ofertas_p2p').update({ estado:'cancelada' }).eq('id', ofertaId);
     if(error) throw error;
     notify('Oferta cancelada.', 'success');
     renderMercadoP2P();
   } catch(e){ notify('No se pudo cancelar: ' + (e.message||e), 'error'); }
+}
+
+// Cuenta regresiva visual de cada subasta abierta en pantalla — se
+// actualiza sola cada segundo sin volver a pedir nada a la nube.
+let p2pIntervaloCronometros = null;
+function iniciarCronometrosSubastasP2P(){
+  if(p2pIntervaloCronometros) clearInterval(p2pIntervaloCronometros);
+  const actualizar = () => {
+    document.querySelectorAll('[data-subasta-fin]').forEach(el => {
+      const fin = new Date(el.dataset.subastaFin).getTime();
+      const badge = el.querySelector('.subasta-cronometro');
+      if(!badge) return;
+      const restante = fin - Date.now();
+      if(restante <= 0){ badge.textContent = 'Terminada'; return; }
+      const min = Math.floor(restante/60000), seg = Math.floor((restante%60000)/1000);
+      badge.textContent = `${min}:${String(seg).padStart(2,'0')}`;
+      if(restante <= 30000) badge.style.color = 'var(--red)';
+    });
+  };
+  actualizar();
+  p2pIntervaloCronometros = setInterval(actualizar, 1000);
+}
+
+function abrirPujarSubasta(ofertaId, activoNombre, precioActual){
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  const minimo = (precioActual*1.01).toFixed(2);
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:360px;">
+    <h3>Pujar por ${activoNombre}</h3>
+    <div class="sub">Puja actual: <b style="color:var(--gold);">$${fmt(precioActual)}</b>. Tu puja debe ser mayor.</div>
+    <div class="grade-field"><label>Tu puja ($)</label><input type="number" id="pj-monto" step="0.01" value="${minimo}"></div>
+    <div class="auth-msg" id="pj-msg"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" id="pj-cancelar" style="flex:1;">Cancelar</button>
+      <button class="auth-submit" id="pj-enviar" style="flex:1;margin-top:0;">Pujar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#pj-cancelar').onclick = () => overlay.remove();
+  overlay.querySelector('#pj-monto').addEventListener('keydown', (e) => { if(e.key==='Escape') overlay.remove(); });
+  overlay.querySelector('#pj-enviar').onclick = async () => {
+    const msg = overlay.querySelector('#pj-msg');
+    const monto = +overlay.querySelector('#pj-monto').value;
+    if(!monto || monto<=precioActual){ msg.className='auth-msg show error'; msg.textContent='Tu puja debe ser mayor a $'+fmt(precioActual)+'.'; return; }
+    const btn = overlay.querySelector('#pj-enviar');
+    btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Pujando…';
+    try {
+      const { error } = await conTiempoLimite(sb.rpc('pujar_subasta', { p_oferta_id: ofertaId, p_monto: monto }));
+      if(error) throw error;
+      overlay.remove();
+      notify(`Pujaste $${fmt(monto)} por ${activoNombre}.`, 'success');
+      renderMercadoP2P();
+    } catch(e){
+      msg.className='auth-msg show error'; msg.textContent = 'No se pudo pujar: ' + (e.message||e);
+      btn.disabled = false; btn.textContent = 'Pujar';
+    }
+  };
+}
+
+// Se llama sola cuando detecta que una subasta terminó y yo tenía la
+// mejor puja — no requiere que el estudiante haga nada para "cobrar" lo
+// que ganó.
+let subastasYaReclamando = new Set();
+async function reclamarSubastaGanada(ofertaId, activoNombre){
+  if(subastasYaReclamando.has(ofertaId)) return; // evita reclamarla dos veces si el render corre varias veces seguidas
+  subastasYaReclamando.add(ofertaId);
+  try {
+    const { data, error } = await conTiempoLimite(sb.rpc('reclamar_subasta_ganada', { p_oferta_id: ofertaId }));
+    if(error) throw error;
+    aplicarCompraP2PLocal(data, 'subasta ganada');
+    notify(`🎉 ¡Ganaste la subasta de ${activoNombre}! Se descontó $${fmt(data.cantidad*data.precio_unitario)} de tu capital.`, 'success');
+    renderMercadoP2P();
+  } catch(e){
+    // si otra pestaña ya la reclamó, o alguien más la reclamó primero, no es un error grave
+    subastasYaReclamando.delete(ofertaId);
+  }
 }
 
 // Revisa si alguna de mis ofertas de venta fue comprada mientras no
@@ -6823,6 +6979,7 @@ function iniciarRealtimeP2P(){
 function detenerRealtimeP2P(){
   if(p2pChannel && sb){ sb.removeChannel(p2pChannel); p2pChannel = null; }
   if(p2pIntervaloRespaldo){ clearInterval(p2pIntervaloRespaldo); p2pIntervaloRespaldo = null; }
+  if(p2pIntervaloCronometros){ clearInterval(p2pIntervaloCronometros); p2pIntervaloCronometros = null; }
 }
 
 function abrirCrearAlertaPrecio(){
