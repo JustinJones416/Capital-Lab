@@ -470,6 +470,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
 /* ── HAMBURGER BUTTON ── */
 .hamburger-btn{display:none;flex-direction:column;justify-content:center;gap:5px;width:36px;height:36px;padding:6px;cursor:pointer;border:none;background:transparent;border-radius:var(--r);flex-shrink:0;transition:background .15s;}
+.mobile-bottom-nav{display:none;}
 .hamburger-btn:hover{background:var(--c3);}
 .hamburger-btn span{display:block;height:2px;background:var(--t1);border-radius:2px;transition:all .22s;}
 .hamburger-btn.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
@@ -576,6 +577,30 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
      Resultados y Resultados Lab, aplicada de forma general. ── */
   table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .auth-box{padding:22px 18px;max-height:92vh;}
+
+  /* ── BARRA DE NAVEGACIÓN INFERIOR ── */
+  .mobile-bottom-nav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:490;
+    background:var(--c1);border-top:1px solid var(--c4);
+    padding:4px 2px calc(4px + env(safe-area-inset-bottom));
+  }
+  .mbn-btn{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    padding:6px 2px;background:transparent;border:none;color:var(--t3);cursor:pointer;
+    min-width:0;border-radius:var(--r);
+  }
+  .mbn-btn i{font-size:19px;}
+  .mbn-btn span{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .mbn-btn.active{color:var(--accent2);}
+  /* Deja espacio abajo para que la barra fija no tape el contenido ni el
+     resto de elementos flotantes (toasts, botón de exportar, etc.) */
+  .main-content{padding-bottom:62px;}
+  .deshacer-toast{bottom:70px!important;}
+  #prof-vivo-heatmap{grid-template-columns:repeat(auto-fill,minmax(95px,1fr))!important;gap:8px!important;}
+  /* Botones pequeños en listas (roster, cuestionarios, calificaciones):
+     un poco más de alto para que el dedo no falle el toque, sin romper
+     filas donde van varios botones juntos. */
+  .btn-sm{padding:7px 12px;min-height:32px;}
 
   /* ── TOPBAR elements ── */
   .hamburger-btn{display:flex;}
@@ -874,6 +899,16 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
 <!-- ── MOBILE SIDEBAR OVERLAY ── -->
 <div id="sidebar-overlay" onclick="closeMobileSidebar()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:498;backdrop-filter:blur(2px);"></div>
+
+<!-- Barra de accesos directos, solo en móvil — cambiar de página con un
+     solo toque, en vez de tener que abrir el menú lateral cada vez. -->
+<div class="mobile-bottom-nav" id="mobile-bottom-nav">
+  <button class="mbn-btn active" data-pagina="inicio" onclick="goPage('inicio')"><i class="ti ti-home"></i><span>Inicio</span></button>
+  <button class="mbn-btn" data-pagina="mercado" onclick="goPage('mercado')"><i class="ti ti-chart-candle"></i><span>Mercado</span></button>
+  <button class="mbn-btn" data-pagina="cartera" onclick="goPage('cartera')"><i class="ti ti-briefcase"></i><span>Cartera</span></button>
+  <button class="mbn-btn" data-pagina="p2p" onclick="goPage('p2p')"><i class="ti ti-users-group"></i><span>Mercado P2P</span></button>
+  <button class="mbn-btn" id="mbn-menu" onclick="toggleMobileSidebar()"><i class="ti ti-menu-2"></i><span>Menú</span></button>
+</div>
 
 <div class="shell">
 
@@ -2253,6 +2288,60 @@ async function alternarFijarAnuncio(id, fijar){
 // topbar es un espacio demasiado angosto para cualquier texto largo
 // ("Mi cuenta", nombres de sesión, etc.) — sacarlo de ahí evita el
 // problema de raíz en vez de perseguir píxeles cada vez que se agrega algo.
+// ══════════════════════════════════════════════════
+// NOTIFICACIONES NATIVAS DEL SISTEMA — para avisos importantes (una
+// alerta de precio se disparó, ganaste una subasta) mientras no tienes
+// la pestaña abierta. En iPhone, Safari solo lo permite si la app está
+// instalada en la pantalla de inicio (no en una pestaña normal del
+// navegador) — se detecta eso y se avisa con claridad en vez de mostrar
+// un botón que no va a funcionar.
+// ══════════════════════════════════════════════════
+function soporteNotificacionesNativas(){
+  if(!('Notification' in window)) return false;
+  const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const esStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if(esIOS && !esStandalone) return false; // Safari normal en iOS no las soporta
+  return true;
+}
+
+function enviarNotificacionNativa(titulo, cuerpo){
+  if(!soporteNotificacionesNativas() || Notification.permission !== 'granted') return;
+  if(document.visibilityState === 'visible') return; // ya la está viendo, no hace falta duplicar el aviso
+  try { new Notification(titulo, { body: cuerpo, icon: undefined }); } catch(e){ /* silencioso */ }
+}
+
+async function activarNotificacionesNativas(){
+  if(!soporteNotificacionesNativas()){
+    const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    notify(esIOS
+      ? 'En iPhone, Safari solo permite notificaciones si agregas CapitalLab a tu pantalla de inicio (compartir → "Agregar a pantalla de inicio").'
+      : 'Tu navegador no soporta notificaciones del sistema.', 'error');
+    return;
+  }
+  const permiso = await Notification.requestPermission();
+  actualizarBotonNotificacionesNativas(permiso);
+  if(permiso === 'granted') notify('Notificaciones activadas — te avisaremos aunque no tengas la app abierta.', 'success');
+  else if(permiso === 'denied') notify('Bloqueaste las notificaciones. Puedes activarlas desde los ajustes de tu navegador.', 'error');
+}
+
+// Recibe el permiso ya resuelto como parámetro cuando se acaba de pedir,
+// para no arriesgarse a leer `Notification.permission` en un momento
+// distinto y mostrar un estado que no coincida con el mensaje que se
+// acaba de dar.
+function actualizarBotonNotificacionesNativas(permisoConocido){
+  const btn = document.getElementById('btn-notif-nativas');
+  if(!btn) return;
+  if(!soporteNotificacionesNativas()){
+    btn.innerHTML = '<i class="ti ti-bell-off"></i> No disponibles en este navegador';
+    btn.disabled = true;
+    return;
+  }
+  const permiso = permisoConocido || Notification.permission;
+  const activas = permiso === 'granted';
+  btn.disabled = activas;
+  btn.innerHTML = activas ? '<i class="ti ti-bell-check"></i> Notificaciones activadas' : '<i class="ti ti-bell"></i> Activar notificaciones del sistema';
+}
+
 function copiarCodigoSesion(codigo){
   navigator.clipboard?.writeText(codigo).then(
     () => notify(`Código ${codigo} copiado.`, 'success'),
@@ -2272,6 +2361,12 @@ async function renderMiCuenta(cont){
           <input type="text" id="ms-mi-nombre" value="${currentUser.nombre.replace(/"/g,'&quot;')}" style="flex:1;">
           <button class="btn btn-sm" id="ms-btn-guardar-nombre"><i class="ti ti-check"></i></button>
         </div>
+      </div>
+      <div class="auth-field" style="margin-bottom:14px;">
+        <label>Avisos del sistema</label>
+        <button class="btn btn-sm" id="btn-notif-nativas" onclick="activarNotificacionesNativas()" style="width:100%;justify-content:center;max-width:260px;">
+          <i class="ti ti-bell"></i> Activar notificaciones del sistema
+        </button>
       </div>
       <div class="auth-field" style="margin-bottom:0;">
         <button class="btn btn-sm" onclick="authLogout()" style="width:100%;justify-content:center;max-width:260px;color:var(--red);">
@@ -2303,6 +2398,7 @@ async function renderMiCuenta(cont){
         </div>
       `}
     </div>`;
+  actualizarBotonNotificacionesNativas();
   cont.querySelector('#ms-btn-guardar-nombre').onclick = async () => {
     const nuevoNombre = cont.querySelector('#ms-mi-nombre').value.trim();
     const msg = cont.querySelector('#ms-msg');
@@ -6257,6 +6353,7 @@ function goPage(p){
   document.getElementById('page-'+p).classList.add('active');
   const btn=document.getElementById('nav-'+p);
   if(btn)btn.classList.add('active');
+  document.querySelectorAll('.mbn-btn').forEach(el=>el.classList.toggle('active', el.dataset.pagina===p));
   if(p==='mercado'&&selectedAsset){
     // Canvas had zero size while hidden — redraw now that the page is visible
     requestAnimationFrame(()=>requestAnimationFrame(()=>drawCandlestickChart(selectedAsset)));
@@ -6631,15 +6728,19 @@ async function renderMercadoP2P(esManual){
   const marcaActualizacion = document.getElementById('p2p-ultima-actualizacion');
   if(!contAbiertas) return;
 
-  if(!currentUser || guestMode || !currentUser.sesion_id || currentUser.rol!=='estudiante'){
-    contAbiertas.innerHTML = '<div class="auth-hint">El mercado entre estudiantes es solo para cuentas de estudiante con una sesión activa.</div>';
+  if(!currentUser || guestMode || !currentUser.sesion_id || currentUser.rol==='superadmin'){
+    contAbiertas.innerHTML = '<div class="auth-hint">El mercado entre estudiantes es solo para cuentas con una sesión activa.</div>';
     btnPublicar.style.display = 'none';
     if(btnActualizar) btnActualizar.style.display = 'none';
     cardMisOfertas.style.display = 'none';
     return;
   }
-  btnPublicar.style.display = '';
-  cardMisOfertas.style.display = 'block';
+  const esDocenteViendo = currentUser.rol==='docente';
+  // El docente puede ver todo lo que pasa en el mercado entre sus
+  // estudiantes (para supervisar), pero no puede comprar, pujar ni
+  // publicar — solo observa.
+  btnPublicar.style.display = esDocenteViendo ? 'none' : '';
+  cardMisOfertas.style.display = esDocenteViendo ? 'none' : 'block';
   if(!esManual) contAbiertas.innerHTML = '<div class="auth-hint">Cargando…</div>';
 
   // El tiempo real (WebSocket) es poco confiable en algunos navegadores
@@ -6654,74 +6755,82 @@ async function renderMercadoP2P(esManual){
 
   // Cada vez que se entra a esta página, se revisa si alguna de mis ofertas
   // de venta ya fue comprada por alguien mientras no estaba conectado.
-  await aplicarVentasP2PPendientes();
+  if(!esDocenteViendo) await aplicarVentasP2PPendientes();
 
   try {
     const { data: abiertas, error } = await sb.from('ofertas_p2p').select('*, usuarios!ofertas_p2p_vendedor_id_fkey(nombre)').eq('sesion_id', currentUser.sesion_id).eq('estado','abierta').order('creado_en',{ascending:false});
     if(error) throw error;
 
-    const deOtros = (abiertas||[]).filter(o => o.vendedor_id !== currentUser.usuario_id);
+    const deOtros = esDocenteViendo ? (abiertas||[]) : (abiertas||[]).filter(o => o.vendedor_id !== currentUser.usuario_id);
 
     // Si alguna subasta ya se acabó y yo tenía la mejor puja, se reclama
     // sola — no hace falta que nadie toque nada para que la venta se cierre.
-    for(const o of deOtros){
-      if(o.tipo==='subasta' && new Date(o.fecha_fin).getTime()<=Date.now() && o.mejor_postor_id===currentUser.usuario_id){
-        reclamarSubastaGanada(o.id, o.activo_nombre);
+    // (El docente nunca puja, así que este paso nunca le aplica a él.)
+    if(!esDocenteViendo){
+      for(const o of deOtros){
+        if(o.tipo==='subasta' && new Date(o.fecha_fin).getTime()<=Date.now() && o.mejor_postor_id===currentUser.usuario_id){
+          reclamarSubastaGanada(o.id, o.activo_nombre);
+        }
       }
     }
 
     if(!deOtros.length){
       contAbiertas.innerHTML = `<div style="text-align:center;padding:32px 16px;color:var(--t3);">
         <i class="ti ti-users-group" style="font-size:34px;display:block;margin-bottom:10px;opacity:.4;"></i>
-        Ningún compañero tiene ofertas abiertas por ahora.<br>
-        <span style="font-size:11.5px;">Sé el primero — publica algo de tu cartera o lanza una subasta.</span>
+        ${esDocenteViendo ? 'Ningún estudiante tiene ofertas abiertas por ahora.' : 'Ningún compañero tiene ofertas abiertas por ahora.<br><span style="font-size:11.5px;">Sé el primero — publica algo de tu cartera o lanza una subasta.</span>'}
       </div>`;
     } else {
       contAbiertas.innerHTML = deOtros.map(o => {
         if(o.tipo==='subasta'){
           const terminada = new Date(o.fecha_fin).getTime() <= Date.now();
           const precioActual = o.precio_actual ?? o.precio_unitario;
-          const soyElMejor = o.mejor_postor_id===currentUser.usuario_id;
+          const soyElMejor = !esDocenteViendo && o.mejor_postor_id===currentUser.usuario_id;
           return `<div data-subasta-fin="${o.fecha_fin}" style="padding:12px;border:1px solid ${terminada?'var(--c4)':'var(--gold)'};border-radius:var(--r2);margin-bottom:8px;background:rgba(212,175,55,.04);">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
               <div style="min-width:0;">
                 <div style="font-weight:700;font-size:13.5px;"><i class="ti ti-gavel" style="font-size:12px;color:var(--gold);margin-right:3px;"></i>${o.activo_nombre} <span class="badge ${typeBadgeCls(o.activo_tipo)}" style="font-size:9px;">${o.activo_tipo}</span></div>
-                <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Compañero'} subasta ${o.cantidad}u ${soyElMejor?'· <span style="color:var(--gold);">vas ganando</span>':''}</div>
+                <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Estudiante'} subasta ${o.cantidad}u ${soyElMejor?'· <span style="color:var(--gold);">vas ganando</span>':''}</div>
               </div>
               <span class="nav-badge subasta-cronometro" style="background:${terminada?'var(--c3)':'rgba(212,175,55,.15)'};color:${terminada?'var(--t3)':'var(--gold)'};font-family:var(--font-mono);">${terminada?'Terminada':'—:—'}</span>
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;">
               <div><span style="font-size:10.5px;color:var(--t3);">Puja actual</span><div style="font-weight:700;font-size:17px;color:var(--gold);">$${fmt(precioActual)}</div></div>
-              ${terminada
-                ? `<span class="nav-badge">Esperando cierre…</span>`
-                : `<button class="btn btn-sm" style="background:rgba(212,175,55,.15);color:var(--gold);border:1px solid rgba(212,175,55,.3);" onclick="abrirPujarSubasta('${o.id}','${o.activo_nombre.replace(/'/g,"\\'")}',${precioActual})"><i class="ti ti-gavel"></i> Pujar</button>`}
+              ${esDocenteViendo
+                ? `<span class="nav-badge" title="Solo observando"><i class="ti ti-eye"></i> Observando</span>`
+                : (terminada
+                  ? `<span class="nav-badge">Esperando cierre…</span>`
+                  : `<button class="btn btn-sm" style="background:rgba(212,175,55,.15);color:var(--gold);border:1px solid rgba(212,175,55,.3);" onclick="abrirPujarSubasta('${o.id}','${o.activo_nombre.replace(/'/g,"\\'")}',${precioActual})"><i class="ti ti-gavel"></i> Pujar</button>`)}
             </div>
           </div>`;
         }
         return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--c4);border-radius:var(--r2);margin-bottom:8px;flex-wrap:wrap;">
           <div style="min-width:0;">
             <div style="font-weight:700;font-size:13.5px;">${o.activo_nombre} <span class="badge ${typeBadgeCls(o.activo_tipo)}" style="font-size:9px;">${o.activo_tipo}</span></div>
-            <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Compañero'} vende ${o.cantidad}u a $${fmt(o.precio_unitario)} c/u</div>
+            <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Estudiante'} vende ${o.cantidad}u a $${fmt(o.precio_unitario)} c/u</div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <div style="font-weight:700;font-size:15px;">$${fmt(o.cantidad*o.precio_unitario)}</div>
-            <button class="btn btn-buy btn-sm" onclick="comprarOfertaP2P('${o.id}')">Comprar</button>
+            ${esDocenteViendo
+              ? `<span class="nav-badge" title="Solo observando"><i class="ti ti-eye"></i> Observando</span>`
+              : `<button class="btn btn-buy btn-sm" onclick="comprarOfertaP2P('${o.id}')">Comprar</button>`}
           </div>
         </div>`;
       }).join('');
       iniciarCronometrosSubastasP2P();
     }
 
-    const mias = (abiertas||[]).filter(o => o.vendedor_id === currentUser.usuario_id);
-    const { data: miasCumplidas } = await sb.from('ofertas_p2p').select('*').eq('vendedor_id', currentUser.usuario_id).eq('estado','cumplida').order('cumplida_en',{ascending:false}).limit(5);
-    const todasMias = [...mias, ...(miasCumplidas||[])];
-    contMisOfertas.innerHTML = todasMias.length ? todasMias.map(o => `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--c3);font-size:12.5px;">
-        <div>${o.tipo==='subasta'?'<i class="ti ti-gavel" style="font-size:11px;color:var(--gold);margin-right:3px;"></i>':''}${o.activo_nombre} · ${o.cantidad}u ${o.tipo==='subasta'?'· puja actual $'+fmt(o.precio_actual??o.precio_unitario):'a $'+fmt(o.precio_unitario)}</div>
-        ${o.estado==='abierta'
-          ? `<button class="btn btn-sm" style="color:var(--red);" onclick="cancelarOfertaP2P('${o.id}',${!!o.mejor_postor_id})">Cancelar</button>`
-          : `<span class="nav-badge" style="background:rgba(0,208,132,.15);color:var(--green);">Vendida</span>`}
-      </div>`).join('') : '<div class="auth-hint">No tienes ninguna oferta publicada.</div>';
+    if(!esDocenteViendo){
+      const mias = (abiertas||[]).filter(o => o.vendedor_id === currentUser.usuario_id);
+      const { data: miasCumplidas } = await sb.from('ofertas_p2p').select('*').eq('vendedor_id', currentUser.usuario_id).eq('estado','cumplida').order('cumplida_en',{ascending:false}).limit(5);
+      const todasMias = [...mias, ...(miasCumplidas||[])];
+      contMisOfertas.innerHTML = todasMias.length ? todasMias.map(o => `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--c3);font-size:12.5px;">
+          <div>${o.tipo==='subasta'?'<i class="ti ti-gavel" style="font-size:11px;color:var(--gold);margin-right:3px;"></i>':''}${o.activo_nombre} · ${o.cantidad}u ${o.tipo==='subasta'?'· puja actual $'+fmt(o.precio_actual??o.precio_unitario):'a $'+fmt(o.precio_unitario)}</div>
+          ${o.estado==='abierta'
+            ? `<button class="btn btn-sm" style="color:var(--red);" onclick="cancelarOfertaP2P('${o.id}',${!!o.mejor_postor_id})">Cancelar</button>`
+            : `<span class="nav-badge" style="background:rgba(0,208,132,.15);color:var(--green);">Vendida</span>`}
+        </div>`).join('') : '<div class="auth-hint">No tienes ninguna oferta publicada.</div>';
+    }
 
     if(marcaActualizacion) marcaActualizacion.textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'});
     if(esManual) notify('Lista actualizada.', 'success');
@@ -6849,7 +6958,10 @@ async function comprarOfertaP2P(ofertaId){
 }
 
 async function cancelarOfertaP2P(ofertaId, tieneOfertas){
-  if(tieneOfertas && !confirm('Esta subasta ya tiene una puja de un compañero. ¿Cancelarla de todas formas? No podrá cobrar esa puja.')) return;
+  const mensaje = tieneOfertas
+    ? 'Esta subasta ya tiene una puja de un compañero. ¿Cancelarla de todas formas? No podrá cobrar esa puja.'
+    : '¿Cancelar esta oferta? Ya no será visible para tus compañeros.';
+  if(!confirm(mensaje)) return;
   try {
     const { error } = await sb.from('ofertas_p2p').update({ estado:'cancelada' }).eq('id', ofertaId);
     if(error) throw error;
@@ -6928,6 +7040,7 @@ async function reclamarSubastaGanada(ofertaId, activoNombre){
     if(error) throw error;
     aplicarCompraP2PLocal(data, 'subasta ganada');
     notify(`🎉 ¡Ganaste la subasta de ${activoNombre}! Se descontó $${fmt(data.cantidad*data.precio_unitario)} de tu capital.`, 'success');
+    enviarNotificacionNativa('¡Ganaste una subasta! — CapitalLab', `Te quedaste con ${data.cantidad}u de ${activoNombre} por $${fmt(data.cantidad*data.precio_unitario)}.`);
     renderMercadoP2P();
   } catch(e){
     // si otra pestaña ya la reclamó, o alguien más la reclamó primero, no es un error grave
@@ -7073,6 +7186,7 @@ async function verificarAlertasPrecio(){
       await sb.from('alertas_precio').update({ activa: false, disparada_en: new Date().toISOString() }).eq('id', a.id);
       alertasPrecioCache = alertasPrecioCache.filter(x=>x.id!==a.id);
       notify(`🔔 ${a.activo_nombre} ${a.direccion==='arriba'?'subió hasta':'bajó hasta'} $${fmt(precioActual)}`, 'success');
+      enviarNotificacionNativa('Alerta de precio — CapitalLab', `${a.activo_nombre} ${a.direccion==='arriba'?'subió hasta':'bajó hasta'} $${fmt(precioActual)}`);
       actualizarBadgeNotificaciones();
     } catch(e){ /* silencioso: no interrumpir el mercado por esto */ }
   }
