@@ -423,8 +423,12 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 .pbtn-load{background:rgba(0,196,255,.12);color:var(--accent2);border:1px solid rgba(0,196,255,.25);}.pbtn-load:hover{background:rgba(0,196,255,.22);}
 .pbtn-export{background:rgba(255,180,0,.12);color:var(--amber);border:1px solid rgba(255,180,0,.25);}.pbtn-export:hover{background:rgba(255,180,0,.22);}
 .pbtn-reset{background:rgba(255,71,87,.1);color:var(--red);border:1px solid rgba(255,71,87,.25);}.pbtn-reset:hover{background:rgba(255,71,87,.2);}
-.save-indicator{width:7px;height:7px;border-radius:50%;background:var(--green);opacity:0;transition:opacity .4s;}
-.save-indicator.flash{opacity:1;}
+.save-indicator{display:flex;align-items:center;gap:0;height:16px;padding:0;border-radius:10px;background:transparent;overflow:hidden;white-space:nowrap;transition:padding .25s, background .25s;}
+.save-indicator::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--green);opacity:0;transition:opacity .3s;flex-shrink:0;}
+.save-indicator span{font-size:10px;color:var(--green);max-width:0;overflow:hidden;transition:max-width .3s;margin-left:0;}
+.save-indicator.flash{padding:0 8px;background:rgba(0,208,132,.1);}
+.save-indicator.flash::before{opacity:1;}
+.save-indicator.flash span{max-width:60px;margin-left:5px;}
 
 /* ── MENÚ DESPLEGABLE DE EXPORTAR (unifica PDF / para el profesor / respaldo / cargar) ── */
 .export-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);box-shadow:0 10px 30px rgba(0,0,0,.4);padding:6px;min-width:230px;z-index:500;}
@@ -884,7 +888,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   <span style="font-size:11px;color:var(--t3);">Simulador de Mercados Financieros · Facultad de Economía UP</span>
   <div class="topbar-right">
     <div class="persist-btns">
-      <div class="save-indicator" id="save-dot" title="Progreso guardado"></div>
+      <div class="save-indicator" id="save-dot" title="Progreso guardado"><span>Guardado</span></div>
       <div style="position:relative;">
         <button class="pbtn pbtn-export" onclick="toggleExportMenu()" title="Exportar o cargar tu progreso"><i class="ti ti-file-export" style="font-size:12px;"></i> Exportar</button>
         <div id="export-menu" class="export-menu">
@@ -1607,7 +1611,10 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       </div>
     </div>
     <div class="card-sub" id="prof-cloud-sesion-info">Cargando información de tu sesión…</div>
-    <input type="text" id="prof-cloud-buscar" placeholder="Buscar estudiante por nombre o correo…" oninput="filtrarRosterProfesor(this.value)" style="width:100%;margin-top:10px;padding:8px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12.5px;">
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <input type="text" id="prof-cloud-buscar" placeholder="Buscar estudiante por nombre o correo…" oninput="filtrarRosterProfesor(this.value)" style="flex:1;padding:8px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12.5px;">
+      <button class="btn btn-sm" onclick="abrirCalificacionMasiva()" style="flex-shrink:0;" title="Calificar a todos con la misma nota"><i class="ti ti-users"></i> Calificar a todos</button>
+    </div>
     <div style="overflow-x:auto;margin-top:10px;">
       <table id="prof-cloud-table" style="width:100%;border-collapse:collapse;font-size:12.5px;">
         <thead>
@@ -2139,20 +2146,27 @@ async function mostrarNotificaciones(){
     try {
       const { data: anuncios, error: e1 } = await sb.from('anuncios').select('*').eq('sesion_id', currentUser.sesion_id).order('creado_en',{ascending:false}).limit(15);
       if(e1) throw e1;
-      let items = (anuncios||[]).map(a => ({ tipo:'anuncio', fecha:a.creado_en, titulo:a.titulo, cuerpo:a.cuerpo, id:a.id }));
+      let items = (anuncios||[]).map(a => ({ tipo:'anuncio', fecha:a.creado_en, titulo:a.titulo, cuerpo:a.cuerpo, id:a.id, fijado:!!a.fijado }));
       if(!esDocente){
         const { data: cals } = await sb.from('calificaciones').select('*').eq('usuario_id', currentUser.usuario_id).order('creado_en',{ascending:false}).limit(15);
         items = items.concat((cals||[]).map(c => ({ tipo:'calificacion', fecha:c.creado_en, titulo:`Nueva calificación: ${c.titulo}`, cuerpo:c.nota_general!=null?`Nota: ${c.nota_general}/100`:null })));
         const { data: alertas } = await sb.from('alertas_precio').select('*').eq('usuario_id', currentUser.usuario_id).not('disparada_en','is',null).order('disparada_en',{ascending:false}).limit(10);
         items = items.concat((alertas||[]).map(a => ({ tipo:'alerta', fecha:a.disparada_en, titulo:`${a.activo_nombre} ${a.direccion==='arriba'?'subió hasta':'bajó hasta'} $${fmt(a.precio_objetivo)}`, cuerpo:null })));
       }
-      items.sort((a,b)=> new Date(b.fecha) - new Date(a.fecha));
+      items.sort((a,b)=> {
+        const fa = a.fijado?1:0, fb = b.fijado?1:0;
+        if(fa!==fb) return fb-fa; // los fijados siempre primero
+        return new Date(b.fecha) - new Date(a.fecha);
+      });
       if(!items.length){ cont.innerHTML = '<div class="auth-hint">Todavía no hay anuncios ni novedades en esta sesión.</div>'; return; }
       cont.innerHTML = items.slice(0,20).map(it => `
-        <div style="padding:10px 0;border-bottom:1px solid var(--c3);">
+        <div style="padding:10px 0;border-bottom:1px solid var(--c3);${it.fijado?'background:rgba(212,175,55,.06);border-left:2px solid var(--gold);padding-left:8px;':''}">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-            <div style="font-weight:600;font-size:13px;"><i class="ti ti-${it.tipo==='anuncio'?'speakerphone':it.tipo==='alerta'?'bell-ringing':'certificate'}" style="font-size:12px;color:var(--accent2);margin-right:5px;"></i>${it.titulo}</div>
-            ${esDocente && it.tipo==='anuncio' ? `<button class="btn btn-sm" style="padding:2px 7px;" title="Borrar anuncio" onclick="borrarAnuncio('${it.id}')"><i class="ti ti-trash" style="font-size:11px;"></i></button>` : ''}
+            <div style="font-weight:600;font-size:13px;">${it.fijado?'<i class="ti ti-pin" style="font-size:11px;color:var(--gold);margin-right:3px;"></i>':''}<i class="ti ti-${it.tipo==='anuncio'?'speakerphone':it.tipo==='alerta'?'bell-ringing':'certificate'}" style="font-size:12px;color:var(--accent2);margin-right:5px;"></i>${it.titulo}</div>
+            ${esDocente && it.tipo==='anuncio' ? `<span style="display:flex;gap:4px;flex-shrink:0;">
+              <button class="btn btn-sm" style="padding:2px 7px;" title="${it.fijado?'Desfijar':'Fijar arriba'}" onclick="alternarFijarAnuncio('${it.id}',${!it.fijado})"><i class="ti ti-${it.fijado?'pin-filled':'pin'}" style="font-size:11px;"></i></button>
+              <button class="btn btn-sm" style="padding:2px 7px;" title="Borrar anuncio" onclick="borrarAnuncio('${it.id}')"><i class="ti ti-trash" style="font-size:11px;"></i></button>
+            </span>` : ''}
           </div>
           ${it.cuerpo ? `<div style="font-size:12.5px;color:var(--t2);margin-top:3px;">${it.cuerpo}</div>` : ''}
           <div style="font-size:10.5px;color:var(--t3);margin-top:4px;">${formatearFechaHora(it.fecha)}</div>
@@ -2198,6 +2212,16 @@ async function borrarAnuncio(id){
     if(window._recargarFeedNotificaciones) window._recargarFeedNotificaciones();
   } catch(e){
     notify('No se pudo borrar: ' + (e.message||e), 'error');
+  }
+}
+
+async function alternarFijarAnuncio(id, fijar){
+  try {
+    const { error } = await sb.from('anuncios').update({ fijado: fijar }).eq('id', id);
+    if(error) throw error;
+    if(window._recargarFeedNotificaciones) window._recargarFeedNotificaciones();
+  } catch(e){
+    notify('No se pudo actualizar: ' + (e.message||e), 'error');
   }
 }
 
@@ -3644,7 +3668,7 @@ async function renderCuestionariosPage(){
         <div style="min-width:0;">
           <div style="font-weight:700;font-size:14.5px;">${c.titulo} ${c.activo===false?'<span class="nav-badge">Inactivo</span>':''}</div>
           ${c.descripcion ? `<div style="font-size:12.5px;color:var(--t2);margin-top:3px;">${c.descripcion}</div>` : ''}
-          <div style="font-size:11px;color:var(--t3);margin-top:5px;">${numPreguntas} pregunta${numPreguntas===1?'':'s'}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:5px;">${numPreguntas} pregunta${numPreguntas===1?'':'s'}${c.tiempo_limite_minutos ? ` · <i class="ti ti-clock" style="font-size:10px;"></i> ${c.tiempo_limite_minutos} min` : ''}</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
           ${esDocente
@@ -3742,6 +3766,7 @@ function abrirEditorCuestionario(cuestionarioExistente){
     </div>`}
     <div class="grade-field"><label>Título</label><input type="text" id="cq-titulo" placeholder='Ej. "Repaso: mercado de bonos"'></div>
     <div class="grade-field"><label>Descripción (opcional)</label><input type="text" id="cq-desc" placeholder="Instrucciones breves para el estudiante"></div>
+    <div class="grade-field"><label>Tiempo límite en minutos (opcional)</label><input type="number" id="cq-tiempo" min="1" placeholder="Sin límite si se deja vacío"></div>
     <div id="cq-preguntas">${esEdicion ? '<div class="auth-hint">Cargando preguntas…</div>' : ''}</div>
     <button class="btn btn-sm" id="cq-btn-agregar" style="margin-bottom:12px;" ${esEdicion?'disabled':''}><i class="ti ti-plus"></i> Agregar pregunta</button>
     <div class="auth-msg" id="cq-msg"></div>
@@ -3800,6 +3825,7 @@ function abrirEditorCuestionario(cuestionarioExistente){
       try {
         overlay.querySelector('#cq-titulo').value = cuestionarioExistente.titulo;
         overlay.querySelector('#cq-desc').value = cuestionarioExistente.descripcion || '';
+        overlay.querySelector('#cq-tiempo').value = cuestionarioExistente.tiempo_limite_minutos || '';
         const { data: pregs, error } = await sb.from('preguntas').select('*, respuestas_correctas(indice_correcto)').eq('cuestionario_id', cuestionarioExistente.id).order('orden');
         if(error) throw error;
         preguntas = (pregs||[]).map(p => ({
@@ -3821,6 +3847,7 @@ function abrirEditorCuestionario(cuestionarioExistente){
     const msg = overlay.querySelector('#cq-msg');
     const titulo = overlay.querySelector('#cq-titulo').value.trim();
     const descripcion = overlay.querySelector('#cq-desc').value.trim() || null;
+    const tiempoLimite = overlay.querySelector('#cq-tiempo').value ? +overlay.querySelector('#cq-tiempo').value : null;
     if(!titulo){ msg.className='auth-msg show error'; msg.textContent='Ponle un título al cuestionario.'; return; }
     for(const p of preguntas){
       if(!p.texto.trim()){ msg.className='auth-msg show error'; msg.textContent='Todas las preguntas necesitan texto.'; return; }
@@ -3831,7 +3858,7 @@ function abrirEditorCuestionario(cuestionarioExistente){
     try {
       let cuestionarioId;
       if(esEdicion){
-        const { error: eUpd } = await conTiempoLimite(sb.from('cuestionarios').update({ titulo, descripcion }).eq('id', cuestionarioExistente.id));
+        const { error: eUpd } = await conTiempoLimite(sb.from('cuestionarios').update({ titulo, descripcion, tiempo_limite_minutos: tiempoLimite }).eq('id', cuestionarioExistente.id));
         if(eUpd) throw eUpd;
         cuestionarioId = cuestionarioExistente.id;
         // Se reemplazan todas las preguntas por las actuales del formulario —
@@ -3842,7 +3869,7 @@ function abrirEditorCuestionario(cuestionarioExistente){
         if(eDel) throw eDel;
       } else {
         const { data: cuestionario, error: e1 } = await conTiempoLimite(sb.from('cuestionarios').insert({
-          sesion_id: currentUser.sesion_id, docente_id: currentUser.auth_id, titulo, descripcion,
+          sesion_id: currentUser.sesion_id, docente_id: currentUser.auth_id, titulo, descripcion, tiempo_limite_minutos: tiempoLimite,
         }).select('id').single());
         if(e1) throw e1;
         cuestionarioId = cuestionario.id;
@@ -3978,11 +4005,18 @@ async function tomarCuestionario(id, titulo){
     if(error) throw error;
     if(!preguntas || !preguntas.length){ notify('Este cuestionario todavía no tiene preguntas.', 'error'); return; }
 
+    const tiempoLimite = cuestionariosCache[id]?.tiempo_limite_minutos || null;
+    let segundosRestantes = tiempoLimite ? tiempoLimite * 60 : null;
+    let intervaloRegresivo = null;
+
     const overlay = document.createElement('div');
     overlay.className = 'grade-modal-overlay';
     overlay.innerHTML = `<div class="grade-modal" style="max-width:540px;">
-      <h3>${titulo}</h3>
-      <div class="sub">Selecciona una opción por pregunta. No se puede volver a intentar después de enviar.</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <h3 style="margin-bottom:0;">${titulo}</h3>
+        ${tiempoLimite ? `<span id="tq-cronometro" class="nav-badge" style="background:rgba(212,175,55,.15);color:var(--gold);font-family:var(--font-mono);white-space:nowrap;"><i class="ti ti-clock" style="font-size:11px;"></i> --:--</span>` : ''}
+      </div>
+      <div class="sub">${tiempoLimite ? `Tienes ${tiempoLimite} minuto${tiempoLimite===1?'':'s'} para responder. Se envía solo cuando se acabe el tiempo.` : 'Selecciona una opción por pregunta.'} No se puede volver a intentar después de enviar.</div>
       ${preguntas.map((p,pi) => `
         <div style="margin-bottom:16px;">
           <div style="font-weight:600;font-size:13.5px;margin-bottom:8px;">${pi+1}. ${p.texto}</div>
@@ -4000,15 +4034,16 @@ async function tomarCuestionario(id, titulo){
     </div>`;
     document.body.appendChild(overlay);
     overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
-    overlay.querySelector('#tq-cancelar').onclick = () => overlay.remove();
+    overlay.querySelector('#tq-cancelar').onclick = () => { if(intervaloRegresivo) clearInterval(intervaloRegresivo); overlay.remove(); };
 
-    overlay.querySelector('#tq-enviar').onclick = async () => {
+    const enviarRespuestas = async (auto) => {
+      if(intervaloRegresivo) clearInterval(intervaloRegresivo);
       const msg = overlay.querySelector('#tq-msg');
       const respuestas = preguntas.map(p => {
         const marcado = overlay.querySelector(`input[name="tq-${p.id}"]:checked`);
         return { pregunta_id: p.id, indice_elegido: marcado ? +marcado.value : -1 };
       });
-      if(respuestas.some(r=>r.indice_elegido===-1)){ msg.className='auth-msg show error'; msg.textContent='Responde todas las preguntas antes de enviar.'; return; }
+      if(!auto && respuestas.some(r=>r.indice_elegido===-1)){ msg.className='auth-msg show error'; msg.textContent='Responde todas las preguntas antes de enviar.'; return; }
 
       const btn = overlay.querySelector('#tq-enviar');
       btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Enviando…';
@@ -4018,7 +4053,7 @@ async function tomarCuestionario(id, titulo){
         }));
         if(errEnvio) throw errEnvio;
         overlay.remove();
-        notify(`Cuestionario enviado. Tu nota: ${nota}/100`, 'success');
+        notify(auto ? `Se acabó el tiempo — cuestionario enviado. Tu nota: ${nota}/100` : `Cuestionario enviado. Tu nota: ${nota}/100`, 'success');
         desbloquearLogro('primer_cuestionario');
         if(nota >= 100) desbloquearLogro('cuestionario_perfecto');
         renderCuestionariosPage();
@@ -4028,6 +4063,23 @@ async function tomarCuestionario(id, titulo){
         btn.disabled = false; btn.textContent = 'Enviar respuestas';
       }
     };
+    overlay.querySelector('#tq-enviar').onclick = () => enviarRespuestas(false);
+
+    if(tiempoLimite){
+      const cronometroEl = overlay.querySelector('#tq-cronometro');
+      const actualizarCronometro = () => {
+        const min = Math.floor(segundosRestantes/60), seg = segundosRestantes%60;
+        cronometroEl.innerHTML = `<i class="ti ti-clock" style="font-size:11px;"></i> ${min}:${String(seg).padStart(2,'0')}`;
+        if(segundosRestantes <= 60) cronometroEl.style.color = 'var(--red)';
+        if(segundosRestantes <= 0){
+          notify('Se acabó el tiempo, enviando tus respuestas…', 'error');
+          enviarRespuestas(true);
+        }
+        segundosRestantes--;
+      };
+      actualizarCronometro();
+      intervaloRegresivo = setInterval(actualizarCronometro, 1000);
+    }
   } catch(e){
     notify('No se pudo cargar el cuestionario: ' + (e.message||e), 'error');
   }
@@ -4413,6 +4465,88 @@ function renderFilasCalificacionesDocente(data, esFiltro){
 }
 
 // ── Calificación con rúbrica ──
+// Califica a varios estudiantes a la vez con la misma categoría, título,
+// nota y comentario — pensado para cosas como "Participación en clase",
+// donde repetir el mismo modal uno por uno es trabajo de sobra.
+function abrirCalificacionMasiva(){
+  if(!currentUser || !currentUser.sesion_id) return;
+  const estudiantes = rosterProfesorCache.estudiantes || [];
+  if(!estudiantes.length){ notify('No hay estudiantes registrados en esta sesión todavía.', 'error'); return; }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:460px;">
+    <h3>Calificar a todos</h3>
+    <div class="sub">Se crea una calificación idéntica para cada estudiante marcado.</div>
+    <div class="grade-field">
+      <label>Plantilla rápida (opcional)</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${PLANTILLAS_RUBRICA.map((t,ti) => `<button class="btn btn-sm" data-rubrica="${ti}" style="font-size:11px;">${t.titulo}</button>`).join('')}
+      </div>
+    </div>
+    <div class="grade-field"><label>Categoría</label>
+      <select id="cm-categoria">${['Rentabilidad','Gestión de riesgo','Participación','Examen','Otro'].map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
+    </div>
+    <div class="grade-field"><label>Título</label><input type="text" id="cm-titulo" placeholder='Ej. "Participación — semana 3"'></div>
+    <div class="grade-field"><label>Nota (0-100)</label><input type="number" id="cm-nota" min="0" max="100" step="0.1"></div>
+    <div class="grade-field"><label>Comentario (opcional, igual para todos)</label><input type="text" id="cm-comentario"></div>
+    <div class="grade-field">
+      <label>Estudiantes (${estudiantes.length})</label>
+      <div style="max-height:180px;overflow-y:auto;border:1px solid var(--c4);border-radius:var(--r);padding:8px;">
+        <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;font-weight:600;border-bottom:1px solid var(--c3);margin-bottom:4px;">
+          <input type="checkbox" id="cm-todos" checked style="width:auto;"> Seleccionar todos
+        </label>
+        ${estudiantes.map(e => `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;">
+          <input type="checkbox" class="cm-est" value="${e.id}" checked style="width:auto;"> ${e.nombre}
+        </label>`).join('')}
+      </div>
+    </div>
+    <div class="auth-msg" id="cm-msg"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" id="cm-cancelar" style="flex:1;">Cancelar</button>
+      <button class="auth-submit" id="cm-guardar" style="flex:1;margin-top:0;">Calificar seleccionados</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#cm-cancelar').onclick = () => overlay.remove();
+  overlay.querySelectorAll('[data-rubrica]').forEach(btn => btn.onclick = () => {
+    const t = PLANTILLAS_RUBRICA[+btn.dataset.rubrica];
+    overlay.querySelector('#cm-categoria').value = t.categoria;
+    overlay.querySelector('#cm-titulo').value = t.titulo;
+  });
+  overlay.querySelector('#cm-todos').onchange = (e) => {
+    overlay.querySelectorAll('.cm-est').forEach(cb => cb.checked = e.target.checked);
+  };
+
+  overlay.querySelector('#cm-guardar').onclick = async () => {
+    const msg = overlay.querySelector('#cm-msg');
+    const categoria = overlay.querySelector('#cm-categoria').value;
+    const titulo = overlay.querySelector('#cm-titulo').value.trim();
+    const nota = overlay.querySelector('#cm-nota').value;
+    const comentario = overlay.querySelector('#cm-comentario').value.trim() || null;
+    const seleccionados = Array.from(overlay.querySelectorAll('.cm-est:checked')).map(cb => cb.value);
+    if(!titulo){ msg.className='auth-msg show error'; msg.textContent='Ponle un título.'; return; }
+    if(!seleccionados.length){ msg.className='auth-msg show error'; msg.textContent='Selecciona al menos un estudiante.'; return; }
+    const btn = overlay.querySelector('#cm-guardar');
+    btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Calificando…';
+    try {
+      const filas = seleccionados.map(usuario_id => ({
+        usuario_id, sesion_id: currentUser.sesion_id, docente_id: currentUser.auth_id,
+        categoria, titulo, nota_general: nota===''?null:+nota, comentario,
+      }));
+      const { error } = await conTiempoLimite(sb.from('calificaciones').insert(filas));
+      if(error) throw error;
+      overlay.remove();
+      notify(`${filas.length} estudiante(s) calificados.`, 'success');
+      cargarRosterProfesor();
+    } catch(e){
+      msg.className='auth-msg show error'; msg.textContent = 'No se pudo calificar: ' + (e.message||e);
+      btn.disabled = false; btn.textContent = 'Calificar seleccionados';
+    }
+  };
+}
+
 function abrirModalCalificar(usuarioId, nombre, sesionId, editando){
   const historial = profCalificaciones[usuarioId] || [];
   const esEdicion = !!editando;
@@ -9150,7 +9284,7 @@ function saveProgress() {
     localStorage.setItem(storageKey(), JSON.stringify(state));
     // Flash the save indicator
     const dot = document.getElementById('save-dot');
-    if (dot) { dot.classList.add('flash'); setTimeout(()=>dot.classList.remove('flash'), 1200); }
+    if (dot) { dot.classList.add('flash'); setTimeout(()=>dot.classList.remove('flash'), 1800); }
     sincronizarProgresoNube();
   } catch(e) {
     console.warn('No se pudo guardar en localStorage:', e.message);
