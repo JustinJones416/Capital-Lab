@@ -4916,11 +4916,50 @@ async function authBoot(){
     if(session){
       await authLoadProfileAndEnter();
     }
+    // Antes, si el token de sesión quedaba vencido o inválido (algo común
+    // en Safari de iOS cuando el celular estuvo dormido o cambió de red
+    // por mucho tiempo), la app se quedaba en un estado a medias: parecía
+    // que seguías con la sesión iniciada, pero cada consulta a la base de
+    // datos fallaba en silencio por las reglas de seguridad, así que todo
+    // se veía simplemente "vacío" (sin cuestionarios, sin nada) sin ningún
+    // aviso de qué estaba pasando. Esto lo detecta y avisa claramente.
+    sb.auth.onAuthStateChange((evento, sesionNueva) => {
+      if(evento === 'SIGNED_OUT' && currentUser && !guestMode){
+        currentUser = null;
+        alert('Tu sesión expiró o se cerró en otro lugar. Por favor, vuelve a iniciar sesión.');
+        location.reload();
+      }
+    });
+    iniciarVigilanciaDeSesion();
   } catch(e){
     authMsg('No se pudo conectar con el servidor: ' + (e.message||e) + '. Puedes usar el modo de prueba sin cuenta mientras tanto.', 'error');
   }
 }
 document.addEventListener('DOMContentLoaded', authBoot);
+
+// Revisa cada cierto tiempo, y cada vez que el celular "despierta" la
+// pestaña (por ejemplo, tras tener la pantalla bloqueada un rato largo),
+// que la sesión siga siendo válida DE VERDAD contra el servidor — no solo
+// que exista un token guardado localmente, que es lo que fallaba antes.
+let intervaloVigilanciaSesion = null;
+function iniciarVigilanciaDeSesion(){
+  if(intervaloVigilanciaSesion) clearInterval(intervaloVigilanciaSesion);
+  intervaloVigilanciaSesion = setInterval(verificarSesionValida, 5 * 60000);
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible') verificarSesionValida();
+  });
+}
+async function verificarSesionValida(){
+  if(!sb || !currentUser || guestMode) return;
+  try {
+    const { data: { user }, error } = await sb.auth.getUser();
+    if(error || !user){
+      currentUser = null;
+      alert('Tu sesión expiró. Por favor, vuelve a iniciar sesión para seguir usando CapitalLab.');
+      location.reload();
+    }
+  } catch(e){ /* problema de red pasajero: no interrumpir, se reintenta en el próximo chequeo */ }
+}
 
 // ═══════════════════ DATA ═══════════════════
 const RF=4.5;
