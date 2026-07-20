@@ -978,6 +978,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <button class="wl-nav-btn"        id="nav-analisis"      onclick="goPage('analisis')"><i class="ti ti-chart-bar"></i> Análisis</button>
     <button class="wl-nav-btn"        id="nav-personalizado" onclick="goPage('personalizado')"><i class="ti ti-adjustments-horizontal"></i> Personalizado</button>
     <button class="wl-nav-btn"        id="nav-cartera"       onclick="goPage('cartera')"><i class="ti ti-briefcase"></i> Mi Cartera</button>
+    <button class="wl-nav-btn"        id="nav-p2p"           onclick="goPage('p2p')"><i class="ti ti-users-group"></i> Mercado entre Estudiantes</button>
     <button class="wl-nav-btn"        id="nav-laboratorio"   onclick="goPage('laboratorio')"><i class="ti ti-flask"></i> Laboratorio</button>
     <button class="wl-nav-btn"        id="nav-resultados"    onclick="goPage('resultados')"><i class="ti ti-award"></i> Resultados</button>
     <button class="wl-nav-btn"        id="nav-resultados-lab" onclick="goPage('resultados-lab')"><i class="ti ti-report-analytics"></i> Resultados Lab</button>
@@ -1518,6 +1519,24 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       <i class="ti ti-certificate" style="font-size:32px;display:block;margin-bottom:10px;opacity:.5;"></i>
       Todavía no hay calificaciones registradas.
     </div>
+  </div>
+</div>
+
+<div id="page-p2p" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <div>
+      <div class="page-title">Mercado entre Estudiantes</div>
+      <div class="page-sub">Compra y vende directamente con tus compañeros de clase, al precio que ustedes negocien — no contra el simulador.</div>
+    </div>
+    <button class="btn btn-sm" onclick="abrirPublicarOfertaP2P()" id="p2p-btn-publicar" style="display:none;"><i class="ti ti-plus"></i> Publicar oferta</button>
+  </div>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title"><i class="ti ti-exchange" style="color:var(--accent2);"></i> Ofertas abiertas</div>
+    <div id="p2p-ofertas-abiertas" style="margin-top:8px;"><div class="auth-hint">Cargando…</div></div>
+  </div>
+  <div class="card" id="p2p-mis-ofertas-card" style="display:none;">
+    <div class="card-title"><i class="ti ti-tag" style="color:var(--gold);"></i> Mis ofertas</div>
+    <div id="p2p-mis-ofertas" style="margin-top:8px;"></div>
   </div>
 </div>
 
@@ -3447,6 +3466,27 @@ async function renderLogrosPage(){
 // ══════════════════════════════════════════════════
 // PANEL DE INICIO — resumen de un vistazo al entrar
 // ══════════════════════════════════════════════════
+// Mini-gráfica de tendencia para las tarjetas del Panel de Inicio — reusa
+// navHistory, que ya se registra localmente en cada tick, sin pedir nada
+// nuevo a la nube. Puramente visual: la trayectoria de un vistazo, no
+// solo el número final.
+function miniSparklineSVG(valores){
+  if(!valores || valores.length < 2) return '';
+  const w = 120, h = 32, pad = 2;
+  const min = Math.min(...valores), max = Math.max(...valores);
+  const rango = (max - min) || 1;
+  const xStep = (w - pad*2) / (valores.length - 1);
+  const puntos = valores.map((v,i) => {
+    const x = pad + i*xStep;
+    const y = h - pad - ((v - min) / rango) * (h - pad*2);
+    return [x,y];
+  });
+  const linea = puntos.map(([x,y],i) => (i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)).join(' ');
+  const subio = valores[valores.length-1] >= valores[0];
+  const color = subio ? 'var(--green)' : 'var(--red)';
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:70px;height:20px;display:block;margin-top:4px;"><path d="${linea}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
 async function renderInicioPage(){
   const titulo = document.getElementById('inicio-titulo');
   const sub = document.getElementById('inicio-sub');
@@ -3581,10 +3621,12 @@ async function renderInicioPage(){
           <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
             <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Valor de cartera</div>
             <div style="font-size:22px;font-weight:700;">$${valorTotal.toLocaleString('es-PA',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+            ${miniSparklineSVG(navHistory.slice(-30).map(p=>p.value))}
           </div>
           <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
             <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Retorno</div>
             <div style="font-size:22px;font-weight:700;color:${retornoPct>=0?'var(--green)':'var(--red)'};">${retornoPct>=0?'+':''}${retornoPct.toFixed(2)}%</div>
+            ${miniSparklineSVG(navHistory.slice(-30).map(p=>p.value))}
           </div>
           <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
             <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Cuestionarios pendientes</div>
@@ -4219,6 +4261,15 @@ async function renderRetoActivo(){
         <div>
           <div class="card-title" style="margin-bottom:2px;"><i class="ti ti-swords" style="color:var(--gold);"></i> ${reto.titulo}</div>
           <div style="font-size:12.5px;color:var(--t3);">Meta: <b style="color:var(--t1);">${reto.meta_retorno>=0?'+':''}${reto.meta_retorno}%</b> de retorno${!esDocente&&miFila&&miFila.retorno!=null?` · Vas en <b style="color:${miFila.retorno>=0?'var(--green)':'var(--red)'};">${miFila.retorno>=0?'+':''}${miFila.retorno.toFixed(2)}%</b>`:''}</div>
+          ${(!esDocente && miFila && miFila.retorno!=null) ? (() => {
+            const pct = reto.meta_retorno !== 0 ? Math.min(100, Math.max(0, (miFila.retorno/reto.meta_retorno)*100)) : 0;
+            const logrado = miFila.retorno >= reto.meta_retorno;
+            const colorBarra = logrado ? 'var(--green)' : (miFila.retorno<0 ? 'var(--red)' : 'var(--gold)');
+            return `<div style="width:100%;max-width:280px;height:6px;border-radius:4px;background:var(--c3);margin-top:8px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${colorBarra};border-radius:4px;transition:width .4s;"></div>
+            </div>
+            <div style="font-size:10px;color:var(--t3);margin-top:3px;">${logrado?'¡Meta alcanzada! 🎉':pct.toFixed(0)+'% del camino hacia la meta'}</div>`;
+          })() : ''}
         </div>
         <div style="text-align:right;">
           <span class="nav-badge" style="background:${terminado?'var(--c3)':'rgba(212,175,55,.15)'};color:${terminado?'var(--t3)':'var(--gold)'};font-size:11.5px;">${formatearCuentaRegresiva(reto.fecha_fin)}</span>
@@ -6169,6 +6220,7 @@ function goPage(p){
   if(p==='calificaciones' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_calificaciones_'+currentUser.sesion_id, '1');
   if(p==='calificaciones') renderCalificacionesPage();
   if(p==='cuestionarios') renderCuestionariosPage();
+  if(p==='p2p'){ renderMercadoP2P(); iniciarRealtimeP2P(); } else { detenerRealtimeP2P(); }
   if(p==='posiciones') renderPosicionesPage();
   if(p==='logros') renderLogrosPage();
   if(p==='admin') renderAdminPage();
@@ -6507,6 +6559,198 @@ async function cargarAlertasPrecio(forzar){
     alertasPrecioCache = data || [];
   } catch(e){ alertasPrecioCache = []; }
   return alertasPrecioCache;
+}
+
+// ══════════════════════════════════════════════════
+// MERCADO ENTRE ESTUDIANTES (P2P) — a diferencia de todo lo demás en
+// CapitalLab, aquí se negocia directamente entre compañeros de la misma
+// sesión, no contra el motor de precios simulado. Sin comisión: es un
+// trato directo entre dos personas, no una operación de corretaje.
+// ══════════════════════════════════════════════════
+let p2pChannel = null;
+
+async function renderMercadoP2P(){
+  const contAbiertas = document.getElementById('p2p-ofertas-abiertas');
+  const contMisOfertas = document.getElementById('p2p-mis-ofertas');
+  const cardMisOfertas = document.getElementById('p2p-mis-ofertas-card');
+  const btnPublicar = document.getElementById('p2p-btn-publicar');
+  if(!contAbiertas) return;
+
+  if(!currentUser || guestMode || !currentUser.sesion_id || currentUser.rol!=='estudiante'){
+    contAbiertas.innerHTML = '<div class="auth-hint">El mercado entre estudiantes es solo para cuentas de estudiante con una sesión activa.</div>';
+    btnPublicar.style.display = 'none';
+    cardMisOfertas.style.display = 'none';
+    return;
+  }
+  btnPublicar.style.display = '';
+  cardMisOfertas.style.display = 'block';
+  contAbiertas.innerHTML = '<div class="auth-hint">Cargando…</div>';
+
+  // Cada vez que se entra a esta página, se revisa si alguna de mis ofertas
+  // de venta ya fue comprada por alguien mientras no estaba conectado.
+  await aplicarVentasP2PPendientes();
+
+  try {
+    const { data: abiertas, error } = await sb.from('ofertas_p2p').select('*, usuarios!ofertas_p2p_vendedor_id_fkey(nombre)').eq('sesion_id', currentUser.sesion_id).eq('estado','abierta').order('creado_en',{ascending:false});
+    if(error) throw error;
+
+    const deOtros = (abiertas||[]).filter(o => o.vendedor_id !== currentUser.usuario_id);
+    if(!deOtros.length){
+      contAbiertas.innerHTML = '<div class="auth-hint">Ningún compañero tiene ofertas abiertas por ahora.</div>';
+    } else {
+      contAbiertas.innerHTML = deOtros.map(o => `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--c4);border-radius:var(--r2);margin-bottom:8px;flex-wrap:wrap;">
+          <div style="min-width:0;">
+            <div style="font-weight:700;font-size:13.5px;">${o.activo_nombre} <span class="badge ${typeBadgeCls(o.activo_tipo)}" style="font-size:9px;">${o.activo_tipo}</span></div>
+            <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Compañero'} vende ${o.cantidad}u a $${fmt(o.precio_unitario)} c/u</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-weight:700;font-size:15px;">$${fmt(o.cantidad*o.precio_unitario)}</div>
+            <button class="btn btn-buy btn-sm" onclick="comprarOfertaP2P('${o.id}')">Comprar</button>
+          </div>
+        </div>`).join('');
+    }
+
+    const mias = (abiertas||[]).filter(o => o.vendedor_id === currentUser.usuario_id);
+    const { data: miasCumplidas } = await sb.from('ofertas_p2p').select('*').eq('vendedor_id', currentUser.usuario_id).eq('estado','cumplida').order('cumplida_en',{ascending:false}).limit(5);
+    const todasMias = [...mias, ...(miasCumplidas||[])];
+    contMisOfertas.innerHTML = todasMias.length ? todasMias.map(o => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--c3);font-size:12.5px;">
+        <div>${o.activo_nombre} · ${o.cantidad}u a $${fmt(o.precio_unitario)}</div>
+        ${o.estado==='abierta'
+          ? `<button class="btn btn-sm" style="color:var(--red);" onclick="cancelarOfertaP2P('${o.id}')">Cancelar</button>`
+          : `<span class="nav-badge" style="background:rgba(0,208,132,.15);color:var(--green);">Vendida</span>`}
+      </div>`).join('') : '<div class="auth-hint">No tienes ninguna oferta publicada.</div>';
+  } catch(e){
+    contAbiertas.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
+  }
+}
+
+function abrirPublicarOfertaP2P(){
+  if(!portfolio.length){ notify('No tienes ninguna posición en tu cartera todavía.', 'error'); return; }
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:420px;">
+    <h3>Publicar oferta de venta</h3>
+    <div class="sub">Cualquier compañero de tu sesión podrá comprarla al precio que fijes. Sin comisión.</div>
+    <div class="grade-field">
+      <label>Activo</label>
+      <select id="pp-activo">${portfolio.map((p,i)=>`<option value="${i}">${p.name} (${p.qty}u disponibles)</option>`).join('')}</select>
+    </div>
+    <div class="grade-field"><label>Cantidad a vender</label><input type="number" id="pp-cantidad" min="1" value="1"></div>
+    <div class="grade-field"><label>Precio por unidad ($)</label><input type="number" id="pp-precio" step="0.01"></div>
+    <div class="auth-msg" id="pp-msg"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" id="pp-cancelar" style="flex:1;">Cancelar</button>
+      <button class="auth-submit" id="pp-guardar" style="flex:1;margin-top:0;">Publicar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#pp-cancelar').onclick = () => overlay.remove();
+
+  const actualizarPrecioSugerido = () => {
+    const p = portfolio[+overlay.querySelector('#pp-activo').value];
+    overlay.querySelector('#pp-precio').value = (p.currentPrice||p.buyPrice).toFixed(2);
+    overlay.querySelector('#pp-cantidad').max = p.qty;
+  };
+  overlay.querySelector('#pp-activo').onchange = actualizarPrecioSugerido;
+  actualizarPrecioSugerido();
+
+  overlay.querySelector('#pp-guardar').onclick = async () => {
+    const msg = overlay.querySelector('#pp-msg');
+    const p = portfolio[+overlay.querySelector('#pp-activo').value];
+    const cantidad = +overlay.querySelector('#pp-cantidad').value;
+    const precio = +overlay.querySelector('#pp-precio').value;
+    if(!cantidad || cantidad<=0 || cantidad>p.qty){ msg.className='auth-msg show error'; msg.textContent='Cantidad inválida (máximo '+p.qty+').'; return; }
+    if(!precio || precio<=0){ msg.className='auth-msg show error'; msg.textContent='Ingresa un precio válido.'; return; }
+    const btn = overlay.querySelector('#pp-guardar');
+    btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Publicando…';
+    try {
+      const { error } = await conTiempoLimite(sb.from('ofertas_p2p').insert({
+        sesion_id: currentUser.sesion_id, vendedor_id: currentUser.usuario_id,
+        activo_id: p.id, activo_nombre: p.name, activo_tipo: p.type,
+        cantidad, precio_unitario: precio,
+      }));
+      if(error) throw error;
+      overlay.remove();
+      notify('Oferta publicada — tus compañeros ya la pueden ver.', 'success');
+      renderMercadoP2P();
+    } catch(e){
+      msg.className='auth-msg show error'; msg.textContent = 'No se pudo publicar: ' + (e.message||e);
+      btn.disabled = false; btn.textContent = 'Publicar';
+    }
+  };
+}
+
+async function comprarOfertaP2P(ofertaId){
+  if(!confirm('¿Comprar esta oferta? Se descuenta de tu capital al instante.')) return;
+  try {
+    const { data, error } = await conTiempoLimite(sb.rpc('comprar_oferta_p2p', { p_oferta_id: ofertaId }));
+    if(error) throw error;
+    const costo = data.cantidad * data.precio_unitario;
+    if(costo > capital){
+      notify('Cuidado: esta compra deja tu capital en negativo (apalancado).', 'error');
+    }
+    capital -= costo;
+    const ex = portfolio.find(x=>x.id===data.activo_id && x.type===data.activo_tipo);
+    if(ex){ ex.qty += Number(data.cantidad); ex.invested = (ex.invested||0) + costo; }
+    else portfolio.push({ id:data.activo_id, name:data.activo_nombre, type:data.activo_tipo, ticker:data.activo_nombre, qty:Number(data.cantidad), invested:costo, buyPrice:data.precio_unitario, currentPrice:data.precio_unitario });
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:data.activo_nombre+' (compañero)',type:data.activo_tipo,qty:data.cantidad,price:data.precio_unitario,total:costo,fee:0});
+    updateNavCapital();
+    autosave();
+    notify(`Compraste ${data.cantidad}u de ${data.activo_nombre} directamente a un compañero.`, 'success');
+    renderMercadoP2P();
+  } catch(e){
+    notify('No se pudo comprar: ' + (e.message||e), 'error');
+  }
+}
+
+async function cancelarOfertaP2P(ofertaId){
+  try {
+    const { error } = await sb.from('ofertas_p2p').update({ estado:'cancelada' }).eq('id', ofertaId);
+    if(error) throw error;
+    notify('Oferta cancelada.', 'success');
+    renderMercadoP2P();
+  } catch(e){ notify('No se pudo cancelar: ' + (e.message||e), 'error'); }
+}
+
+// Revisa si alguna de mis ofertas de venta fue comprada mientras no
+// estaba en la app, y aplica esa venta a mi cartera local recién ahora.
+async function aplicarVentasP2PPendientes(){
+  if(!sb || !currentUser || !currentUser.usuario_id || guestMode) return;
+  try {
+    const { data: pendientes } = await sb.from('ofertas_p2p').select('*').eq('vendedor_id', currentUser.usuario_id).eq('estado','cumplida').eq('aplicada_vendedor', false);
+    if(!pendientes || !pendientes.length) return;
+    for(const o of pendientes){
+      const pos = portfolio.find(x=>x.id===o.activo_id && x.type===o.activo_tipo);
+      const cantidadAVender = pos ? Math.min(pos.qty, Number(o.cantidad)) : 0;
+      const cashIn = cantidadAVender * Number(o.precio_unitario);
+      if(pos && cantidadAVender>0){
+        pos.qty -= cantidadAVender;
+        capital += cashIn;
+        if(pos.qty<=0) portfolio = portfolio.filter(x=>!(x.id===o.activo_id && x.type===o.activo_tipo));
+        txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:o.activo_nombre+' (a un compañero)',type:o.activo_tipo,qty:cantidadAVender,price:o.precio_unitario,total:cashIn,fee:0});
+        updateNavCapital();
+        autosave();
+        notify(`Un compañero te compró ${cantidadAVender}u de ${o.activo_nombre} · +$${fmt(cashIn)}`, 'success');
+      }
+      await sb.from('ofertas_p2p').update({ aplicada_vendedor: true }).eq('id', o.id);
+    }
+  } catch(e){ /* silencioso: se vuelve a intentar la próxima vez */ }
+}
+
+function iniciarRealtimeP2P(){
+  if(!sb || !currentUser || !currentUser.sesion_id || guestMode) return;
+  detenerRealtimeP2P();
+  p2pChannel = sb.channel('p2p-'+currentUser.sesion_id)
+    .on('postgres_changes', { event:'*', schema:'public', table:'ofertas_p2p', filter:`sesion_id=eq.${currentUser.sesion_id}` }, () => {
+      renderMercadoP2P();
+    })
+    .subscribe();
+}
+function detenerRealtimeP2P(){
+  if(p2pChannel && sb){ sb.removeChannel(p2pChannel); p2pChannel = null; }
 }
 
 function abrirCrearAlertaPrecio(){
@@ -7451,7 +7695,7 @@ function renderPortfolio(){
         const cur=p.currentPrice||p.buyPrice;
         const pl=cur*p.qty-p.invested;
         const plPct=p.invested>0?(pl/p.invested*100):0;
-        return`<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 100px;gap:8px;align-items:center;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.03);">
+        return`<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 100px;gap:8px;align-items:center;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.03);background:${pl>=0?'rgba(0,208,132,.045)':'rgba(255,71,87,.045)'};border-left:2px solid ${pl>=0?'var(--green)':'var(--red)'};">
           <div><div style="font-weight:500;font-size:13px;">${p.name}</div><div style="font-size:10px;color:var(--t3);">${p.ticker}</div></div>
           <div><span class="badge ${typeBadgeCls(p.type)}">${p.type}</span></div>
           <div class="mono" style="font-size:12px;">${p.qty}</div>
