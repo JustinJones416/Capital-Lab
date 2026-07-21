@@ -393,6 +393,7 @@ tr:hover td{background:rgba(255,255,255,.015);}
 .dot-pre   { background:var(--amber); animation:pulse 2s infinite; }
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
 @keyframes spinOnce{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes crisisSlideIn{from{transform:translateY(-100%);}to{transform:translateY(0);}}
 .spin-once{animation:spinOnce .55s linear;}
 
 /* ── CANDLESTICK ── */
@@ -967,6 +968,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <div class="cap-pill" onclick="openCapModal()" title="Haz clic para editar el capital disponible">
       <i class="ti ti-wallet"></i> $<span id="nav-capital">50,000.00</span>
       <span class="cap-edit-hint"><i class="ti ti-pencil" style="font-size:9px;"></i></span>
+      <span id="topbar-mkt-dot" style="width:7px;height:7px;border-radius:50%;background:var(--t3);margin-left:6px;flex-shrink:0;" title="Mercado cerrado"></span>
     </div>
     <div class="user-chip" id="user-chip" style="display:none;">
       <span class="role-badge" id="user-role-badge">—</span>
@@ -1626,6 +1628,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <div class="page-sub">Para toda la clase — anuncios rápidos, preguntas, coordinación. Tu docente también participa aquí.</div>
   </div>
   <div class="card" style="display:flex;flex-direction:column;height:calc(100vh - 260px);min-height:420px;">
+    <input type="text" id="sesion-chat-buscar" placeholder="Buscar en los mensajes…" oninput="filtrarMensajesChat('sesion', this.value)" style="width:100%;margin-bottom:8px;padding:7px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12px;">
     <div id="sesion-chat-mensajes" style="flex:1;overflow-y:auto;border:1px solid var(--c4);border-radius:var(--r);padding:10px;background:var(--c2);"><div class="auth-hint">Cargando…</div></div>
     <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
       <input type="text" id="sesion-chat-input" placeholder="Escribe un mensaje…" maxlength="500" oninput="actualizarContadorChat('sesion')" style="flex:1;padding:10px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:13px;" onkeydown="if(event.key==='Enter')enviarMensajeChat('sesion')">
@@ -1722,6 +1725,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <button class="btn btn-sm" id="prof-cloud-btn-actualizar" onclick="cargarRosterProfesor(true)"><i class="ti ti-refresh"></i> Actualizar ahora</button>
         <button class="btn btn-sm" onclick="exportarInformeSalonPDF()"><i class="ti ti-file-type-pdf"></i> Exportar informe del salón</button>
         <button class="btn btn-sm" onclick="abrirTomaAsistencia()"><i class="ti ti-clipboard-check"></i> Tomar asistencia</button>
+        <button class="btn btn-sm" onclick="abrirLanzarEventoMercado()" style="color:var(--red);"><i class="ti ti-alert-triangle"></i> Lanzar evento de mercado</button>
       </div>
     </div>
     <div class="card-sub" id="prof-cloud-sesion-info">Cargando información de tu sesión…</div>
@@ -6934,6 +6938,7 @@ async function renderMercadoP2P(esManual){
   const btnActualizar = document.getElementById('p2p-btn-actualizar');
   const marcaActualizacion = document.getElementById('p2p-ultima-actualizacion');
   if(!contAbiertas) return;
+  await cargarMisSeguidos();
 
   if(!currentUser || guestMode || !currentUser.sesion_id || currentUser.rol==='superadmin'){
     contAbiertas.innerHTML = '<div class="auth-hint">El mercado entre estudiantes es solo para cuentas con una sesión activa.</div>';
@@ -6996,7 +7001,7 @@ async function renderMercadoP2P(esManual){
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
               <div style="min-width:0;">
                 <div style="font-weight:700;font-size:13.5px;"><i class="ti ti-gavel" style="font-size:12px;color:var(--gold);margin-right:3px;"></i>${o.activo_nombre} <span class="badge ${typeBadgeCls(o.activo_tipo)}" style="font-size:9px;">${o.activo_tipo}</span></div>
-                <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Estudiante'} subasta ${o.cantidad}u ${soyElMejor?'· <span style="color:var(--gold);">vas ganando</span>':''}</div>
+                <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Estudiante'} subasta ${o.cantidad}u ${soyElMejor?'· <span style="color:var(--gold);">vas ganando</span>':''} ${!esDocenteViendo?`<i class="ti ti-${misSeguidos.has(o.vendedor_id)?'user-check':'user-plus'}" style="font-size:12px;cursor:pointer;color:${misSeguidos.has(o.vendedor_id)?'var(--gold)':'var(--t3)'};margin-left:4px;" title="${misSeguidos.has(o.vendedor_id)?'Dejar de seguir':'Seguir sus operaciones'}" onclick="alternarSeguirEstudiante('${o.vendedor_id}','${(o.usuarios?.nombre||'Estudiante').replace(/'/g,"\\'")}')"></i>`:''}</div>
               </div>
               <span class="nav-badge subasta-cronometro" style="background:${terminada?'var(--c3)':'rgba(212,175,55,.15)'};color:${terminada?'var(--t3)':'var(--gold)'};font-family:var(--font-mono);">${terminada?'Terminada':'—:—'}</span>
             </div>
@@ -7013,7 +7018,7 @@ async function renderMercadoP2P(esManual){
         return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--c4);border-radius:var(--r2);margin-bottom:8px;flex-wrap:wrap;">
           <div style="min-width:0;">
             <div style="font-weight:700;font-size:13.5px;">${o.activo_nombre} <span class="badge ${typeBadgeCls(o.activo_tipo)}" style="font-size:9px;">${o.activo_tipo}</span></div>
-            <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Estudiante'} vende ${o.cantidad}u a $${fmt(o.precio_unitario)} c/u</div>
+            <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Estudiante'} vende ${o.cantidad}u a $${fmt(o.precio_unitario)} c/u ${!esDocenteViendo?`<i class="ti ti-${misSeguidos.has(o.vendedor_id)?'user-check':'user-plus'}" style="font-size:12px;cursor:pointer;color:${misSeguidos.has(o.vendedor_id)?'var(--gold)':'var(--t3)'};margin-left:4px;" title="${misSeguidos.has(o.vendedor_id)?'Dejar de seguir':'Seguir sus operaciones'}" onclick="alternarSeguirEstudiante('${o.vendedor_id}','${(o.usuarios?.nombre||'Estudiante').replace(/'/g,"\\'")}')"></i>`:''}</div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <div style="font-weight:700;font-size:15px;">$${fmt(o.cantidad*o.precio_unitario)}</div>
@@ -7318,16 +7323,30 @@ function escaparHTML(texto){
   return div.innerHTML;
 }
 
+let chatMensajesCache = { sesion: [], p2p: [] };
+
 async function cargarChat(canal){
   const cont = document.getElementById(CHAT_CONTENEDORES[canal]);
   if(!cont || !currentUser || !currentUser.sesion_id) return;
   try {
     const { data, error } = await conTiempoLimite(sb.from('mensajes_chat').select('*').eq('sesion_id', currentUser.sesion_id).eq('canal', canal).order('creado_en', {ascending:true}).limit(200));
     if(error) throw error;
+    chatMensajesCache[canal] = data || [];
     renderMensajesChat(canal, data || [], true);
   } catch(e){
     cont.innerHTML = '<div class="auth-hint">No se pudo cargar el chat: '+(e.message||e)+'</div>';
   }
+}
+
+function filtrarMensajesChat(canal, query){
+  const q = query.trim().toLowerCase();
+  const filtrados = !q ? chatMensajesCache[canal] : chatMensajesCache[canal].filter(m =>
+    m.cuerpo.toLowerCase().includes(q) || m.autor_nombre.toLowerCase().includes(q));
+  if(q && !filtrados.length){
+    document.getElementById(CHAT_CONTENEDORES[canal]).innerHTML = '<div class="auth-hint">Ningún mensaje coincide con esa búsqueda.</div>';
+    return;
+  }
+  renderMensajesChat(canal, filtrados, false);
 }
 
 function renderMensajesChat(canal, mensajes, forzarAbajo){
@@ -7345,11 +7364,20 @@ function renderMensajesChat(canal, mensajes, forzarAbajo){
     const soyYo = m.autor_id === currentUser.usuario_id;
     const esDocenteMsg = m.autor_rol === 'docente' || m.autor_rol === 'superadmin';
     return `<div style="margin-bottom:10px;${soyYo?'text-align:right;':''}">
-      <div style="font-size:10px;color:${esDocenteMsg?'var(--gold)':'var(--t3)'};margin-bottom:2px;">${escaparHTML(m.autor_nombre)}${esDocenteMsg?' · docente':''} · ${formatearFechaHora(m.creado_en)}</div>
+      <div style="font-size:10px;color:${esDocenteMsg?'var(--gold)':'var(--t3)'};margin-bottom:2px;">${escaparHTML(m.autor_nombre)}${esDocenteMsg?' · docente':''} · ${formatearFechaHora(m.creado_en)}${soyYo?` · <span style="cursor:pointer;text-decoration:underline;" onclick="borrarMensajeChat('${m.id}','${canal}')">borrar</span>`:''}</div>
       <div style="display:inline-block;max-width:80%;padding:8px 12px;border-radius:var(--r2);background:${soyYo?'var(--accent)':'var(--c3)'};color:${soyYo?'#fff':'var(--t1)'};font-size:13px;text-align:left;word-break:break-word;">${escaparHTML(m.cuerpo)}</div>
     </div>`;
   }).join('');
   if(yaAbajo) cont.scrollTop = cont.scrollHeight;
+}
+
+async function borrarMensajeChat(id, canal){
+  if(!confirm('¿Borrar este mensaje?')) return;
+  try {
+    const { error } = await sb.from('mensajes_chat').delete().eq('id', id);
+    if(error) throw error;
+    cargarChat(canal);
+  } catch(e){ notify('No se pudo borrar: ' + (e.message||e), 'error'); }
 }
 
 function actualizarContadorChat(canal){
@@ -7405,6 +7433,247 @@ function iniciarRealtimeChat(){
 }
 function detenerRealtimeChat(){
   if(chatChannel && sb){ sb.removeChannel(chatChannel); chatChannel = null; }
+}
+
+// ══════════════════════════════════════════════════
+// MODO CRISIS DEL MERCADO — el docente dispara en vivo un evento
+// económico que sesga los precios de un mercado completo durante varios
+// ticks, para toda su sesión a la vez. No se guarda en ninguna tabla: se
+// transmite por el canal de tiempo real de Supabase (broadcast simple,
+// sin postgres_changes) y cada navegador conectado lo aplica sobre su
+// propia cartera usando exactamente el mismo mecanismo de "impacto
+// gradual" que ya existe para las noticias — cero riesgo para el motor
+// de precios, porque no se toca ninguna de sus fórmulas, solo se le
+// entrega el mismo tipo de dato que ya sabe leer.
+// ══════════════════════════════════════════════════
+let eventosMercadoChannel = null;
+
+const PLANTILLAS_EVENTO_MERCADO = [
+  { titulo: 'Crisis de liquidez', mercado: 'accion', sesgo: -8, icono: 'trending-down' },
+  { titulo: 'Boom tecnológico', mercado: 'accion', sesgo: 6, icono: 'trending-up' },
+  { titulo: 'Corrección en bonos', mercado: 'bono', sesgo: -4, icono: 'trending-down' },
+  { titulo: 'Devaluación de divisa', mercado: 'divisa', sesgo: -5, icono: 'trending-down' },
+  { titulo: 'Repunte de materias primas', mercado: 'futuro', sesgo: 5, icono: 'trending-up' },
+  { titulo: 'Pánico generalizado', mercado: 'todos', sesgo: -6, icono: 'alert-triangle' },
+];
+
+function iniciarEscuchaEventosMercado(){
+  if(!sb || !currentUser || !currentUser.sesion_id || guestMode || eventosMercadoChannel) return;
+  eventosMercadoChannel = sb.channel('eventos-mercado-'+currentUser.sesion_id)
+    .on('broadcast', { event: 'crisis' }, ({ payload }) => aplicarEventoMercado(payload))
+    .subscribe();
+}
+function detenerEscuchaEventosMercado(){
+  if(eventosMercadoChannel && sb){ sb.removeChannel(eventosMercadoChannel); eventosMercadoChannel = null; }
+}
+
+// Reparte el sesgo del evento entre todos los activos del mercado
+// afectado, usando newsImpacts — el mismo mecanismo con el que ya
+// reacciona el precio a una noticia individual, solo que aplicado a
+// muchos activos a la vez.
+function aplicarEventoMercado(evento){
+  if(!evento || !evento.mercado || typeof evento.sesgo !== 'number') return;
+  const afectados = allAssets().filter(a => evento.mercado==='todos' || a.type===evento.mercado);
+  const nTicks = 6 + Math.floor(Math.random()*4); // se absorbe en 6-9 ticks, igual que una noticia fuerte
+  afectados.forEach(a => {
+    // Cada activo reacciona con una intensidad ligeramente distinta al
+    // mismo evento, para que no se muevan todos exactamente igual —
+    // más realista que aplicar el mismo número a todo el mercado.
+    const variacion = 0.75 + Math.random()*0.5;
+    const perTick = (evento.sesgo/100 * variacion) / nTicks;
+    newsImpacts[a.id] = { perTick, ticks: nTicks };
+  });
+  mostrarBannerCrisisMercado(evento);
+  // Se usa un activo real de los afectados (con ticker, tipo, etc. completos)
+  // para que el titular de la noticia salga bien formado — un objeto
+  // simulado a medias generaría texto roto ahí dentro.
+  if(afectados.length) generateNewsItem(afectados[Math.floor(Math.random()*afectados.length)], evento.sesgo);
+}
+
+// Aviso grande y temporal en toda la pantalla, para que se sienta como
+// una noticia de última hora — igual que se vería un evento real en un
+// mercado de verdad.
+function mostrarBannerCrisisMercado(evento){
+  document.querySelectorAll('.crisis-banner').forEach(b=>b.remove());
+  const negativo = evento.sesgo < 0;
+  const banner = document.createElement('div');
+  banner.className = 'crisis-banner';
+  banner.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:5000;background:${negativo?'linear-gradient(90deg,#3d0f14,#1a0608)':'linear-gradient(90deg,#0a2e1f,#06140d)'};border-bottom:2px solid ${negativo?'var(--red)':'var(--green)'};padding:12px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 6px 24px rgba(0,0,0,.4);animation:crisisSlideIn .4s ease;`;
+  banner.innerHTML = `
+    <i class="ti ti-${negativo?'trending-down':'trending-up'}" style="font-size:26px;color:${negativo?'var(--red)':'var(--green)'};flex-shrink:0;"></i>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:700;font-size:14px;color:#fff;">${evento.titulo}</div>
+      <div style="font-size:11.5px;color:rgba(255,255,255,.65);">${evento.mercado==='todos'?'Todo el mercado':'Mercado de '+evento.mercado+'s'} · sesgo ${evento.sesgo>0?'+':''}${evento.sesgo}% en los próximos minutos</div>
+    </div>
+    <button onclick="this.closest('.crisis-banner').remove()" style="background:transparent;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:18px;flex-shrink:0;">&times;</button>
+  `;
+  document.body.appendChild(banner);
+  setTimeout(()=>banner.remove(), 12000);
+}
+
+// ══════════════════════════════════════════════════
+// COPIAR OPERACIONES ENTRE COMPAÑEROS — seguir a otro estudiante de la
+// misma sesión y recibir un aviso con un botón de copiar cuando esa
+// persona compra o vende. Reutiliza la tabla `operaciones` que ya existía
+// para la Sala en Vivo del docente, así que no hace falta ningún cambio
+// en el motor de trading ni en cómo se registran las compras y ventas.
+// ══════════════════════════════════════════════════
+let misSeguidos = new Set();
+let operacionesChannel = null;
+
+async function cargarMisSeguidos(){
+  if(!sb || !currentUser || !currentUser.usuario_id || guestMode) { misSeguidos = new Set(); return; }
+  try {
+    const { data } = await sb.from('seguidores_trading').select('seguido_id').eq('seguidor_id', currentUser.usuario_id);
+    misSeguidos = new Set((data||[]).map(f=>f.seguido_id));
+  } catch(e){ misSeguidos = new Set(); }
+}
+
+async function alternarSeguirEstudiante(usuarioId, nombre){
+  if(!currentUser || currentUser.usuario_id === usuarioId) return;
+  try {
+    if(misSeguidos.has(usuarioId)){
+      await sb.from('seguidores_trading').delete().eq('seguidor_id', currentUser.usuario_id).eq('seguido_id', usuarioId);
+      misSeguidos.delete(usuarioId);
+      notify(`Dejaste de seguir a ${nombre}.`, 'success');
+    } else {
+      await sb.from('seguidores_trading').insert({ seguidor_id: currentUser.usuario_id, seguido_id: usuarioId, sesion_id: currentUser.sesion_id });
+      misSeguidos.add(usuarioId);
+      notify(`Ahora sigues a ${nombre} — te avisamos cuando opere.`, 'success');
+      iniciarEscuchaOperacionesSeguidos();
+    }
+    renderMercadoP2P();
+  } catch(e){ notify('No se pudo actualizar: ' + (e.message||e), 'error'); }
+}
+
+function iniciarEscuchaOperacionesSeguidos(){
+  if(!sb || !currentUser || !currentUser.sesion_id || guestMode || operacionesChannel) return;
+  operacionesChannel = sb.channel('operaciones-seguidos-'+currentUser.sesion_id)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'operaciones', filter:`sesion_id=eq.${currentUser.sesion_id}` }, (payload) => {
+      const op = payload.new;
+      if(op.usuario_id === currentUser.usuario_id) return; // nunca avisar de las propias
+      if(!misSeguidos.has(op.usuario_id)) return; // solo de a quien sigo
+      mostrarAvisoCopiarOperacion(op);
+    })
+    .subscribe();
+}
+function detenerEscuchaOperacionesSeguidos(){
+  if(operacionesChannel && sb){ sb.removeChannel(operacionesChannel); operacionesChannel = null; }
+}
+
+function mostrarAvisoCopiarOperacion(op){
+  enviarNotificacionNativa('Un compañero que sigues operó — CapitalLab', `${op.tipo==='compra'?'Compró':'Vendió'} ${op.cantidad}u de ${op.simbolo} a $${fmt(op.precio_ejecucion)}.`);
+  const toast = document.createElement('div');
+  toast.className = 'deshacer-toast';
+  toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:4500;background:var(--c1);border:1px solid var(--gold);border-radius:var(--r2);padding:12px 16px;display:flex;align-items:center;gap:14px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:92vw;';
+  toast.innerHTML = `<span style="font-size:12.5px;white-space:nowrap;"><i class="ti ti-user-check" style="color:var(--gold);"></i> Alguien que sigues ${op.tipo==='compra'?'compró':'vendió'} ${op.cantidad}u de ${op.simbolo} a $${fmt(op.precio_ejecucion)}</span><button class="btn btn-sm" style="background:rgba(212,175,55,.15);color:var(--gold);flex-shrink:0;">Copiar</button>`;
+  document.body.appendChild(toast);
+  const timeoutId = setTimeout(()=>toast.remove(), 15000);
+  toast.querySelector('button').onclick = () => {
+    clearTimeout(timeoutId);
+    copiarOperacion(op);
+    toast.remove();
+  };
+}
+
+// Copia la operación a mi propia cartera, al precio ACTUAL del mercado
+// (no al precio exacto que tenía la otra persona en ese instante, que ya
+// pudo haber cambiado) — es la misma lógica que cualquier compra o venta
+// normal, solo que la dispara este aviso en vez del panel de Mercado.
+function copiarOperacion(op){
+  const activo = allAssets().find(a => a.name === op.simbolo);
+  if(!activo){ notify('No se pudo encontrar ese activo para copiarlo.', 'error'); return; }
+  const precioActual = activo.currentPrice || activo.price;
+  if(op.tipo === 'compra'){
+    const costo = op.cantidad * precioActual;
+    if(costo > capital){ notify('No tienes suficiente capital para copiar esta compra.', 'error'); return; }
+    const ex = portfolio.find(x=>x.id===activo.id && x.type===activo.type);
+    capital -= costo;
+    if(ex){ ex.qty += Number(op.cantidad); ex.invested = (ex.invested||0) + costo; }
+    else portfolio.push({ ...activo, qty:Number(op.cantidad), invested:costo, buyPrice:precioActual, currentPrice:precioActual });
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:activo.name+' (copiada)',type:activo.type,qty:op.cantidad,price:precioActual,total:costo,fee:0});
+  } else {
+    const pos = portfolio.find(x=>x.id===activo.id && x.type===activo.type);
+    if(!pos || pos.qty < op.cantidad){ notify('No tienes suficientes unidades para copiar esta venta.', 'error'); return; }
+    const ingreso = op.cantidad * precioActual;
+    pos.qty -= op.cantidad;
+    capital += ingreso;
+    if(pos.qty<=0) portfolio = portfolio.filter(x=>!(x.id===activo.id && x.type===activo.type));
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:activo.name+' (copiada)',type:activo.type,qty:op.cantidad,price:precioActual,total:ingreso,fee:0});
+  }
+  updateNavCapital();
+  autosave();
+  if(typeof renderPortfolio==='function') renderPortfolio();
+  notify(`Copiaste la operación — ${op.cantidad}u de ${activo.name} a $${fmt(precioActual)}.`, 'success');
+}
+
+function abrirLanzarEventoMercado(){
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:460px;">
+    <h3>Lanzar evento de mercado</h3>
+    <div class="sub">Sesga los precios de un mercado completo para toda tu sesión, en tiempo real. El efecto se absorbe en unos minutos, igual que una noticia.</div>
+    <div class="grade-field">
+      <label>Plantilla rápida</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${PLANTILLAS_EVENTO_MERCADO.map((t,i) => `<button class="btn btn-sm" data-plantilla="${i}" style="font-size:11px;"><i class="ti ti-${t.icono}" style="font-size:11px;"></i> ${t.titulo}</button>`).join('')}
+      </div>
+    </div>
+    <div class="grade-field"><label>Título del evento</label><input type="text" id="em-titulo" placeholder='Ej. "Crisis de liquidez"'></div>
+    <div class="grade-field">
+      <label>Mercado afectado</label>
+      <select id="em-mercado">
+        <option value="accion">Acciones</option>
+        <option value="bono">Bonos</option>
+        <option value="divisa">Divisas</option>
+        <option value="futuro">Futuros</option>
+        <option value="derivado">Derivados</option>
+        <option value="todos">Todo el mercado</option>
+      </select>
+    </div>
+    <div class="grade-field"><label>Sesgo (%, negativo = baja, positivo = sube)</label><input type="number" id="em-sesgo" value="-6" step="0.5"></div>
+    <div class="auth-msg" id="em-msg"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" id="em-cancelar" style="flex:1;">Cancelar</button>
+      <button class="auth-submit" id="em-lanzar" style="flex:1;margin-top:0;background:var(--red);">Lanzar evento</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#em-cancelar').onclick = () => overlay.remove();
+  overlay.querySelectorAll('[data-plantilla]').forEach(btn => btn.onclick = () => {
+    const t = PLANTILLAS_EVENTO_MERCADO[+btn.dataset.plantilla];
+    overlay.querySelector('#em-titulo').value = t.titulo;
+    overlay.querySelector('#em-mercado').value = t.mercado;
+    overlay.querySelector('#em-sesgo').value = t.sesgo;
+  });
+
+  overlay.querySelector('#em-lanzar').onclick = async () => {
+    const msg = overlay.querySelector('#em-msg');
+    const titulo = overlay.querySelector('#em-titulo').value.trim();
+    const mercado = overlay.querySelector('#em-mercado').value;
+    const sesgo = +overlay.querySelector('#em-sesgo').value;
+    if(!titulo){ msg.className='auth-msg show error'; msg.textContent='Ponle un título al evento.'; return; }
+    if(!sesgo){ msg.className='auth-msg show error'; msg.textContent='El sesgo no puede ser cero.'; return; }
+    if(!confirm(`¿Lanzar "${titulo}" para toda la clase ahora mismo? No se puede deshacer.`)) return;
+    const btn = overlay.querySelector('#em-lanzar');
+    btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Lanzando…';
+    try {
+      const payload = { titulo, mercado, sesgo };
+      const canal = sb.channel('eventos-mercado-'+currentUser.sesion_id);
+      await canal.subscribe(async (estado) => {
+        if(estado === 'SUBSCRIBED'){
+          await canal.send({ type:'broadcast', event:'crisis', payload });
+          setTimeout(()=>sb.removeChannel(canal), 2000);
+        }
+      });
+      overlay.remove();
+      notify('Evento lanzado — toda la clase ya lo está viendo.', 'success');
+    } catch(e){
+      msg.className='auth-msg show error'; msg.textContent = 'No se pudo lanzar: ' + (e.message||e);
+      btn.disabled = false; btn.textContent = 'Lanzar evento';
+    }
+  };
 }
 
 function abrirCrearAlertaPrecio(){
@@ -9814,6 +10083,7 @@ function updateSessionBadge() {
   const btn   = document.getElementById('mkt-session-btn');
   const btnLbl= document.getElementById('mkt-session-btn-label');
   const btnIco= document.getElementById('mkt-session-btn-icon');
+  const dotTop= document.getElementById('topbar-mkt-dot');
   if (!badge) return;
 
   if (marketSession.open) {
@@ -9828,6 +10098,7 @@ function updateSessionBadge() {
     if(btn){ btn.style.background='rgba(255,71,87,.14)';btn.style.color='var(--red)';btn.style.borderColor='rgba(255,71,87,.3)'; }
     if(btnLbl) btnLbl.textContent='Cerrar mercado';
     if(btnIco) btnIco.className='ti ti-player-stop';
+    if(dotTop){ dotTop.style.background='var(--green)'; dotTop.style.boxShadow='0 0 5px var(--green)'; dotTop.title='Mercado abierto — los precios se mueven en vivo'; }
     if (remaining <= 0) closeMarket();
   } else {
     badge.className  = 'session-closed';
@@ -9837,6 +10108,7 @@ function updateSessionBadge() {
     if(btn){ btn.style.background='rgba(0,208,132,.12)';btn.style.color='var(--green)';btn.style.borderColor='rgba(0,208,132,.3)'; }
     if(btnLbl) btnLbl.textContent='Abrir mercado';
     if(btnIco) btnIco.className='ti ti-player-play';
+    if(dotTop){ dotTop.style.background='var(--t3)'; dotTop.style.boxShadow='none'; dotTop.title='Mercado cerrado — los precios no se mueven en vivo, pero sí puedes operar'; }
   }
 }
 
@@ -11999,6 +12271,8 @@ function initApp() {
       }
     }
   } catch(e) {}
+  try { iniciarEscuchaEventosMercado(); } catch(e){}
+  try { cargarMisSeguidos().then(()=>{ if(misSeguidos.size) iniciarEscuchaOperacionesSeguidos(); }); } catch(e){}
 }
 </script>
 </body>
