@@ -283,7 +283,7 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 /* ── STANDARD CARDS ── */
 .card{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);padding:16px 20px;}
 .card-title{font-family:var(--font-head);font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;color:var(--t1);}
-.card-collapse-toggle{margin-left:auto;cursor:pointer;font-size:14px;color:var(--t3);transition:transform .15s;flex-shrink:0;}
+.card-collapse-toggle{margin-left:auto;cursor:pointer;font-size:14px;color:var(--t3);transition:transform .15s;flex-shrink:0;padding:10px;margin-right:-10px;margin-top:-10px;margin-bottom:-10px;display:inline-flex;align-items:center;justify-content:center;}
 .card.tarjeta-colapsada > *:not(.card-title){display:none;}
 .card.tarjeta-colapsada .card-title{margin-bottom:0;}
 .card-title i{color:var(--accent2);font-size:15px;}
@@ -7468,7 +7468,7 @@ async function renderMercadoP2P(esManual){
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
               <div style="min-width:0;">
                 <div style="font-weight:700;font-size:13.5px;"><i class="ti ti-gavel" style="font-size:12px;color:var(--gold);margin-right:3px;"></i>${o.activo_nombre} <span class="badge ${typeBadgeCls(o.activo_tipo)}" style="font-size:9px;">${o.activo_tipo}</span></div>
-                <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Estudiante'} subasta ${o.cantidad}u ${soyElMejor?'· <span style="color:var(--gold);">vas ganando</span>':''} ${!esDocenteViendo?`<i class="ti ti-${misSeguidos.has(o.vendedor_id)?'user-check':'user-plus'}" style="font-size:12px;cursor:pointer;color:${misSeguidos.has(o.vendedor_id)?'var(--gold)':'var(--t3)'};margin-left:4px;" title="${misSeguidos.has(o.vendedor_id)?'Dejar de seguir':'Seguir sus operaciones'}" onclick="alternarSeguirEstudiante('${o.vendedor_id}','${(o.usuarios?.nombre||'Estudiante').replace(/'/g,"\\'")}')"></i>`:''}</div>
+                <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Estudiante'} subasta ${o.cantidad}u ${soyElMejor?'· <span style="color:var(--gold);">vas ganando</span>':''} ${!esDocenteViendo?`<i class="ti ti-${misSeguidos.has(o.vendedor_id)?'user-check':'user-plus'}" style="font-size:12px;cursor:pointer;color:${misSeguidos.has(o.vendedor_id)?'var(--gold)':'var(--t3)'};margin-left:4px;padding:8px;" title="${misSeguidos.has(o.vendedor_id)?'Dejar de seguir':'Seguir sus operaciones'}" onclick="alternarSeguirEstudiante('${o.vendedor_id}','${(o.usuarios?.nombre||'Estudiante').replace(/'/g,"\\'")}')"></i>`:''}</div>
               </div>
               <span class="nav-badge subasta-cronometro" style="background:${terminada?'var(--c3)':'rgba(212,175,55,.15)'};color:${terminada?'var(--t3)':'var(--gold)'};font-family:var(--font-mono);">${terminada?'Terminada':'—:—'}</span>
             </div>
@@ -7485,7 +7485,7 @@ async function renderMercadoP2P(esManual){
         return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--c4);border-radius:var(--r2);margin-bottom:8px;flex-wrap:wrap;">
           <div style="min-width:0;">
             <div style="font-weight:700;font-size:13.5px;">${o.activo_nombre} <span class="badge ${typeBadgeCls(o.activo_tipo)}" style="font-size:9px;">${o.activo_tipo}</span></div>
-            <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Estudiante'} vende ${o.cantidad}u a $${fmt(o.precio_unitario)} c/u ${!esDocenteViendo?`<i class="ti ti-${misSeguidos.has(o.vendedor_id)?'user-check':'user-plus'}" style="font-size:12px;cursor:pointer;color:${misSeguidos.has(o.vendedor_id)?'var(--gold)':'var(--t3)'};margin-left:4px;" title="${misSeguidos.has(o.vendedor_id)?'Dejar de seguir':'Seguir sus operaciones'}" onclick="alternarSeguirEstudiante('${o.vendedor_id}','${(o.usuarios?.nombre||'Estudiante').replace(/'/g,"\\'")}')"></i>`:''}</div>
+            <div style="font-size:11.5px;color:var(--t3);">${o.usuarios?.nombre||'Estudiante'} vende ${o.cantidad}u a $${fmt(o.precio_unitario)} c/u ${!esDocenteViendo?`<i class="ti ti-${misSeguidos.has(o.vendedor_id)?'user-check':'user-plus'}" style="font-size:12px;cursor:pointer;color:${misSeguidos.has(o.vendedor_id)?'var(--gold)':'var(--t3)'};margin-left:4px;padding:8px;" title="${misSeguidos.has(o.vendedor_id)?'Dejar de seguir':'Seguir sus operaciones'}" onclick="alternarSeguirEstudiante('${o.vendedor_id}','${(o.usuarios?.nombre||'Estudiante').replace(/'/g,"\\'")}')"></i>`:''}</div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <div style="font-weight:700;font-size:15px;">$${fmt(o.cantidad*o.precio_unitario)}</div>
@@ -8907,7 +8907,7 @@ function renderAnalysisGrid(){
     const colorBarra = a.sector ? colorSector(a.sector) : 'transparent';
     const esFav = favoritosAnalisis.has(a.id);
     return `<div class="an-asset-card ${sel}" onclick="selectAnalysisAsset('${a.id}','${a.type}')" style="border-left:3px solid ${colorBarra};position:relative;">
-      <i class="ti ti-star${esFav?'-filled':''}" style="position:absolute;top:8px;right:8px;font-size:14px;color:${esFav?'var(--gold)':'var(--t3)'};cursor:pointer;" onclick="event.stopPropagation();alternarFavoritoAnalisis('${a.id}')" title="${esFav?'Quitar de favoritos':'Marcar como favorito'}"></i>
+      <i class="ti ti-star${esFav?'-filled':''}" style="position:absolute;top:-2px;right:-2px;padding:10px;font-size:14px;color:${esFav?'var(--gold)':'var(--t3)'};cursor:pointer;" onclick="event.stopPropagation();alternarFavoritoAnalisis('${a.id}')" title="${esFav?'Quitar de favoritos':'Marcar como favorito'}"></i>
       <div class="an-asset-card-tk">${a.ticker}${a.sector?` <span style="font-size:8px;color:${colorBarra};font-weight:600;">${a.sector}</span>`:''}</div>
       <div class="an-asset-card-nm">${a.name}</div>
       <div class="an-asset-card-row">
