@@ -1347,6 +1347,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <button class="btn btn-sm" onclick="abrirReplayCartera()"><i class="ti ti-player-play"></i> Replay</button>
         <button class="btn btn-sm" onclick="abrirDiarioTrading()"><i class="ti ti-notebook"></i> Mi Diario de Trading</button>
         <button class="btn btn-sm" onclick="abrirMetaPersonal()"><i class="ti ti-flag"></i> Meta Personal</button>
+        <button class="btn btn-sm" onclick="abrirComparadorIndice()"><i class="ti ti-scale"></i> Yo vs. el Mercado</button>
       </div>
     </div>
   </div>
@@ -4146,6 +4147,7 @@ async function renderInicioPage(){
           <button class="btn btn-sm" onclick="abrirDiarioTrading()"><i class="ti ti-notebook"></i> Diario de Trading</button>
           <button class="btn btn-sm" onclick="abrirMetaPersonal()"><i class="ti ti-flag"></i> Meta Personal</button>
           <button class="btn btn-sm" onclick="abrirInsigniaDesempeno()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-mood-smile"></i> Tarjeta de Desempeño</button>
+          <button class="btn btn-sm" onclick="abrirComparadorIndice()"><i class="ti ti-scale"></i> Yo vs. el Mercado</button>
         </div>
         ${rankingTxt ? `<div class="info-box-app" style="background:rgba(0,196,255,.08);border:1px solid var(--accent2);border-radius:var(--r);padding:10px 14px;font-size:13px;margin-bottom:16px;"><i class="ti ti-trophy" style="color:var(--accent2);margin-right:6px;"></i>${rankingTxt}</div>` : ''}
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">
@@ -8263,6 +8265,56 @@ function mostrarPromptDiarioTrading(accion, nombreActivo){
 // vez, con notificación nativa incluida si la tiene activada.
 // ══════════════════════════════════════════════════
 let metaPersonal = null; // { valor, celebrada }
+
+// ══════════════════════════════════════════════════
+// YO vs. EL MERCADO — compara el retorno real del estudiante contra lo
+// que hubiera obtenido simplemente repartiendo su capital inicial entre
+// todos los activos disponibles y no tocar nada más (inversión pasiva).
+// Es la lección clásica de finanzas: ¿de verdad conviene operar
+// activamente, o el mercado en su conjunto ya lo hace mejor?
+// ══════════════════════════════════════════════════
+function abrirComparadorIndice(){
+  if(!currentUser){ notify('Inicia sesión primero.', 'error'); return; }
+  const valorActual = capital + portfolio.reduce((s,p)=>s+(p.qty*(p.currentPrice||p.buyPrice)),0);
+  const retornoPropio = ((valorActual - 50000) / 50000) * 100;
+
+  const activos = allAssets();
+  const cambios = activos.map(a => {
+    const inicial = a.price;
+    const actual = a.currentPrice || a.price;
+    return inicial > 0 ? ((actual - inicial) / inicial) * 100 : 0;
+  });
+  const retornoPasivo = cambios.length ? cambios.reduce((s,c)=>s+c,0) / cambios.length : 0;
+  const diferencia = retornoPropio - retornoPasivo;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:460px;">
+    <h3><i class="ti ti-scale"></i> Yo vs. el Mercado</h3>
+    <div class="sub">Tu retorno real, contra lo que hubieras obtenido repartiendo tu capital inicial entre todo el mercado disponible y no tocar nada más.</div>
+    <div style="display:flex;gap:12px;margin:14px 0;">
+      <div style="flex:1;background:var(--c2);border-radius:var(--r2);padding:14px;text-align:center;">
+        <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;">Tu retorno (activo)</div>
+        <div style="font-size:24px;font-weight:700;color:${retornoPropio>=0?'var(--green)':'var(--red)'};">${retornoPropio>=0?'+':''}${retornoPropio.toFixed(1)}%</div>
+      </div>
+      <div style="flex:1;background:var(--c2);border-radius:var(--r2);padding:14px;text-align:center;">
+        <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;">Mercado (pasivo)</div>
+        <div style="font-size:24px;font-weight:700;color:${retornoPasivo>=0?'var(--green)':'var(--red)'};">${retornoPasivo>=0?'+':''}${retornoPasivo.toFixed(1)}%</div>
+      </div>
+    </div>
+    <div class="info-box" style="font-size:12.5px;">
+      ${diferencia > 1
+        ? `Tu estrategia activa le está ganando al mercado en general por ${diferencia.toFixed(1)} puntos porcentuales — tus decisiones de comprar y vender activos específicos están aportando valor real.`
+        : diferencia < -1
+          ? `El mercado en su conjunto le está ganando a tu estrategia por ${Math.abs(diferencia).toFixed(1)} puntos porcentuales — es una lección real de finanzas: superar al mercado de forma consistente es difícil, incluso para profesionales.`
+          : `Tu resultado está muy parejo con lo que hubiera dado simplemente repartir el capital entre todo el mercado — ni mejor ni peor de forma significativa.`
+      }
+    </div>
+    <button class="btn btn-ghost" onclick="this.closest('.grade-modal-overlay').remove()" style="width:100%;margin-top:10px;min-height:44px;">Cerrar</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+}
 
 function abrirMetaPersonal(){
   const overlay = document.createElement('div');
