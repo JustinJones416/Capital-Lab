@@ -393,7 +393,6 @@ tr:hover td{background:rgba(255,255,255,.015);}
 .dot-pre   { background:var(--amber); animation:pulse 2s infinite; }
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
 @keyframes spinOnce{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-@keyframes crisisSlideIn{from{transform:translateY(-100%);}to{transform:translateY(0);}}
 .spin-once{animation:spinOnce .55s linear;}
 
 /* ── CANDLESTICK ── */
@@ -1321,6 +1320,8 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" onclick="saveCurrentPortfolio()"><i class="ti ti-device-floppy"></i> Guardar estrategia</button>
         <button class="btn btn-ghost btn-sm" onclick="togglePortfolioCompare()" id="compare-btn"><i class="ti ti-columns"></i> Comparar</button>
+        <button class="btn btn-sm" onclick="abrirTarjetaCompartir()"><i class="ti ti-share"></i> Compartir</button>
+        <button class="btn btn-sm" onclick="repetirUltimaOperacion()" id="btn-repetir-op" style="display:none;"><i class="ti ti-repeat"></i> Repetir última</button>
       </div>
     </div>
   </div>
@@ -1745,7 +1746,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <button class="btn btn-sm" id="prof-cloud-btn-actualizar" onclick="cargarRosterProfesor(true)"><i class="ti ti-refresh"></i> Actualizar ahora</button>
         <button class="btn btn-sm" onclick="exportarInformeSalonPDF()"><i class="ti ti-file-type-pdf"></i> Exportar informe del salón</button>
         <button class="btn btn-sm" onclick="abrirTomaAsistencia()"><i class="ti ti-clipboard-check"></i> Tomar asistencia</button>
-        <button class="btn btn-sm" onclick="abrirLanzarEventoMercado()" style="color:var(--red);"><i class="ti ti-alert-triangle"></i> Lanzar evento de mercado</button>
+        <button class="btn btn-sm" onclick="abrirLanzarEncuestaRapida()"><i class="ti ti-chart-pie"></i> Encuesta rápida</button>
       </div>
     </div>
     <div class="card-sub" id="prof-cloud-sesion-info">Cargando información de tu sesión…</div>
@@ -3887,6 +3888,11 @@ async function renderInicioPage(){
             <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Valor de cartera</div>
             <div style="font-size:22px;font-weight:700;">$${valorTotal.toLocaleString('es-PA',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
             ${miniSparklineSVG(navHistory.slice(-30).map(p=>p.value))}
+          </div>
+          <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
+            <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Racha de días activos</div>
+            <div style="font-size:22px;font-weight:700;color:var(--gold);"><i class="ti ti-flame" style="font-size:18px;"></i> ${rachaActividad} día${rachaActividad===1?'':'s'}</div>
+            <div style="font-size:10px;color:var(--t3);margin-top:4px;">${rachaActividad>=3?'¡Sigue así!':'Entra mañana para sumar otro día'}</div>
           </div>
           <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
             <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Retorno</div>
@@ -7455,244 +7461,323 @@ function detenerRealtimeChat(){
 }
 
 // ══════════════════════════════════════════════════
-// MODO CRISIS DEL MERCADO — el docente dispara en vivo un evento
-// económico que sesga los precios de un mercado completo durante varios
-// ticks, para toda su sesión a la vez. No se guarda en ninguna tabla: se
-// transmite por el canal de tiempo real de Supabase (broadcast simple,
-// sin postgres_changes) y cada navegador conectado lo aplica sobre su
-// propia cartera usando exactamente el mismo mecanismo de "impacto
-// gradual" que ya existe para las noticias — cero riesgo para el motor
-// de precios, porque no se toca ninguna de sus fórmulas, solo se le
-// entrega el mismo tipo de dato que ya sabe leer.
+// TARJETA DE CARTERA PARA COMPARTIR — una imagen lista para bajar o
+// compartir directo desde el celular (WhatsApp, redes), con el resumen
+// del desempeño. Se dibuja con canvas, nada de datos nuevos ni de la
+// nube — solo una forma bonita de mostrar lo que ya está en pantalla.
 // ══════════════════════════════════════════════════
-let eventosMercadoChannel = null;
-
-const PLANTILLAS_EVENTO_MERCADO = [
-  { titulo: 'Crisis de liquidez', mercado: 'accion', sesgo: -8, icono: 'trending-down' },
-  { titulo: 'Boom tecnológico', mercado: 'accion', sesgo: 6, icono: 'trending-up' },
-  { titulo: 'Corrección en bonos', mercado: 'bono', sesgo: -4, icono: 'trending-down' },
-  { titulo: 'Devaluación de divisa', mercado: 'divisa', sesgo: -5, icono: 'trending-down' },
-  { titulo: 'Repunte de materias primas', mercado: 'futuro', sesgo: 5, icono: 'trending-up' },
-  { titulo: 'Pánico generalizado', mercado: 'todos', sesgo: -6, icono: 'alert-triangle' },
-];
-
-function iniciarEscuchaEventosMercado(){
-  if(!sb || !currentUser || !currentUser.sesion_id || guestMode || eventosMercadoChannel) return;
-  eventosMercadoChannel = sb.channel('eventos-mercado-'+currentUser.sesion_id)
-    .on('broadcast', { event: 'crisis' }, ({ payload }) => aplicarEventoMercado(payload))
-    .subscribe();
-}
-function detenerEscuchaEventosMercado(){
-  if(eventosMercadoChannel && sb){ sb.removeChannel(eventosMercadoChannel); eventosMercadoChannel = null; }
-}
-
-// Reparte el sesgo del evento entre todos los activos del mercado
-// afectado, usando newsImpacts — el mismo mecanismo con el que ya
-// reacciona el precio a una noticia individual, solo que aplicado a
-// muchos activos a la vez.
-function aplicarEventoMercado(evento){
-  if(!evento || !evento.mercado || typeof evento.sesgo !== 'number') return;
-  const afectados = allAssets().filter(a => evento.mercado==='todos' || a.type===evento.mercado);
-  const nTicks = 6 + Math.floor(Math.random()*4); // se absorbe en 6-9 ticks, igual que una noticia fuerte
-  afectados.forEach(a => {
-    // Cada activo reacciona con una intensidad ligeramente distinta al
-    // mismo evento, para que no se muevan todos exactamente igual —
-    // más realista que aplicar el mismo número a todo el mercado.
-    const variacion = 0.75 + Math.random()*0.5;
-    const perTick = (evento.sesgo/100 * variacion) / nTicks;
-    newsImpacts[a.id] = { perTick, ticks: nTicks };
-  });
-  mostrarBannerCrisisMercado(evento);
-  // Se usa un activo real de los afectados (con ticker, tipo, etc. completos)
-  // para que el titular de la noticia salga bien formado — un objeto
-  // simulado a medias generaría texto roto ahí dentro.
-  if(afectados.length) generateNewsItem(afectados[Math.floor(Math.random()*afectados.length)], evento.sesgo);
-}
-
-// Aviso grande y temporal en toda la pantalla, para que se sienta como
-// una noticia de última hora — igual que se vería un evento real en un
-// mercado de verdad.
-function mostrarBannerCrisisMercado(evento){
-  document.querySelectorAll('.crisis-banner').forEach(b=>b.remove());
-  const negativo = evento.sesgo < 0;
-  const banner = document.createElement('div');
-  banner.className = 'crisis-banner';
-  banner.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:5000;background:${negativo?'linear-gradient(90deg,#3d0f14,#1a0608)':'linear-gradient(90deg,#0a2e1f,#06140d)'};border-bottom:2px solid ${negativo?'var(--red)':'var(--green)'};padding:12px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 6px 24px rgba(0,0,0,.4);animation:crisisSlideIn .4s ease;`;
-  banner.innerHTML = `
-    <i class="ti ti-${negativo?'trending-down':'trending-up'}" style="font-size:26px;color:${negativo?'var(--red)':'var(--green)'};flex-shrink:0;"></i>
-    <div style="flex:1;min-width:0;">
-      <div style="font-weight:700;font-size:14px;color:#fff;">${evento.titulo}</div>
-      <div style="font-size:11.5px;color:rgba(255,255,255,.65);">${evento.mercado==='todos'?'Todo el mercado':'Mercado de '+evento.mercado+'s'} · sesgo ${evento.sesgo>0?'+':''}${evento.sesgo}% en los próximos minutos</div>
-    </div>
-    <button onclick="this.closest('.crisis-banner').remove()" style="background:transparent;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:18px;flex-shrink:0;">&times;</button>
-  `;
-  document.body.appendChild(banner);
-  setTimeout(()=>banner.remove(), 12000);
-}
-
-// ══════════════════════════════════════════════════
-// COPIAR OPERACIONES ENTRE COMPAÑEROS — seguir a otro estudiante de la
-// misma sesión y recibir un aviso con un botón de copiar cuando esa
-// persona compra o vende. Reutiliza la tabla `operaciones` que ya existía
-// para la Sala en Vivo del docente, así que no hace falta ningún cambio
-// en el motor de trading ni en cómo se registran las compras y ventas.
-// ══════════════════════════════════════════════════
-let misSeguidos = new Set();
-let operacionesChannel = null;
-
-async function cargarMisSeguidos(){
-  if(!sb || !currentUser || !currentUser.usuario_id || guestMode) { misSeguidos = new Set(); return; }
-  try {
-    const { data } = await sb.from('seguidores_trading').select('seguido_id').eq('seguidor_id', currentUser.usuario_id);
-    misSeguidos = new Set((data||[]).map(f=>f.seguido_id));
-  } catch(e){ misSeguidos = new Set(); }
-}
-
-async function alternarSeguirEstudiante(usuarioId, nombre){
-  if(!currentUser || currentUser.usuario_id === usuarioId) return;
-  try {
-    if(misSeguidos.has(usuarioId)){
-      await sb.from('seguidores_trading').delete().eq('seguidor_id', currentUser.usuario_id).eq('seguido_id', usuarioId);
-      misSeguidos.delete(usuarioId);
-      notify(`Dejaste de seguir a ${nombre}.`, 'success');
-    } else {
-      await sb.from('seguidores_trading').insert({ seguidor_id: currentUser.usuario_id, seguido_id: usuarioId, sesion_id: currentUser.sesion_id });
-      misSeguidos.add(usuarioId);
-      notify(`Ahora sigues a ${nombre} — te avisamos cuando opere.`, 'success');
-      iniciarEscuchaOperacionesSeguidos();
-    }
-    renderMercadoP2P();
-  } catch(e){ notify('No se pudo actualizar: ' + (e.message||e), 'error'); }
-}
-
-function iniciarEscuchaOperacionesSeguidos(){
-  if(!sb || !currentUser || !currentUser.sesion_id || guestMode || operacionesChannel) return;
-  operacionesChannel = sb.channel('operaciones-seguidos-'+currentUser.sesion_id)
-    .on('postgres_changes', { event:'INSERT', schema:'public', table:'operaciones', filter:`sesion_id=eq.${currentUser.sesion_id}` }, (payload) => {
-      const op = payload.new;
-      if(op.usuario_id === currentUser.usuario_id) return; // nunca avisar de las propias
-      if(!misSeguidos.has(op.usuario_id)) return; // solo de a quien sigo
-      mostrarAvisoCopiarOperacion(op);
-    })
-    .subscribe();
-}
-function detenerEscuchaOperacionesSeguidos(){
-  if(operacionesChannel && sb){ sb.removeChannel(operacionesChannel); operacionesChannel = null; }
-}
-
-function mostrarAvisoCopiarOperacion(op){
-  enviarNotificacionNativa('Un compañero que sigues operó — CapitalLab', `${op.tipo==='compra'?'Compró':'Vendió'} ${op.cantidad}u de ${op.simbolo} a $${fmt(op.precio_ejecucion)}.`);
-  const toast = document.createElement('div');
-  toast.className = 'deshacer-toast';
-  toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:4500;background:var(--c1);border:1px solid var(--gold);border-radius:var(--r2);padding:12px 16px;display:flex;align-items:center;gap:14px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:92vw;';
-  toast.innerHTML = `<span style="font-size:12.5px;white-space:nowrap;"><i class="ti ti-user-check" style="color:var(--gold);"></i> Alguien que sigues ${op.tipo==='compra'?'compró':'vendió'} ${op.cantidad}u de ${op.simbolo} a $${fmt(op.precio_ejecucion)}</span><button class="btn btn-sm" style="background:rgba(212,175,55,.15);color:var(--gold);flex-shrink:0;">Copiar</button>`;
-  document.body.appendChild(toast);
-  const timeoutId = setTimeout(()=>toast.remove(), 15000);
-  toast.querySelector('button').onclick = () => {
-    clearTimeout(timeoutId);
-    copiarOperacion(op);
-    toast.remove();
-  };
-}
-
-// Copia la operación a mi propia cartera, al precio ACTUAL del mercado
-// (no al precio exacto que tenía la otra persona en ese instante, que ya
-// pudo haber cambiado) — es la misma lógica que cualquier compra o venta
-// normal, solo que la dispara este aviso en vez del panel de Mercado.
-function copiarOperacion(op){
-  const activo = allAssets().find(a => a.name === op.simbolo);
-  if(!activo){ notify('No se pudo encontrar ese activo para copiarlo.', 'error'); return; }
+// Repite la última compra o venta registrada, al precio ACTUAL del
+// mercado (nunca al precio viejo) — para cuando alguien quiere seguir
+// aumentando la misma posición sin volver a buscar el activo cada vez.
+function repetirUltimaOperacion(){
+  const ultima = txHistory.find(t => t.action==='Compra' || t.action==='Venta');
+  if(!ultima){ notify('Todavía no tienes ninguna operación para repetir.', 'error'); return; }
+  const activo = allAssets().find(a => a.name === ultima.name.replace(/ \(.*\)$/,''));
+  if(!activo){ notify('No se pudo encontrar ese activo para repetirlo.', 'error'); return; }
   const precioActual = activo.currentPrice || activo.price;
-  if(op.tipo === 'compra'){
-    const costo = op.cantidad * precioActual;
-    if(costo > capital){ notify('No tienes suficiente capital para copiar esta compra.', 'error'); return; }
+  const esCompra = ultima.action==='Compra';
+  if(!confirm(`¿Repetir: ${esCompra?'comprar':'vender'} ${ultima.qty}u de ${activo.name} a $${fmt(precioActual)} (precio actual)?`)) return;
+
+  if(esCompra){
+    const costo = ultima.qty * precioActual;
+    if(costo > capital){ notify('No tienes suficiente capital para repetir esta compra.', 'error'); return; }
     const ex = portfolio.find(x=>x.id===activo.id && x.type===activo.type);
     capital -= costo;
-    if(ex){ ex.qty += Number(op.cantidad); ex.invested = (ex.invested||0) + costo; }
-    else portfolio.push({ ...activo, qty:Number(op.cantidad), invested:costo, buyPrice:precioActual, currentPrice:precioActual });
-    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:activo.name+' (copiada)',type:activo.type,qty:op.cantidad,price:precioActual,total:costo,fee:0});
+    if(ex){ ex.qty += Number(ultima.qty); ex.invested = (ex.invested||0) + costo; }
+    else portfolio.push({ ...activo, qty:Number(ultima.qty), invested:costo, buyPrice:precioActual, currentPrice:precioActual });
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:activo.name+' (repetida)',type:activo.type,qty:ultima.qty,price:precioActual,total:costo,fee:0});
   } else {
     const pos = portfolio.find(x=>x.id===activo.id && x.type===activo.type);
-    if(!pos || pos.qty < op.cantidad){ notify('No tienes suficientes unidades para copiar esta venta.', 'error'); return; }
-    const ingreso = op.cantidad * precioActual;
-    pos.qty -= op.cantidad;
+    if(!pos || pos.qty < ultima.qty){ notify('No tienes suficientes unidades para repetir esta venta.', 'error'); return; }
+    const ingreso = ultima.qty * precioActual;
+    pos.qty -= ultima.qty;
     capital += ingreso;
     if(pos.qty<=0) portfolio = portfolio.filter(x=>!(x.id===activo.id && x.type===activo.type));
-    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:activo.name+' (copiada)',type:activo.type,qty:op.cantidad,price:precioActual,total:ingreso,fee:0});
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:activo.name+' (repetida)',type:activo.type,qty:ultima.qty,price:precioActual,total:ingreso,fee:0});
   }
   updateNavCapital();
   autosave();
   if(typeof renderPortfolio==='function') renderPortfolio();
-  notify(`Copiaste la operación — ${op.cantidad}u de ${activo.name} a $${fmt(precioActual)}.`, 'success');
+  notify(`Operación repetida — ${ultima.qty}u de ${activo.name} a $${fmt(precioActual)}.`, 'success');
 }
 
-function abrirLanzarEventoMercado(){
+// Racha de días activos — un elemento de constancia simple, guardado en
+// este mismo navegador: si entra hoy y también entró ayer, suma un día;
+// si dejó pasar más de un día, la racha se reinicia. No depende de la
+// nube porque no busca calificar nada, solo animar a volver seguido.
+let rachaActividad = 0;
+function actualizarRachaActividad(){
+  if(!currentUser || !currentUser.sesion_id) return;
+  const clave = 'capitallab_racha_'+currentUser.sesion_id;
+  const hoy = new Date().toISOString().slice(0,10);
+  let datos;
+  try { datos = JSON.parse(localStorage.getItem(clave)) || null; } catch(e){ datos = null; }
+  if(!datos){ datos = { ultimaFecha: hoy, dias: 1 }; }
+  else if(datos.ultimaFecha === hoy){ /* ya contada hoy, no cambia */ }
+  else {
+    const ayer = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    datos.dias = (datos.ultimaFecha === ayer) ? datos.dias + 1 : 1;
+    datos.ultimaFecha = hoy;
+  }
+  localStorage.setItem(clave, JSON.stringify(datos));
+  rachaActividad = datos.dias;
+}
+
+function abrirTarjetaCompartir(){
+  if(!currentUser){ notify('Inicia sesión para compartir tu cartera.', 'error'); return; }
+  const valorTotal = capital + portfolio.reduce((s,p)=>s+(p.qty*(p.currentPrice||p.buyPrice)),0);
+  const invertidoInicial = 50000; // capital inicial estándar de CapitalLab
+  const retornoPct = ((valorTotal - invertidoInicial) / invertidoInicial) * 100;
+  const topPosiciones = [...portfolio].sort((a,b)=>(b.qty*(b.currentPrice||b.buyPrice))-(a.qty*(a.currentPrice||a.buyPrice))).slice(0,3);
+
   const overlay = document.createElement('div');
   overlay.className = 'grade-modal-overlay';
-  overlay.innerHTML = `<div class="grade-modal" style="max-width:460px;">
-    <h3>Lanzar evento de mercado</h3>
-    <div class="sub">Sesga los precios de un mercado completo para toda tu sesión, en tiempo real. El efecto se absorbe en unos minutos, igual que una noticia.</div>
-    <div class="grade-field">
-      <label>Plantilla rápida</label>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${PLANTILLAS_EVENTO_MERCADO.map((t,i) => `<button class="btn btn-sm" data-plantilla="${i}" style="font-size:11px;"><i class="ti ti-${t.icono}" style="font-size:11px;"></i> ${t.titulo}</button>`).join('')}
-      </div>
-    </div>
-    <div class="grade-field"><label>Título del evento</label><input type="text" id="em-titulo" placeholder='Ej. "Crisis de liquidez"'></div>
-    <div class="grade-field">
-      <label>Mercado afectado</label>
-      <select id="em-mercado">
-        <option value="accion">Acciones</option>
-        <option value="bono">Bonos</option>
-        <option value="divisa">Divisas</option>
-        <option value="futuro">Futuros</option>
-        <option value="derivado">Derivados</option>
-        <option value="todos">Todo el mercado</option>
-      </select>
-    </div>
-    <div class="grade-field"><label>Sesgo (%, negativo = baja, positivo = sube)</label><input type="number" id="em-sesgo" value="-6" step="0.5"></div>
-    <div class="auth-msg" id="em-msg"></div>
-    <div style="display:flex;gap:10px;">
-      <button class="btn btn-ghost" id="em-cancelar" style="flex:1;">Cancelar</button>
-      <button class="auth-submit" id="em-lanzar" style="flex:1;margin-top:0;background:var(--red);">Lanzar evento</button>
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:420px;text-align:center;">
+    <h3>Comparte tu cartera</h3>
+    <div class="sub">Una imagen lista para bajar o compartir directo desde tu celular.</div>
+    <canvas id="tc-canvas" width="1080" height="1350" style="width:100%;max-width:340px;border-radius:12px;margin:10px auto;display:block;box-shadow:0 8px 24px rgba(0,0,0,.35);"></canvas>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn btn-ghost" id="tc-cerrar" style="flex:1;">Cerrar</button>
+      <button class="auth-submit" id="tc-compartir" style="flex:1;margin-top:0;"><i class="ti ti-download"></i> Descargar</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
   overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
-  overlay.querySelector('#em-cancelar').onclick = () => overlay.remove();
-  overlay.querySelectorAll('[data-plantilla]').forEach(btn => btn.onclick = () => {
-    const t = PLANTILLAS_EVENTO_MERCADO[+btn.dataset.plantilla];
-    overlay.querySelector('#em-titulo').value = t.titulo;
-    overlay.querySelector('#em-mercado').value = t.mercado;
-    overlay.querySelector('#em-sesgo').value = t.sesgo;
+  overlay.querySelector('#tc-cerrar').onclick = () => overlay.remove();
+
+  dibujarTarjetaCartera(overlay.querySelector('#tc-canvas'), {
+    nombre: currentUser.nombre, sesion: currentUser.sesion_nombre || 'CapitalLab',
+    valorTotal, retornoPct, topPosiciones,
   });
 
-  overlay.querySelector('#em-lanzar').onclick = async () => {
-    const msg = overlay.querySelector('#em-msg');
-    const titulo = overlay.querySelector('#em-titulo').value.trim();
-    const mercado = overlay.querySelector('#em-mercado').value;
-    const sesgo = +overlay.querySelector('#em-sesgo').value;
-    if(!titulo){ msg.className='auth-msg show error'; msg.textContent='Ponle un título al evento.'; return; }
-    if(!sesgo){ msg.className='auth-msg show error'; msg.textContent='El sesgo no puede ser cero.'; return; }
-    if(!confirm(`¿Lanzar "${titulo}" para toda la clase ahora mismo? No se puede deshacer.`)) return;
-    const btn = overlay.querySelector('#em-lanzar');
+  overlay.querySelector('#tc-compartir').onclick = async () => {
+    const canvas = overlay.querySelector('#tc-canvas');
+    canvas.toBlob(async (blob) => {
+      const archivo = new File([blob], 'mi-cartera-capitallab.png', { type: 'image/png' });
+      // En el celular, si el navegador soporta compartir archivos nativos,
+      // se ofrece directo — si no, simplemente se descarga la imagen.
+      if(navigator.share && navigator.canShare && navigator.canShare({ files:[archivo] })){
+        try { await navigator.share({ files:[archivo], title:'Mi cartera en CapitalLab' }); return; } catch(e){ /* canceló, seguir con descarga */ }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'mi-cartera-capitallab.png';
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  };
+}
+
+function dibujarTarjetaCartera(canvas, datos){
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  // Fondo degradado navy, igual a la paleta del propio simulador
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#10141D'); grad.addColorStop(1,'#0B0E14');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#00C4FF';
+  ctx.font = 'bold 34px Arial';
+  ctx.fillText('CAPITALLAB', 60, 100);
+  ctx.fillStyle = '#7A8AB0';
+  ctx.font = '22px Arial';
+  ctx.fillText(datos.sesion, 60, 140);
+
+  ctx.fillStyle = '#E8EDF8';
+  ctx.font = '26px Arial';
+  ctx.fillText(datos.nombre, 60, 230);
+  ctx.fillStyle = '#3D4D72';
+  ctx.font = '20px Arial';
+  ctx.fillText('Valor de mi cartera', 60, 280);
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 76px Arial';
+  ctx.fillText('$'+datos.valorTotal.toLocaleString('es-PA',{minimumFractionDigits:0,maximumFractionDigits:0}), 60, 370);
+
+  const retPositivo = datos.retornoPct >= 0;
+  ctx.fillStyle = retPositivo ? '#00D084' : '#FF4757';
+  ctx.font = 'bold 46px Arial';
+  ctx.fillText((retPositivo?'▲ +':'▼ ')+datos.retornoPct.toFixed(1)+'%', 60, 440);
+  ctx.fillStyle = '#7A8AB0';
+  ctx.font = '18px Arial';
+  ctx.fillText('desde el capital inicial', 60, 470);
+
+  // Línea separadora
+  ctx.strokeStyle = '#242D42';
+  ctx.beginPath(); ctx.moveTo(60,530); ctx.lineTo(W-60,530); ctx.stroke();
+
+  ctx.fillStyle = '#7A8AB0';
+  ctx.font = '22px Arial';
+  ctx.fillText('MIS PRINCIPALES POSICIONES', 60, 590);
+
+  let y = 650;
+  if(datos.topPosiciones.length){
+    datos.topPosiciones.forEach(p => {
+      const valorPos = p.qty*(p.currentPrice||p.buyPrice);
+      const gan = p.currentPrice >= p.buyPrice;
+      ctx.fillStyle = '#1C2333';
+      ctx.beginPath(); ctx.roundRect(60, y-40, W-120, 90, 12); ctx.fill();
+      ctx.fillStyle = '#E8EDF8'; ctx.font = 'bold 26px Arial';
+      ctx.fillText((p.name||'').substring(0,26), 90, y);
+      ctx.fillStyle = gan ? '#00D084' : '#FF4757'; ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'right';
+      ctx.fillText('$'+valorPos.toLocaleString('es-PA',{maximumFractionDigits:0}), W-90, y);
+      ctx.textAlign = 'left';
+      y += 120;
+    });
+  } else {
+    ctx.fillStyle = '#3D4D72'; ctx.font = '22px Arial';
+    ctx.fillText('Todavía sin posiciones abiertas', 60, y);
+  }
+
+  ctx.fillStyle = '#D4AF37';
+  ctx.font = '20px Arial';
+  ctx.fillText('Simulador de mercados financieros · Universidad de Panamá', 60, H-60);
+}
+
+// ══════════════════════════════════════════════════
+// ENCUESTA RÁPIDA EN VIVO (Pulse Poll) — una sola pregunta, sin
+// calificar, para pulso inmediato de la clase. Aparece como un aviso
+// flotante a todos los conectados, y el docente ve los resultados
+// actualizarse en tiempo real conforme responden.
+// ══════════════════════════════════════════════════
+let encuestaChannel = null;
+let encuestaActivaActual = null;
+
+function abrirLanzarEncuestaRapida(){
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:440px;">
+    <h3>Encuesta rápida</h3>
+    <div class="sub">Una pregunta, resultados en vivo, sin calificar a nadie.</div>
+    <div class="grade-field"><label>Pregunta</label><input type="text" id="er-pregunta" placeholder='Ej. "¿Suben o bajan las tasas este trimestre?"'></div>
+    <div class="grade-field"><label>Opciones</label>
+      <input type="text" id="er-op-0" placeholder="Opción 1" style="margin-bottom:6px;">
+      <input type="text" id="er-op-1" placeholder="Opción 2" style="margin-bottom:6px;">
+      <input type="text" id="er-op-2" placeholder="Opción 3 (opcional)" style="margin-bottom:6px;">
+      <input type="text" id="er-op-3" placeholder="Opción 4 (opcional)">
+    </div>
+    <div class="auth-msg" id="er-msg"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" id="er-cancelar" style="flex:1;">Cancelar</button>
+      <button class="auth-submit" id="er-lanzar" style="flex:1;margin-top:0;">Lanzar a la clase</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#er-cancelar').onclick = () => overlay.remove();
+
+  overlay.querySelector('#er-lanzar').onclick = async () => {
+    const msg = overlay.querySelector('#er-msg');
+    const pregunta = overlay.querySelector('#er-pregunta').value.trim();
+    const opciones = [0,1,2,3].map(i=>overlay.querySelector('#er-op-'+i).value.trim()).filter(Boolean);
+    if(!pregunta){ msg.className='auth-msg show error'; msg.textContent='Escribe la pregunta.'; return; }
+    if(opciones.length<2){ msg.className='auth-msg show error'; msg.textContent='Necesitas al menos dos opciones.'; return; }
+    const btn = overlay.querySelector('#er-lanzar');
     btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Lanzando…';
     try {
-      const payload = { titulo, mercado, sesgo };
-      const canal = sb.channel('eventos-mercado-'+currentUser.sesion_id);
-      await canal.subscribe(async (estado) => {
-        if(estado === 'SUBSCRIBED'){
-          await canal.send({ type:'broadcast', event:'crisis', payload });
-          setTimeout(()=>sb.removeChannel(canal), 2000);
-        }
-      });
+      // Se desactiva cualquier encuesta anterior de esta sesión, para que
+      // nunca haya dos "en vivo" compitiendo por la atención de la clase.
+      await sb.from('encuestas_rapidas').update({ activa:false }).eq('sesion_id', currentUser.sesion_id).eq('activa', true);
+      const { error } = await conTiempoLimite(sb.from('encuestas_rapidas').insert({
+        sesion_id: currentUser.sesion_id, docente_id: currentUser.auth_id, pregunta, opciones,
+      }));
+      if(error) throw error;
       overlay.remove();
-      notify('Evento lanzado — toda la clase ya lo está viendo.', 'success');
+      notify('Encuesta lanzada — la clase ya la puede ver.', 'success');
     } catch(e){
       msg.className='auth-msg show error'; msg.textContent = 'No se pudo lanzar: ' + (e.message||e);
-      btn.disabled = false; btn.textContent = 'Lanzar evento';
+      btn.disabled = false; btn.textContent = 'Lanzar a la clase';
     }
   };
+}
+
+function iniciarEscuchaEncuestas(){
+  if(!sb || !currentUser || !currentUser.sesion_id || guestMode || encuestaChannel) return;
+  buscarEncuestaActiva();
+  encuestaChannel = sb.channel('encuestas-'+currentUser.sesion_id)
+    .on('postgres_changes', { event:'*', schema:'public', table:'encuestas_rapidas', filter:`sesion_id=eq.${currentUser.sesion_id}` }, () => buscarEncuestaActiva())
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'encuestas_respuestas' }, () => {
+      if(encuestaActivaActual && document.getElementById('er-resultados-docente')) mostrarResultadosEncuesta(encuestaActivaActual.id);
+    })
+    .subscribe();
+}
+function detenerEscuchaEncuestas(){
+  if(encuestaChannel && sb){ sb.removeChannel(encuestaChannel); encuestaChannel = null; }
+}
+
+async function buscarEncuestaActiva(){
+  if(!currentUser || !currentUser.sesion_id) return;
+  try {
+    const { data } = await sb.from('encuestas_rapidas').select('*').eq('sesion_id', currentUser.sesion_id).eq('activa', true).order('creado_en',{ascending:false}).limit(1).maybeSingle();
+    encuestaActivaActual = data || null;
+    document.querySelectorAll('.encuesta-flotante').forEach(el=>el.remove());
+    if(!encuestaActivaActual) return;
+    if(currentUser.rol==='docente' || currentUser.rol==='superadmin'){
+      mostrarResultadosEncuesta(encuestaActivaActual.id);
+    } else {
+      const { data: yaRespondi } = await sb.from('encuestas_respuestas').select('id').eq('encuesta_id', encuestaActivaActual.id).eq('usuario_id', currentUser.usuario_id).maybeSingle();
+      if(!yaRespondi) mostrarAvisoEncuestaFlotante(encuestaActivaActual);
+    }
+  } catch(e){ /* silencioso */ }
+}
+
+function mostrarAvisoEncuestaFlotante(encuesta){
+  const el = document.createElement('div');
+  el.className = 'encuesta-flotante';
+  el.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);z-index:4600;background:var(--c1);border:1px solid var(--accent2);border-radius:var(--r2);padding:14px 18px;max-width:92vw;width:380px;box-shadow:0 10px 30px rgba(0,0,0,.4);';
+  el.innerHTML = `<div style="font-weight:700;font-size:13.5px;margin-bottom:10px;"><i class="ti ti-chart-pie" style="color:var(--accent2);"></i> ${escaparHTML(encuesta.pregunta)}</div>
+    <div id="er-opciones-flotante"></div>`;
+  document.body.appendChild(el);
+  el.querySelector('#er-opciones-flotante').innerHTML = encuesta.opciones.map((op,i) =>
+    `<button class="btn btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:6px;" onclick="responderEncuestaRapida('${encuesta.id}',${i})">${escaparHTML(op)}</button>`).join('');
+}
+
+async function responderEncuestaRapida(encuestaId, indice){
+  try {
+    const { error } = await sb.from('encuestas_respuestas').insert({ encuesta_id: encuestaId, usuario_id: currentUser.usuario_id, opcion_indice: indice });
+    if(error) throw error;
+    document.querySelectorAll('.encuesta-flotante').forEach(el=>el.remove());
+    notify('Respuesta enviada.', 'success');
+  } catch(e){ notify('No se pudo enviar tu respuesta: ' + (e.message||e), 'error'); }
+}
+
+async function mostrarResultadosEncuesta(encuestaId){
+  const { data: encuesta } = await sb.from('encuestas_rapidas').select('*').eq('id', encuestaId).maybeSingle();
+  if(!encuesta) return;
+  const { data: respuestas } = await sb.from('encuestas_respuestas').select('opcion_indice').eq('encuesta_id', encuestaId);
+  const conteos = encuesta.opciones.map((_,i) => (respuestas||[]).filter(r=>r.opcion_indice===i).length);
+  const total = conteos.reduce((a,b)=>a+b,0);
+
+  let el = document.getElementById('er-resultados-docente');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'er-resultados-docente';
+    el.className = 'encuesta-flotante';
+    el.style.cssText = 'position:fixed;bottom:70px;right:16px;z-index:4600;background:var(--c1);border:1px solid var(--gold);border-radius:var(--r2);padding:14px 18px;max-width:92vw;width:340px;box-shadow:0 10px 30px rgba(0,0,0,.4);';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-weight:700;font-size:13px;"><i class="ti ti-chart-pie" style="color:var(--gold);"></i> ${escaparHTML(encuesta.pregunta)}</div>
+      <i class="ti ti-x" style="cursor:pointer;color:var(--t3);" onclick="cerrarEncuestaDocente('${encuesta.id}')" title="Cerrar encuesta"></i>
+    </div>
+    ${encuesta.opciones.map((op,i) => {
+      const pct = total ? Math.round(conteos[i]/total*100) : 0;
+      return `<div style="margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:2px;"><span>${escaparHTML(op)}</span><span class="mono">${conteos[i]} (${pct}%)</span></div>
+        <div style="height:6px;background:var(--c3);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--gold);"></div></div>
+      </div>`;
+    }).join('')}
+    <div style="font-size:10px;color:var(--t3);margin-top:6px;">${total} respuesta${total===1?'':'s'}</div>`;
+}
+
+async function cerrarEncuestaDocente(id){
+  try {
+    await sb.from('encuestas_rapidas').update({ activa:false }).eq('id', id);
+    document.querySelectorAll('.encuesta-flotante').forEach(el=>el.remove());
+    notify('Encuesta cerrada.', 'success');
+  } catch(e){ notify('No se pudo cerrar: ' + (e.message||e), 'error'); }
 }
 
 function abrirCrearAlertaPrecio(){
@@ -8059,15 +8144,19 @@ function renderMapaCalorSectorial(){
     retProm: activos.reduce((sum,a)=>sum+a.ret,0)/activos.length,
     sigmaProm: activos.reduce((sum,a)=>sum+a.sigma,0)/activos.length,
   })).sort((a,b)=>b.retProm-a.retProm);
-  cont.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;">
+  cont.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;">
     ${sectores.map(s => {
-      const intensidad = Math.min(1, Math.abs(s.retProm)/25);
-      const color = s.retProm>=0 ? `rgba(0,208,132,${0.12+intensidad*0.35})` : `rgba(255,71,87,${0.12+intensidad*0.35})`;
-      const borde = s.retProm>=0 ? 'var(--green)' : 'var(--red)';
-      return `<div style="background:${color};border:1px solid ${borde};border-radius:var(--r);padding:10px;cursor:pointer;" onclick="document.getElementById('an-asset-search').value='';filtrarPorSector('${s.sector.replace(/'/g,"\\'")}')" title="Filtrar por ${s.sector}">
-        <div style="font-size:11px;font-weight:600;color:var(--t1);">${s.sector}</div>
-        <div style="font-size:16px;font-weight:700;color:${borde};margin-top:2px;">${s.retProm>=0?'+':''}${s.retProm.toFixed(1)}%</div>
-        <div style="font-size:9.5px;color:var(--t3);margin-top:2px;">${s.n} activo${s.n===1?'':'s'} · σ ${s.sigmaProm.toFixed(1)}%</div>
+      const positivo = s.retProm>=0;
+      const colorAcento = positivo ? 'var(--green)' : 'var(--red)';
+      // El fondo se queda siempre en un tinte suave, sin importar qué tan
+      // fuerte sea el rendimiento — así nunca compite en contraste con el
+      // texto. La intensidad del sector se ve en el número y el borde, no
+      // en volver el fondo casi del mismo color que la letra.
+      const fondo = positivo ? 'rgba(0,208,132,.08)' : 'rgba(255,71,87,.08)';
+      return `<div style="background:${fondo};border:1px solid ${colorAcento};border-radius:var(--r);padding:12px;cursor:pointer;" onclick="document.getElementById('an-asset-search').value='';filtrarPorSector('${s.sector.replace(/'/g,"\\'")}')" title="Filtrar por ${s.sector}">
+        <div style="font-size:12.5px;font-weight:600;color:var(--t1);">${s.sector}</div>
+        <div style="font-size:19px;font-weight:700;color:#FFFFFF;margin-top:4px;">${positivo?'▲':'▼'} <span style="color:${colorAcento};">${positivo?'+':''}${s.retProm.toFixed(1)}%</span></div>
+        <div style="font-size:10.5px;color:var(--t3);margin-top:4px;">${s.n} activo${s.n===1?'':'s'} · σ ${s.sigmaProm.toFixed(1)}%</div>
       </div>`;
     }).join('')}
   </div>`;
@@ -8102,12 +8191,13 @@ function abrirComparadorActivos(){
       <input type="text" id="cmp-buscar" placeholder="Busca por nombre o ticker…" autocomplete="off">
       <div id="cmp-resultados" style="max-height:180px;overflow-y:auto;margin-top:6px;"></div>
     </div>
-    <div id="cmp-tabla"></div>
+    <div id="cmp-tabla"><div class="auth-hint" style="text-align:center;padding:14px;">Busca un activo arriba para ver la comparación.</div></div>
     <button class="btn btn-ghost" id="cmp-cerrar" style="width:100%;margin-top:12px;">Cerrar</button>
   </div>`;
   document.body.appendChild(overlay);
   overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
   overlay.querySelector('#cmp-cerrar').onclick = () => overlay.remove();
+  setTimeout(()=>overlay.querySelector('#cmp-buscar')?.focus(), 150);
 
   overlay.querySelector('#cmp-buscar').oninput = (e) => {
     const q = e.target.value.toLowerCase().trim();
@@ -8829,6 +8919,8 @@ function typeBadgeCls(t){
 
 function renderPortfolio(){
   updateNavCapital();
+  const btnRepetir = document.getElementById('btn-repetir-op');
+  if(btnRepetir) btnRepetir.style.display = txHistory.some(t=>t.action==='Compra'||t.action==='Venta') ? '' : 'none';
   const totalInv = portfolio.reduce((s,p)=>s+p.invested,0);
   const curVal   = portfolio.reduce((s,p)=>s+(p.currentPrice||p.buyPrice)*p.qty,0);
   const pnl      = curVal-totalInv;
@@ -12512,7 +12604,8 @@ function initApp() {
       }
     }
   } catch(e) {}
-  try { iniciarEscuchaEventosMercado(); } catch(e){}
+  try { actualizarRachaActividad(); } catch(e){}
+  try { iniciarEscuchaEncuestas(); } catch(e){}
   try { cargarMisSeguidos().then(()=>{ if(misSeguidos.size) iniciarEscuchaOperacionesSeguidos(); }); } catch(e){}
 }
 </script>
