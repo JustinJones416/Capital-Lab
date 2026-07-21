@@ -2987,9 +2987,9 @@ async function abrirTomaAsistencia(){
       const { data: existente } = await sb.from('asistencia').select('usuario_id,presente').eq('sesion_id', sesionId).eq('fecha', fecha);
       const marcados = {}; (existente||[]).forEach(a=>{ marcados[a.usuario_id] = a.presente; });
       cont.innerHTML = estudiantes.map(e => `
-        <label style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--c3);cursor:pointer;">
+        <label style="display:flex;align-items:center;justify-content:space-between;padding:12px 4px;border-bottom:1px solid var(--c3);cursor:pointer;min-height:24px;">
           <span style="font-size:13px;">${e.nombre}</span>
-          <input type="checkbox" data-usuario="${e.id}" class="as-check" ${marcados[e.id]!==false?'checked':''} style="width:18px;height:18px;">
+          <input type="checkbox" data-usuario="${e.id}" class="as-check" ${marcados[e.id]!==false?'checked':''} style="width:22px;height:22px;">
         </label>`).join('');
     } catch(e){
       cont.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
@@ -4559,8 +4559,8 @@ async function tomarCuestionario(id, titulo){
         <div style="margin-bottom:16px;">
           <div style="font-weight:600;font-size:13.5px;margin-bottom:8px;">${pi+1}. ${p.texto}</div>
           ${(p.opciones||[]).map((op,oi) => `
-            <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;">
-              <input type="radio" name="tq-${p.id}" value="${oi}" class="tq-radio" data-pregunta="${p.id}">
+            <label style="display:flex;align-items:center;gap:8px;padding:11px 4px;font-size:13px;cursor:pointer;min-height:22px;">
+              <input type="radio" name="tq-${p.id}" value="${oi}" class="tq-radio" data-pregunta="${p.id}" style="width:18px;height:18px;flex-shrink:0;">
               ${op}
             </label>`).join('')}
         </div>`).join('')}
