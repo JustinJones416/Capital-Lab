@@ -477,6 +477,10 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
 /* ── HAMBURGER BUTTON ── */
 .hamburger-btn{display:none;flex-direction:column;justify-content:center;gap:5px;width:36px;height:36px;padding:6px;cursor:pointer;border:none;background:transparent;border-radius:var(--r);flex-shrink:0;transition:background .15s;}
+.btn-modo-enfoque{display:flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;cursor:pointer;border:none;background:transparent;color:var(--t2);border-radius:var(--r);flex-shrink:0;transition:background .15s;}
+.btn-modo-enfoque:hover{background:var(--c3);color:var(--t1);}
+.shell-body.enfoque{grid-template-columns:0 1fr;}
+.shell-body.enfoque .sidebar{display:none;}
 .mobile-bottom-nav{display:none;}
 .hamburger-btn:hover{background:var(--c3);}
 .hamburger-btn span{display:block;height:2px;background:var(--t1);border-radius:2px;transition:all .22s;}
@@ -611,6 +615,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
   /* ── TOPBAR elements ── */
   .hamburger-btn{display:flex;}
+  .btn-modo-enfoque{display:none;}
   .topbar-brand{font-size:13.5px;}
   .topbar-sep,.topbar-sep+span{display:none;}
   .persist-btns{gap:3px;}
@@ -951,6 +956,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <span></span><span></span><span></span>
   </button>
   <div class="topbar-brand">Capital<span>Lab</span></div>
+  <button id="btn-modo-enfoque" class="btn-modo-enfoque" onclick="alternarModoEnfoque()" title="Modo enfoque — ocultar el menú lateral"><i class="ti ti-layout-sidebar-left-collapse" style="font-size:16px;"></i></button>
   <button id="cmdk-trigger" class="cmdk-trigger" onclick="abrirBuscadorUniversal()" title="Buscar (Ctrl+K)"><i class="ti ti-search"></i><span class="cmdk-trigger-txt">Buscar</span><span class="cmdk-trigger-kbd">Ctrl K</span></button>
   <div class="topbar-sep"></div>
   <span style="font-size:11px;color:var(--t3);">Simulador de Mercados Financieros · Facultad de Economía UP</span>
@@ -1259,6 +1265,8 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       <button class="btn btn-sm" onclick="abrirComparadorActivos()"><i class="ti ti-arrows-left-right"></i> Comparar con otro activo</button>
       <button class="btn btn-sm" onclick="copiarResumenActivo()"><i class="ti ti-clipboard-text"></i> Copiar resumen</button>
+      <button class="btn btn-sm" onclick="alternarTodasLasTarjetas('analysis-body')" title="Expandir o colapsar todas las tarjetas"><i class="ti ti-arrows-vertical"></i></button>
+      <button class="btn btn-sm" onclick="exportarHistorialPreciosCSV()"><i class="ti ti-file-spreadsheet"></i> Exportar precios (CSV)</button>
     </div>
     <div class="metric-grid">
       <div class="metric"><div class="metric-label">Precio actual</div><div class="metric-val mono" id="an-price">—</div></div>
@@ -1327,6 +1335,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <button class="btn btn-ghost btn-sm" onclick="saveCurrentPortfolio()"><i class="ti ti-device-floppy"></i> Guardar estrategia</button>
         <button class="btn btn-ghost btn-sm" onclick="togglePortfolioCompare()" id="compare-btn"><i class="ti ti-columns"></i> Comparar</button>
         <button class="btn btn-sm" onclick="abrirTarjetaCompartir()"><i class="ti ti-share"></i> Compartir</button>
+        <button class="btn btn-sm" onclick="alternarTodasLasTarjetas('page-cartera')" title="Expandir o colapsar todas las tarjetas"><i class="ti ti-arrows-vertical"></i></button>
         <button class="btn btn-sm" onclick="repetirUltimaOperacion()" id="btn-repetir-op" style="display:none;"><i class="ti ti-repeat"></i> Repetir última</button>
       </div>
     </div>
@@ -6619,6 +6628,69 @@ function alternarTarjeta(icono){
 // para que lo esencial quede a la vista sin desplazarse tanto — pero
 // solo la primera vez: si la persona ya la abrió, se respeta su elección
 // y no se le vuelve a cerrar sola.
+// Complemento del colapso individual: expande o cierra de una vez todas
+// las tarjetas colapsables dentro de una página, útil cuando ya hay
+// varias — decide qué hacer mirando si la mayoría están cerradas.
+function alternarTodasLasTarjetas(idContenedor){
+  const cont = document.getElementById(idContenedor);
+  if(!cont) return;
+  const iconos = [...cont.querySelectorAll('.card-collapse-toggle')];
+  if(!iconos.length) return;
+  const cerradas = iconos.filter(i=>i.closest('.card').classList.contains('tarjeta-colapsada')).length;
+  const abrirTodas = cerradas >= iconos.length/2;
+  iconos.forEach(icono => {
+    const tarjeta = icono.closest('.card');
+    tarjeta.dataset.tocada = '1';
+    tarjeta.classList.toggle('tarjeta-colapsada', !abrirTodas);
+    icono.style.transform = abrirTodas ? '' : 'rotate(-90deg)';
+  });
+}
+
+// Modo enfoque — oculta el menú lateral por completo para aprovechar
+// toda la pantalla en tablet o laptop, útil sobre todo en Mercado o
+// Análisis cuando se quiere ver el detalle de un activo sin distracción.
+// En el celular no aplica: ahí el menú ya vive fuera del camino.
+// Baja el historial de velas simulado del activo seleccionado en Análisis
+// a un CSV — útil para llevarse los números a Excel o pegarlos en un
+// informe, en vez de solo poder verlos en la gráfica.
+function exportarHistorialPreciosCSV(){
+  const asset = allAssets().find(a=>a.id===anSelectedId);
+  if(!asset){ notify('Selecciona primero un activo en Análisis.', 'error'); return; }
+  const velas = candleHistory[asset.id];
+  if(!velas || !velas.length){ notify('Todavía no hay historial de precios para este activo.', 'error'); return; }
+  const filas = velas.map((v,i) => [i+1, v.o, v.h, v.l, v.c].join(','));
+  const csv = ['Periodo,Apertura,Máximo,Mínimo,Cierre', ...filas].join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `precios_${asset.ticker||asset.id}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  notify('Historial de precios exportado.', 'success');
+}
+
+function alternarModoEnfoque(){
+  const shellBody = document.querySelector('.shell-body');
+  if(!shellBody) return;
+  const activo = shellBody.classList.toggle('enfoque');
+  localStorage.setItem('capitallab_modo_enfoque', activo ? '1' : '0');
+  actualizarBotonModoEnfoque(activo);
+}
+function actualizarBotonModoEnfoque(activo){
+  const btn = document.getElementById('btn-modo-enfoque');
+  if(!btn) return;
+  btn.innerHTML = activo
+    ? '<i class="ti ti-layout-sidebar-left-expand" style="font-size:16px;color:var(--accent2);"></i>'
+    : '<i class="ti ti-layout-sidebar-left-collapse" style="font-size:16px;"></i>';
+  btn.title = activo ? 'Mostrar el menú lateral' : 'Modo enfoque — ocultar el menú lateral';
+}
+function restaurarModoEnfoque(){
+  if(localStorage.getItem('capitallab_modo_enfoque') === '1'){
+    document.querySelector('.shell-body')?.classList.add('enfoque');
+    actualizarBotonModoEnfoque(true);
+  }
+}
+
 function autoColapsarEnMovil(contenedor){
   if(window.innerWidth > 640 || !contenedor) return;
   contenedor.querySelectorAll('.card-collapse-toggle').forEach(icono => {
@@ -12668,6 +12740,7 @@ function initApp() {
       }
     }
   } catch(e) {}
+  try { restaurarModoEnfoque(); } catch(e){}
   try { restaurarSeccionesNavColapsadas(); } catch(e){}
   try { actualizarRachaActividad(); } catch(e){}
   try { iniciarEscuchaEncuestas(); } catch(e){}
