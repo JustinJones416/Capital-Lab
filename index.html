@@ -141,6 +141,7 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .wl-nav-section{font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;padding:8px 8px 3px;font-weight:700;}
 .wl-nav-section:first-child{padding-top:2px;}
 .wl-nav-btn{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;color:var(--t2);font-size:11px;font-family:var(--font-body);width:100%;text-align:left;transition:all .12s;white-space:nowrap;overflow:hidden;}
+.nav-chat-dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);margin-left:auto;flex-shrink:0;}
 .wl-nav-btn i{font-size:14px;flex-shrink:0;}
 .wl-nav-btn:hover{background:var(--c3);color:var(--t1);}
 .wl-nav-btn.active{background:rgba(41,98,255,.12);color:var(--accent2);}
@@ -1039,7 +1040,8 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <button class="wl-nav-btn"        id="nav-analisis"      onclick="goPage('analisis')"><i class="ti ti-chart-bar"></i> Análisis</button>
     <button class="wl-nav-btn"        id="nav-personalizado" onclick="goPage('personalizado')"><i class="ti ti-adjustments-horizontal"></i> Personalizado</button>
     <button class="wl-nav-btn"        id="nav-cartera"       onclick="goPage('cartera')"><i class="ti ti-briefcase"></i> Mi Cartera</button>
-    <button class="wl-nav-btn"        id="nav-p2p"           onclick="goPage('p2p')"><i class="ti ti-users-group"></i> Mercado entre Estudiantes</button>
+    <button class="wl-nav-btn"        id="nav-p2p"           onclick="goPage('p2p')"><i class="ti ti-users-group"></i> Mercado entre Estudiantes<span class="nav-chat-dot" id="dot-p2p" style="display:none;"></span></button>
+    <button class="wl-nav-btn"        id="nav-chat"          onclick="goPage('chat')"><i class="ti ti-message-circle"></i> Chat de la Sesión<span class="nav-chat-dot" id="dot-chat" style="display:none;"></span></button>
     <button class="wl-nav-btn"        id="nav-laboratorio"   onclick="goPage('laboratorio')"><i class="ti ti-flask"></i> Laboratorio</button>
     <button class="wl-nav-btn"        id="nav-resultados"    onclick="goPage('resultados')"><i class="ti ti-award"></i> Resultados</button>
     <button class="wl-nav-btn"        id="nav-resultados-lab" onclick="goPage('resultados-lab')"><i class="ti ti-report-analytics"></i> Resultados Lab</button>
@@ -1605,6 +1607,31 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   <div class="card" id="p2p-mis-ofertas-card" style="display:none;">
     <div class="card-title"><i class="ti ti-tag" style="color:var(--gold);"></i> Mis ofertas</div>
     <div id="p2p-mis-ofertas" style="margin-top:8px;"></div>
+  </div>
+  <div class="card" style="display:flex;flex-direction:column;height:400px;margin-top:16px;">
+    <div class="card-title"><i class="ti ti-message-circle" style="color:var(--accent2);"></i> Chat del Mercado</div>
+    <div class="card-sub" style="margin-bottom:8px;">Para negociar precios o coordinar una subasta con tus compañeros. Tu docente también puede ver y escribir aquí.</div>
+    <div id="p2p-chat-mensajes" style="flex:1;overflow-y:auto;border:1px solid var(--c4);border-radius:var(--r);padding:10px;background:var(--c2);"><div class="auth-hint">Cargando…</div></div>
+    <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+      <input type="text" id="p2p-chat-input" placeholder="Escribe un mensaje…" maxlength="500" oninput="actualizarContadorChat('p2p')" style="flex:1;padding:8px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12.5px;" onkeydown="if(event.key==='Enter')enviarMensajeChat('p2p')">
+      <span id="p2p-chat-contador" style="font-size:10px;color:var(--t3);flex-shrink:0;"></span>
+      <button class="btn btn-sm" onclick="enviarMensajeChat('p2p')"><i class="ti ti-send"></i></button>
+    </div>
+  </div>
+</div>
+
+<div id="page-chat" class="page">
+  <div class="page-header">
+    <div class="page-title">Chat de la Sesión</div>
+    <div class="page-sub">Para toda la clase — anuncios rápidos, preguntas, coordinación. Tu docente también participa aquí.</div>
+  </div>
+  <div class="card" style="display:flex;flex-direction:column;height:calc(100vh - 260px);min-height:420px;">
+    <div id="sesion-chat-mensajes" style="flex:1;overflow-y:auto;border:1px solid var(--c4);border-radius:var(--r);padding:10px;background:var(--c2);"><div class="auth-hint">Cargando…</div></div>
+    <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+      <input type="text" id="sesion-chat-input" placeholder="Escribe un mensaje…" maxlength="500" oninput="actualizarContadorChat('sesion')" style="flex:1;padding:10px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:13px;" onkeydown="if(event.key==='Enter')enviarMensajeChat('sesion')">
+      <span id="sesion-chat-contador" style="font-size:10px;color:var(--t3);flex-shrink:0;"></span>
+      <button class="btn" onclick="enviarMensajeChat('sesion')"><i class="ti ti-send"></i> Enviar</button>
+    </div>
   </div>
 </div>
 
@@ -2285,13 +2312,21 @@ async function mostrarNotificaciones(){
   async function cargarFeed(){
     const cont = overlay.querySelector('#notif-lista');
     try {
-      const { data: anuncios, error: e1 } = await sb.from('anuncios').select('*').eq('sesion_id', currentUser.sesion_id).order('creado_en',{ascending:false}).limit(15);
+      // Antes estas consultas se pedían una tras otra (await, await, await),
+      // así que la espera total era la suma de las tres. Pidiéndolas al
+      // mismo tiempo, la espera pasa a ser la de la más lenta nada más —
+      // esto era lo que hacía que el botón de notificaciones se sintiera
+      // extremadamente lento para un estudiante.
+      const [{ data: anuncios, error: e1 }, calRes, alertasRes] = await conTiempoLimite(Promise.all([
+        sb.from('anuncios').select('*').eq('sesion_id', currentUser.sesion_id).order('creado_en',{ascending:false}).limit(15),
+        esDocente ? Promise.resolve({data:[]}) : sb.from('calificaciones').select('*').eq('usuario_id', currentUser.usuario_id).order('creado_en',{ascending:false}).limit(15),
+        esDocente ? Promise.resolve({data:[]}) : sb.from('alertas_precio').select('*').eq('usuario_id', currentUser.usuario_id).not('disparada_en','is',null).order('disparada_en',{ascending:false}).limit(10),
+      ]));
       if(e1) throw e1;
+      const cals = calRes.data, alertas = alertasRes.data;
       let items = (anuncios||[]).map(a => ({ tipo:'anuncio', fecha:a.creado_en, titulo:a.titulo, cuerpo:a.cuerpo, id:a.id, fijado:!!a.fijado }));
       if(!esDocente){
-        const { data: cals } = await sb.from('calificaciones').select('*').eq('usuario_id', currentUser.usuario_id).order('creado_en',{ascending:false}).limit(15);
         items = items.concat((cals||[]).map(c => ({ tipo:'calificacion', fecha:c.creado_en, titulo:`Nueva calificación: ${c.titulo}`, cuerpo:c.nota_general!=null?`Nota: ${c.nota_general}/100`:null })));
-        const { data: alertas } = await sb.from('alertas_precio').select('*').eq('usuario_id', currentUser.usuario_id).not('disparada_en','is',null).order('disparada_en',{ascending:false}).limit(10);
         items = items.concat((alertas||[]).map(a => ({ tipo:'alerta', fecha:a.disparada_en, titulo:`${a.activo_nombre} ${a.direccion==='arriba'?'subió hasta':'bajó hasta'} $${fmt(a.precio_objetivo)}`, cuerpo:null })));
       }
       items.sort((a,b)=> {
@@ -6539,7 +6574,10 @@ function goPage(p){
   if(p==='calificaciones' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_calificaciones_'+currentUser.sesion_id, '1');
   if(p==='calificaciones') renderCalificacionesPage();
   if(p==='cuestionarios') renderCuestionariosPage();
-  if(p==='p2p'){ renderMercadoP2P(); iniciarRealtimeP2P(); } else { detenerRealtimeP2P(); }
+  if(p==='p2p'){ renderMercadoP2P(); iniciarRealtimeP2P(); cargarChat('p2p'); iniciarRealtimeChat(); document.getElementById('dot-p2p').style.display='none'; }
+  else { detenerRealtimeP2P(); }
+  if(p==='chat'){ cargarChat('sesion'); iniciarRealtimeChat(); document.getElementById('dot-chat').style.display='none'; setTimeout(()=>document.getElementById('sesion-chat-input')?.focus(), 200); }
+  else if(p!=='p2p'){ detenerRealtimeChat(); }
   if(p==='posiciones') renderPosicionesPage();
   if(p==='logros') renderLogrosPage();
   if(p==='admin') renderAdminPage();
@@ -7262,6 +7300,111 @@ function detenerRealtimeP2P(){
   if(p2pChannel && sb){ sb.removeChannel(p2pChannel); p2pChannel = null; }
   if(p2pIntervaloRespaldo){ clearInterval(p2pIntervaloRespaldo); p2pIntervaloRespaldo = null; }
   if(p2pIntervaloCronometros){ clearInterval(p2pIntervaloCronometros); p2pIntervaloCronometros = null; }
+}
+
+// ══════════════════════════════════════════════════
+// CHAT — una sola tabla y una sola suscripción de tiempo real sirven a
+// los dos canales (el del Mercado P2P y el de toda la sesión); cada
+// mensaje que llega se dirige solo a la caja que le corresponde. El
+// docente puede escribir en ambos — es la única excepción a que en el
+// Mercado P2P normalmente solo observa.
+// ══════════════════════════════════════════════════
+let chatChannel = null;
+const CHAT_CONTENEDORES = { p2p: 'p2p-chat-mensajes', sesion: 'sesion-chat-mensajes' };
+
+function escaparHTML(texto){
+  const div = document.createElement('div');
+  div.textContent = texto;
+  return div.innerHTML;
+}
+
+async function cargarChat(canal){
+  const cont = document.getElementById(CHAT_CONTENEDORES[canal]);
+  if(!cont || !currentUser || !currentUser.sesion_id) return;
+  try {
+    const { data, error } = await conTiempoLimite(sb.from('mensajes_chat').select('*').eq('sesion_id', currentUser.sesion_id).eq('canal', canal).order('creado_en', {ascending:true}).limit(200));
+    if(error) throw error;
+    renderMensajesChat(canal, data || [], true);
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar el chat: '+(e.message||e)+'</div>';
+  }
+}
+
+function renderMensajesChat(canal, mensajes, forzarAbajo){
+  const cont = document.getElementById(CHAT_CONTENEDORES[canal]);
+  if(!cont) return;
+  // En la carga inicial siempre se va al final. En las actualizaciones que
+  // llegan en vivo, solo se sigue bajando solo si la persona ya estaba
+  // abajo — si se subió a leer mensajes viejos, no se le mueve la pantalla.
+  const yaAbajo = forzarAbajo || (cont.scrollTop + cont.clientHeight >= cont.scrollHeight - 40);
+  if(!mensajes.length){
+    cont.innerHTML = '<div class="auth-hint">Todavía no hay mensajes aquí — sé el primero en escribir.</div>';
+    return;
+  }
+  cont.innerHTML = mensajes.map(m => {
+    const soyYo = m.autor_id === currentUser.usuario_id;
+    const esDocenteMsg = m.autor_rol === 'docente' || m.autor_rol === 'superadmin';
+    return `<div style="margin-bottom:10px;${soyYo?'text-align:right;':''}">
+      <div style="font-size:10px;color:${esDocenteMsg?'var(--gold)':'var(--t3)'};margin-bottom:2px;">${escaparHTML(m.autor_nombre)}${esDocenteMsg?' · docente':''} · ${formatearFechaHora(m.creado_en)}</div>
+      <div style="display:inline-block;max-width:80%;padding:8px 12px;border-radius:var(--r2);background:${soyYo?'var(--accent)':'var(--c3)'};color:${soyYo?'#fff':'var(--t1)'};font-size:13px;text-align:left;word-break:break-word;">${escaparHTML(m.cuerpo)}</div>
+    </div>`;
+  }).join('');
+  if(yaAbajo) cont.scrollTop = cont.scrollHeight;
+}
+
+function actualizarContadorChat(canal){
+  const input = document.getElementById(canal+'-chat-input');
+  const contador = document.getElementById(canal+'-chat-contador');
+  if(!input || !contador) return;
+  const restantes = 500 - input.value.length;
+  contador.textContent = restantes < 100 ? restantes : '';
+  contador.style.color = restantes < 20 ? 'var(--red)' : 'var(--t3)';
+}
+
+async function enviarMensajeChat(canal){
+  const input = document.getElementById(canal+'-chat-input');
+  if(!input) return;
+  const texto = input.value.trim();
+  if(!texto || !currentUser || !currentUser.sesion_id) return;
+  input.value = '';
+  actualizarContadorChat(canal);
+  input.disabled = true;
+  try {
+    const { error } = await conTiempoLimite(sb.from('mensajes_chat').insert({
+      sesion_id: currentUser.sesion_id, canal,
+      autor_id: currentUser.usuario_id, autor_nombre: currentUser.nombre, autor_rol: currentUser.rol,
+      cuerpo: texto,
+    }));
+    if(error) throw error;
+  } catch(e){
+    notify('No se pudo enviar el mensaje: ' + (e.message||e), 'error');
+    input.value = texto; // se lo devolvemos para que no lo pierda
+  } finally {
+    input.disabled = false;
+    input.focus();
+  }
+}
+
+function iniciarRealtimeChat(){
+  if(!sb || !currentUser || !currentUser.sesion_id || guestMode || chatChannel) return;
+  chatChannel = sb.channel('chat-'+currentUser.sesion_id)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'mensajes_chat', filter:`sesion_id=eq.${currentUser.sesion_id}` }, (payload) => {
+      const canal = payload.new.canal;
+      const cont = document.getElementById(CHAT_CONTENEDORES[canal]);
+      if(!cont || !cont.offsetParent){
+        // La caja de ese canal no está visible ahora mismo (la persona está
+        // en otra página) — se enciende el punto en el menú en vez de
+        // intentar actualizar algo que no se ve.
+        const dot = document.getElementById('dot-'+canal);
+        if(dot && payload.new.autor_id !== currentUser.usuario_id) dot.style.display = 'block';
+        return;
+      }
+      cargarChat(canal);
+    })
+    .subscribe();
+}
+function detenerRealtimeChat(){
+  if(chatChannel && sb){ sb.removeChannel(chatChannel); chatChannel = null; }
 }
 
 function abrirCrearAlertaPrecio(){
