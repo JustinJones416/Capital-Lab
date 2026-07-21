@@ -1061,7 +1061,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   </div>
   <!-- Watchlist -->
   <div class="wl-header">
-    <div class="wl-title">Watchlist</div>
+    <div class="wl-title">Lista de Seguimiento</div>
     <input class="wl-search" id="wl-search" placeholder="Buscar activo..." oninput="wlPage=1;renderWatchlist()">
     <div class="wl-filter">
       <button class="wf-btn active" data-wf="all"      onclick="setWlFilter('all',this)">Todos</button>
@@ -1232,9 +1232,29 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <button class="an-class-btn" data-cls="futuro" onclick="setAnalysisClass('futuro',this)"><i class="ti ti-chart-candle"></i> Futuros</button>
     <button class="an-class-btn" data-cls="derivado" onclick="setAnalysisClass('derivado',this)"><i class="ti ti-diamonds"></i> Derivados</button>
   </div>
-  <input class="wl-search" id="an-asset-search" placeholder="Buscar en esta clase..." oninput="renderAnalysisGrid()" style="max-width:380px;margin-bottom:12px;">
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+    <input class="wl-search" id="an-asset-search" placeholder="Buscar en esta clase..." oninput="renderAnalysisGrid()" style="max-width:380px;flex:1;margin-bottom:0;">
+    <select id="an-asset-orden" onchange="renderAnalysisGrid()" style="padding:0 10px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12px;">
+      <option value="nombre">Ordenar: Nombre</option>
+      <option value="rendimiento">Ordenar: Mayor rendimiento</option>
+      <option value="riesgo">Ordenar: Menor riesgo</option>
+      <option value="cambio">Ordenar: Mayor variación hoy</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--t2);cursor:pointer;white-space:nowrap;">
+      <input type="checkbox" id="an-solo-favoritos" onchange="renderAnalysisGrid()" style="width:auto;"> <i class="ti ti-star" style="font-size:12px;color:var(--gold);"></i> Solo favoritos
+    </label>
+  </div>
+  <div class="card" id="an-sector-heatmap-card" style="margin-bottom:14px;">
+    <div class="card-title"><i class="ti ti-chart-donut" style="color:var(--accent2);"></i> Panorama por sector — Acciones</div>
+    <div class="card-sub" style="margin-bottom:10px;">Rendimiento esperado promedio de cada sector, de un vistazo</div>
+    <div id="an-sector-heatmap"></div>
+  </div>
   <div class="an-asset-grid" id="an-asset-grid"></div>
   <div id="analysis-body" style="display:none;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button class="btn btn-sm" onclick="abrirComparadorActivos()"><i class="ti ti-arrows-left-right"></i> Comparar con otro activo</button>
+      <button class="btn btn-sm" onclick="copiarResumenActivo()"><i class="ti ti-clipboard-text"></i> Copiar resumen</button>
+    </div>
     <div class="metric-grid">
       <div class="metric"><div class="metric-label">Precio actual</div><div class="metric-val mono" id="an-price">—</div></div>
       <div class="metric"><div class="metric-label">Rentabilidad esp.</div><div class="metric-val g" id="an-ret">—</div></div>
@@ -5278,41 +5298,41 @@ async function verificarSesionValida(){
 // ═══════════════════ DATA ═══════════════════
 const RF=4.5;
 const ALL_STOCKS=[
-  {id:'AAPL',name:'Apple Inc.',ticker:'AAPL',sector:'Tecnología',country:'EE.UU.',price:189.5,beta:1.19,sigma:22.1,ret:12.4,profile:'Apple Inc. fundada en 1976 por Steve Jobs. Mayor capitalización del mundo. iPhone domina el 17% del mercado global. Ingresos 2023: $394B. Caja neta: $67B. Calificación: AAA.',rating:'AAA',dividend:0.92,type:'accion',
+  {id:'AAPL',name:'Apple Inc.',ticker:'AAPL',sector:'Tecnología',country:'EE.UU.',price:189.5,beta:1.19,sigma:22.1,ret:12.4,profile:'Apple Inc. fundada en 1976 por Steve Jobs. Mayor capitalización del mundo. iPhone domina cerca del 17% del mercado global de teléfonos inteligentes. Ingresos año fiscal 2024: $391B. Utilidad neta: $93.7B. Calificación crediticia: AAA.',rating:'AAA',dividend:0.92,type:'accion',
    fs:{
      income:[
-       {year:2023,revenue:394328,grossProfit:169148,ebit:114301,netIncome:96995},
+       {year:2024,revenue:391035,grossProfit:180683,ebit:123216,netIncome:93736},
+       {year:2023,revenue:383285,grossProfit:169148,ebit:114301,netIncome:96995},
        {year:2022,revenue:394328,grossProfit:170782,ebit:119437,netIncome:99803},
-       {year:2021,revenue:365817,grossProfit:152836,ebit:108949,netIncome:94680},
      ],
      balance:[
+       {year:2024,assets:364980,liabilities:308030,equity:56950,cash:29943,debt:106629},
        {year:2023,assets:352583,liabilities:290437,equity:62146,cash:29965,debt:111088},
        {year:2022,assets:352755,liabilities:302083,equity:50672,cash:23646,debt:120069},
-       {year:2021,assets:351002,liabilities:287912,equity:63090,cash:34940,debt:109106},
      ],
      cashflow:[
+       {year:2024,operating:118254,investing:2935,financing:-121983},
        {year:2023,operating:110543,investing:3705,financing:-108488},
        {year:2022,operating:122151,investing:-22354,financing:-110749},
-       {year:2021,operating:104038,investing:-14545,financing:-93353},
      ]
    }
   },
-  {id:'MSFT',name:'Microsoft Corp.',ticker:'MSFT',sector:'Tecnología',country:'EE.UU.',price:415.3,beta:0.94,sigma:18.7,ret:10.8,profile:'Microsoft fundada en 1975. Líder en software empresarial y nube Azure. Inversión estratégica en OpenAI. Ingresos 2023: $211B. Calificación: AAA.',rating:'AAA',dividend:0.75,type:'accion',
+  {id:'MSFT',name:'Microsoft Corp.',ticker:'MSFT',sector:'Tecnología',country:'EE.UU.',price:415.3,beta:0.94,sigma:18.7,ret:10.8,profile:'Microsoft fundada en 1975 por Bill Gates y Paul Allen. Líder en software empresarial, sistemas operativos y la nube Azure. Inversión estratégica de gran escala en OpenAI e inteligencia artificial. Ingresos año fiscal 2024: $245.1B. Utilidad neta: $88.1B. Calificación crediticia: AAA.',rating:'AAA',dividend:0.75,type:'accion',
    fs:{
      income:[
+       {year:2024,revenue:245122,grossProfit:171008,ebit:109433,netIncome:88136},
        {year:2023,revenue:211915,grossProfit:146052,ebit:88523,netIncome:72361},
        {year:2022,revenue:198270,grossProfit:135620,ebit:83383,netIncome:72738},
-       {year:2021,revenue:168088,grossProfit:115856,ebit:69916,netIncome:61271},
      ],
      balance:[
+       {year:2024,assets:512163,liabilities:243686,equity:268477,cash:75543,debt:67127},
        {year:2023,assets:411976,liabilities:205753,equity:206223,cash:34704,debt:59965},
        {year:2022,assets:364840,liabilities:198298,equity:166542,cash:13931,debt:61270},
-       {year:2021,assets:333779,liabilities:191791,equity:141988,cash:14224,debt:67775},
      ],
      cashflow:[
+       {year:2024,operating:118548,investing:-96471,financing:-46282},
        {year:2023,operating:87582,investing:-22680,financing:-43935},
        {year:2022,operating:89035,investing:-30311,financing:-58876},
-       {year:2021,operating:76740,investing:-27577,financing:-48486},
      ]
    }
   },
@@ -5354,22 +5374,22 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'NVDA',name:'NVIDIA Corp.',ticker:'NVDA',sector:'Semiconductores/IA',country:'EE.UU.',price:876.4,beta:1.72,sigma:48.2,ret:38.7,profile:'NVIDIA fundada en 1993. Monopolio de GPUs para IA con 80%+ del mercado. Capitalización superó $2.2T en 2024. Ingresos 2023: $60B. Motor de la revolución de IA.',rating:'A+',dividend:0.16,type:'accion',
+  {id:'NVDA',name:'NVIDIA Corp.',ticker:'NVDA',sector:'Semiconductores/IA',country:'EE.UU.',price:876.4,beta:1.72,sigma:48.2,ret:38.7,profile:'NVIDIA fundada en 1993 por Jensen Huang. Posición dominante en GPUs para inteligencia artificial y centros de datos, con más del 80% del mercado. Capitalización de mercado superó los $3 billones en 2025. Ingresos año fiscal 2025: $130.5B. Motor central de la infraestructura de IA a nivel mundial.',rating:'A+',dividend:0.16,type:'accion',
    fs:{
      income:[
+       {year:2025,revenue:130497,grossProfit:97858,ebit:81454,netIncome:72880},
        {year:2024,revenue:60922,grossProfit:44301,ebit:32972,netIncome:29760},
        {year:2023,revenue:26974,grossProfit:15356,ebit:4224,netIncome:4368},
-       {year:2022,revenue:26914,grossProfit:17475,ebit:4532,netIncome:4332},
      ],
      balance:[
+       {year:2025,assets:111601,liabilities:32274,equity:79327,cash:43210,debt:8460},
        {year:2024,assets:65728,liabilities:22975,equity:42978,cash:25984,debt:8462},
        {year:2023,assets:41193,liabilities:17575,equity:22101,cash:13296,debt:9709},
-       {year:2022,assets:44187,liabilities:17575,equity:26612,cash:19726,debt:10992},
      ],
      cashflow:[
-       {year:2023,operating:28090,investing:-10610,financing:-13633},
-       {year:2022,operating:5641,investing:-9830,financing:1865},
-       {year:2021,operating:9108,investing:-19675,financing:1865},
+       {year:2025,operating:64089,investing:-20421,financing:-24930},
+       {year:2024,operating:28090,investing:-10610,financing:-13633},
+       {year:2023,operating:5641,investing:-9830,financing:1865},
      ]
    }
   },
@@ -5994,11 +6014,11 @@ const ALL_FUTURES=[
 
 // ── DERIVADOS ──
 const ALL_DERIVATIVES=[
-  {id:'AAPL-CALL',name:'AAPL Call Option',ticker:'AAPL 200C',sector:'Opciones / Acciones',country:'EE.UU.',price:8.45,beta:1.9,sigma:38.2,ret:18.5,rating:'N/A',dividend:0,type:'derivado',delta:0.48,gamma:0.04,theta:-0.12,vega:0.18,impliedVol:28.4,strike:200,intrinsic:5.07,
+  {id:'AAPL-CALL',name:'Opción Call Apple',ticker:'AAPL 200C',sector:'Opciones / Acciones',country:'EE.UU.',price:8.45,beta:1.9,sigma:38.2,ret:18.5,rating:'N/A',dividend:0,type:'derivado',delta:0.48,gamma:0.04,theta:-0.12,vega:0.18,impliedVol:28.4,strike:200,intrinsic:5.07,
    profile:'Opción de compra (Call) sobre acciones de Apple Inc. con precio de ejercicio (strike) de $200. Otorga el derecho, no la obligación, de comprar 100 acciones de AAPL a $200 hasta la fecha de vencimiento. Prima actual: $8.45/acción.',
    specs:{underlying:'Apple Inc. (AAPL)',type:'Call (opción de compra)',strike:'$200.00',expiry:'Próximo vencimiento mensual',premium:'$8.45 / acción',contractSize:'100 acciones',delta:'0.48',gamma:'0.04',theta:'-0.12 ($/día)',iv:'28.4% (volatilidad implícita)'}
   },
-  {id:'IRS-USD',name:'Interest Rate Swap USD',ticker:'IRS-5Y-USD',sector:'Swaps / Tasas',country:'EE.UU.',price:4.85,beta:0.12,sigma:5.8,ret:4.85,rating:'N/A',dividend:0,type:'derivado',delta:0.84,gamma:0.09,theta:-0.24,vega:0.39,impliedVol:14.8,strike:4.61,intrinsic:2.91,
+  {id:'IRS-USD',name:'Swap Tasa Interés USD',ticker:'IRS-5Y-USD',sector:'Swaps / Tasas',country:'EE.UU.',price:4.85,beta:0.12,sigma:5.8,ret:4.85,rating:'N/A',dividend:0,type:'derivado',delta:0.84,gamma:0.09,theta:-0.24,vega:0.39,impliedVol:14.8,strike:4.61,intrinsic:2.91,
    profile:'Contrato de Swap de Tasas de Interés (IRS) a 5 años en dólares. Una parte paga una tasa fija del 4.85% y recibe SOFR (tasa flotante). Instrumento utilizado por bancos, corporaciones y fondos para gestionar el riesgo de tasas de interés en sus carteras de deuda.',
    specs:{type:'Interest Rate Swap (IRS)',maturity:'5 años',payLeg:'Tasa fija 4.85% (anual)',receiveLeg:'SOFR + spread (flotante)',notional:'$1,000,000 (nocional de referencia)',settlement:'Neto trimestral',counterpartyRisk:'Mitigado por CCP (LCH/CME)',market:'OTC / Mercado extrabursátil'}
   },
@@ -6036,7 +6056,7 @@ const ALL_DERIVATIVES=[
   {id:'VIX-CALL',name:'Opción Call VIX',ticker:'VIX-C',sector:'Opciones',price:8.4,sigma:68.4,ret:6.2,type:'derivado',delta:0.82,gamma:0.03,theta:-0.22,vega:0.37,impliedVol:75.4,strike:8.57,intrinsic:5.04,profile:'Opción Call VIX (VIX-C). Instrumento derivado tipo opciones. Volatilidad anualizada de 68.4%, retorno esperado 6.2%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
   {id:'GOLD-CALL',name:'Opción Call Oro',ticker:'GOLD-C',sector:'Opciones',price:32.6,sigma:24.8,ret:8.4,type:'derivado',delta:0.8,gamma:0.05,theta:-0.2,vega:0.35,impliedVol:29.8,strike:33.58,intrinsic:19.56,profile:'Opción Call Oro (GOLD-C). Instrumento derivado tipo opciones. Volatilidad anualizada de 24.8%, retorno esperado 8.4%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
   {id:'OIL-PUT',name:'Opción Put Petróleo',ticker:'OIL-P',sector:'Opciones',price:4.82,sigma:38.4,ret:5.8,type:'derivado',delta:0.4,gamma:0.05,theta:-0.2,vega:0.35,impliedVol:43.4,strike:4.96,intrinsic:2.89,profile:'Opción Put Petróleo (OIL-P). Instrumento derivado tipo opciones. Volatilidad anualizada de 38.4%, retorno esperado 5.8%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
-  {id:'TRS-EQ',name:'Total Return Swap Equity',ticker:'TRS-EQ',sector:'Swaps',price:101.4,sigma:22.4,ret:9.2,type:'derivado',delta:0.73,gamma:0.06,theta:-0.13,vega:0.28,impliedVol:20.4,strike:100.39,intrinsic:60.84,profile:'Total Return Swap Equity (TRS-EQ). Instrumento derivado tipo swaps. Volatilidad anualizada de 22.4%, retorno esperado 9.2%.',specs:{type:'Swaps',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
+  {id:'TRS-EQ',name:'Swap de Retorno Total (Acciones)',ticker:'TRS-EQ',sector:'Swaps',price:101.4,sigma:22.4,ret:9.2,type:'derivado',delta:0.73,gamma:0.06,theta:-0.13,vega:0.28,impliedVol:20.4,strike:100.39,intrinsic:60.84,profile:'Swap de Retorno Total sobre una canasta de acciones (TRS-EQ). Una parte recibe el rendimiento total (precio + dividendos) del activo subyacente a cambio de pagar una tasa de financiamiento — permite exposición sin poseer las acciones directamente. Volatilidad anualizada de 22.4%, retorno esperado 9.2%.',specs:{type:'Swap de Retorno Total',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
   {id:'VARSWAP',name:'Swap de Varianza',ticker:'VAR-SW',sector:'Swaps',price:98.2,sigma:32.8,ret:7.4,type:'derivado',delta:0.61,gamma:0.06,theta:-0.21,vega:0.16,impliedVol:38.8,strike:91.33,intrinsic:58.92,profile:'Swap de Varianza (VAR-SW). Instrumento derivado tipo swaps. Volatilidad anualizada de 32.8%, retorno esperado 7.4%.',specs:{type:'Swaps',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
   {id:'CAP-USD',name:'Cap Tasa USD',ticker:'CAP-USD',sector:'Opciones',price:2.84,sigma:18.4,ret:4.2,type:'derivado',delta:0.67,gamma:0.08,theta:-0.07,vega:0.32,impliedVol:10.4,strike:2.58,intrinsic:1.7,profile:'Cap Tasa USD (CAP-USD). Instrumento derivado tipo opciones. Volatilidad anualizada de 18.4%, retorno esperado 4.2%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
   {id:'FLOOR-EUR',name:'Floor Tasa EUR',ticker:'FLR-EUR',sector:'Opciones',price:2.42,sigma:16.8,ret:3.8,type:'derivado',delta:0.69,gamma:0.06,theta:-0.09,vega:0.24,impliedVol:10.8,strike:2.23,intrinsic:1.45,profile:'Floor Tasa EUR (FLR-EUR). Instrumento derivado tipo opciones. Volatilidad anualizada de 16.8%, retorno esperado 3.8%.',specs:{type:'Opciones',underlying:'Diversos',notional:'$100,000',maturity:'3-12 meses',market:'OTC'}},
@@ -6396,7 +6416,7 @@ function renderResultadosSelectorActivos(query){
     return `<div class="cmdk-item" onclick="cerrarSelectorActivos();goPage('mercado');showAssetDetail('${a.id}','${a.type}');">
       <i class="ti ti-chart-line"></i>
       <div style="flex:1;min-width:0;">
-        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name}</div>
+        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name} <span class="badge ${typeBadgeCls(a.type)}" style="font-size:8px;">${a.type}</span></div>
         <div style="font-size:10.5px;color:var(--t3);">${a.ticker||''}</div>
       </div>
       <div style="text-align:right;">
@@ -6760,10 +6780,9 @@ function buildProfile(asset){
   const badge=(txt,color)=>`<span class="badge" style="background:${color};font-size:9px;">${txt}</span>`;
   const ratingColor=r=>r.startsWith('AA')||r==='AAA'?'var(--green)':r.startsWith('A')?'var(--accent2)':r.startsWith('BB')?'var(--amber)':'var(--red)';
 
-  // Description block (2–3 sentences max)
+  // Descripción completa del emisor — antes se recortaba a 220 caracteres,
+  // perdiendo información real que sí existía en los datos.
   let desc=asset.profile||'';
-  // Truncate to 220 chars
-  if(desc.length>220)desc=desc.substring(0,desc.lastIndexOf('.',220)+1)||desc.substring(0,220)+'...';
 
   let rows='';
   let extra='';
@@ -8007,6 +8026,7 @@ let anSelectedId=null;
 function populateAnalysisSelect(){
   // Inicializa la navegación por clase de activo (reemplaza el selector largo).
   if(!anSelectedId) renderAnalysisGrid();
+  if(anCurrentClass==='accion') renderMapaCalorSectorial();
 }
 
 function setAnalysisClass(cls, btn){
@@ -8014,7 +8034,48 @@ function setAnalysisClass(cls, btn){
   document.querySelectorAll('.an-class-btn').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   const s=document.getElementById('an-asset-search'); if(s)s.value='';
+  const heatmapCard = document.getElementById('an-sector-heatmap-card');
+  if(heatmapCard) heatmapCard.style.display = cls==='accion' ? '' : 'none';
+  if(cls==='accion') renderMapaCalorSectorial();
   renderAnalysisGrid();
+}
+
+// Agrupa las acciones por sector y muestra el rendimiento esperado
+// promedio de cada uno, coloreado — para responder de un vistazo
+// "¿qué sector le está yendo mejor ahora mismo?" sin tener que entrar
+// activo por activo.
+function renderMapaCalorSectorial(){
+  const cont = document.getElementById('an-sector-heatmap');
+  if(!cont) return;
+  const porSector = {};
+  STOCKS.forEach(a => {
+    const s = a.sector || 'Otro';
+    if(!porSector[s]) porSector[s] = [];
+    porSector[s].push(a);
+  });
+  const sectores = Object.entries(porSector).map(([sector, activos]) => ({
+    sector,
+    n: activos.length,
+    retProm: activos.reduce((sum,a)=>sum+a.ret,0)/activos.length,
+    sigmaProm: activos.reduce((sum,a)=>sum+a.sigma,0)/activos.length,
+  })).sort((a,b)=>b.retProm-a.retProm);
+  cont.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;">
+    ${sectores.map(s => {
+      const intensidad = Math.min(1, Math.abs(s.retProm)/25);
+      const color = s.retProm>=0 ? `rgba(0,208,132,${0.12+intensidad*0.35})` : `rgba(255,71,87,${0.12+intensidad*0.35})`;
+      const borde = s.retProm>=0 ? 'var(--green)' : 'var(--red)';
+      return `<div style="background:${color};border:1px solid ${borde};border-radius:var(--r);padding:10px;cursor:pointer;" onclick="document.getElementById('an-asset-search').value='';filtrarPorSector('${s.sector.replace(/'/g,"\\'")}')" title="Filtrar por ${s.sector}">
+        <div style="font-size:11px;font-weight:600;color:var(--t1);">${s.sector}</div>
+        <div style="font-size:16px;font-weight:700;color:${borde};margin-top:2px;">${s.retProm>=0?'+':''}${s.retProm.toFixed(1)}%</div>
+        <div style="font-size:9.5px;color:var(--t3);margin-top:2px;">${s.n} activo${s.n===1?'':'s'} · σ ${s.sigmaProm.toFixed(1)}%</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function filtrarPorSector(sector){
+  const buscador = document.getElementById('an-asset-search');
+  if(buscador){ buscador.value = sector; renderAnalysisGrid(); buscador.scrollIntoView({behavior:'smooth', block:'center'}); }
 }
 
 function assetsByClass(cls){
@@ -8022,19 +8083,142 @@ function assetsByClass(cls){
   return (map[cls]||[]).slice();
 }
 
+// ══════════════════════════════════════════════════
+// COMPARADOR DE ACTIVOS — ver dos activos, de cualquier clase, lado a
+// lado con sus métricas clave. Pensado para una vista ejecutiva rápida:
+// "¿cuál de estos dos me conviene más?", sin tener que ir y volver entre
+// dos pantallas de Análisis por separado.
+// ══════════════════════════════════════════════════
+function abrirComparadorActivos(){
+  const activoA = allAssets().find(a=>a.id===anSelectedId);
+  if(!activoA){ notify('Selecciona primero un activo en Análisis.', 'error'); return; }
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:520px;">
+    <h3>Comparar activos</h3>
+    <div class="sub">${activoA.name} contra el activo que elijas, de cualquier clase.</div>
+    <div class="grade-field">
+      <label>Comparar con</label>
+      <input type="text" id="cmp-buscar" placeholder="Busca por nombre o ticker…" autocomplete="off">
+      <div id="cmp-resultados" style="max-height:180px;overflow-y:auto;margin-top:6px;"></div>
+    </div>
+    <div id="cmp-tabla"></div>
+    <button class="btn btn-ghost" id="cmp-cerrar" style="width:100%;margin-top:12px;">Cerrar</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#cmp-cerrar').onclick = () => overlay.remove();
+
+  overlay.querySelector('#cmp-buscar').oninput = (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    const cont = overlay.querySelector('#cmp-resultados');
+    if(!q){ cont.innerHTML=''; return; }
+    const resultados = allAssets().filter(a => a.id!==activoA.id && (a.name.toLowerCase().includes(q) || (a.ticker||'').toLowerCase().includes(q))).slice(0,8);
+    cont.innerHTML = resultados.map(a => `<div class="cmdk-item" style="cursor:pointer;" onclick="renderComparadorTabla('${activoA.id}','${a.id}')"><i class="ti ti-chart-line"></i><span>${a.name}</span> <span class="badge ${typeBadgeCls(a.type)}" style="font-size:8px;">${a.type}</span></div>`).join('');
+  };
+}
+
+function renderComparadorTabla(idA, idB){
+  const a = allAssets().find(x=>x.id===idA);
+  const b = allAssets().find(x=>x.id===idB);
+  const cont = document.querySelector('#cmp-tabla');
+  const buscador = document.querySelector('#cmp-buscar');
+  const resultados = document.querySelector('#cmp-resultados');
+  if(!a || !b || !cont) return;
+  if(buscador) buscador.value = b.name;
+  if(resultados) resultados.innerHTML = '';
+  const sharpeOf = x => (x.sigma>0 ? (x.ret/x.sigma).toFixed(2) : '—');
+  const filas = [
+    ['Clase', x=>x.type, false],
+    ['Precio actual', x=>'$'+(x.currentPrice||x.price).toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2}), false],
+    ['Rendimiento esperado', x=>(x.ret||0).toFixed(1)+'%', true],
+    ['Riesgo (σ)', x=>(x.sigma||0).toFixed(1)+'%', false],
+    ['Ratio Sharpe (aprox.)', x=>sharpeOf(x), true],
+    ['Calificación', x=>x.rating||'—', false],
+    ['País / Región', x=>x.country||'—', false],
+  ];
+  cont.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">
+    <thead><tr>
+      <th style="text-align:left;padding:6px;color:var(--t3);">Indicador</th>
+      <th style="text-align:right;padding:6px;">${a.name}</th>
+      <th style="text-align:right;padding:6px;">${b.name}</th>
+    </tr></thead>
+    <tbody>
+      ${filas.map(([label, fn, mayorEsMejor]) => {
+        const va = fn(a), vb = fn(b);
+        let colA = '', colB = '';
+        if(mayorEsMejor && !isNaN(parseFloat(va)) && !isNaN(parseFloat(vb))){
+          const na = parseFloat(va), nb = parseFloat(vb);
+          colA = na>nb ? 'color:var(--green);font-weight:600;' : na<nb ? 'color:var(--red);' : '';
+          colB = nb>na ? 'color:var(--green);font-weight:600;' : nb<na ? 'color:var(--red);' : '';
+        }
+        return `<tr style="border-top:1px solid var(--c3);">
+          <td style="padding:6px;color:var(--t2);">${label}</td>
+          <td class="mono" style="padding:6px;text-align:right;${colA}">${va}</td>
+          <td class="mono" style="padding:6px;text-align:right;${colB}">${vb}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
+}
+
+// Favoritos de Análisis — se guardan en este mismo navegador (no en la
+// nube, es una preferencia personal de quién está mirando el simulador
+// en ese momento) para poder marcar rápido los activos de interés antes
+// de una demostración y filtrarlos con un clic.
+let favoritosAnalisis = new Set(JSON.parse(localStorage.getItem('capitallab_favoritos_analisis')||'[]'));
+function alternarFavoritoAnalisis(id){
+  if(favoritosAnalisis.has(id)) favoritosAnalisis.delete(id);
+  else favoritosAnalisis.add(id);
+  localStorage.setItem('capitallab_favoritos_analisis', JSON.stringify([...favoritosAnalisis]));
+  renderAnalysisGrid();
+}
+
+function colorSector(sector){
+  if(!sector) return 'var(--t3)';
+  const colores = ['#00C4FF','#D4AF37','#00D084','#FF7A45','#9C6ADE','#FF4757','#4A9DFF','#E0C341'];
+  let hash = 0;
+  for(let i=0;i<sector.length;i++) hash = sector.charCodeAt(i) + ((hash<<5)-hash);
+  return colores[Math.abs(hash) % colores.length];
+}
+
+// Copia un resumen en texto plano del activo seleccionado — pensado para
+// pegar directo en una diapositiva, un correo, o un chat, sin tener que
+// transcribir los números a mano.
+function copiarResumenActivo(){
+  const a = allAssets().find(x=>x.id===anSelectedId);
+  if(!a){ notify('Selecciona primero un activo.', 'error'); return; }
+  const p = a.currentPrice||a.price;
+  const texto = `${a.name} (${a.ticker})\nPrecio actual: $${p.toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2})}\nRendimiento esperado: ${a.ret.toFixed(1)}%\nRiesgo (σ): ${a.sigma.toFixed(1)}%\nCalificación: ${a.rating||'—'}\nPaís / Región: ${a.country||'—'}`;
+  navigator.clipboard?.writeText(texto).then(
+    () => notify('Resumen copiado al portapapeles.', 'success'),
+    () => notify('No se pudo copiar.', 'error')
+  );
+}
+
 function renderAnalysisGrid(){
   const grid=document.getElementById('an-asset-grid');
   if(!grid)return;
   const q=(document.getElementById('an-asset-search')||{value:''}).value.toLowerCase();
-  const items=assetsByClass(anCurrentClass).filter(a=>!q||a.name.toLowerCase().includes(q)||a.ticker.toLowerCase().includes(q)||(a.country||'').toLowerCase().includes(q));
-  if(items.length===0){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;font-size:12px;color:var(--t3);">Sin activos en esta clase</div>';return;}
+  let items=assetsByClass(anCurrentClass).filter(a=>!q||a.name.toLowerCase().includes(q)||a.ticker.toLowerCase().includes(q)||(a.country||'').toLowerCase().includes(q)||(a.sector||'').toLowerCase().includes(q));
+  const soloFav = document.getElementById('an-solo-favoritos')?.checked;
+  if(soloFav) items = items.filter(a => favoritosAnalisis.has(a.id));
+  const orden = (document.getElementById('an-asset-orden')||{value:'nombre'}).value;
+  if(orden==='rendimiento') items = [...items].sort((a,b)=>(b.ret||0)-(a.ret||0));
+  else if(orden==='riesgo') items = [...items].sort((a,b)=>(a.sigma||0)-(b.sigma||0));
+  else if(orden==='cambio') items = [...items].sort((a,b)=>(b.change||0)-(a.change||0));
+  else items = [...items].sort((a,b)=>a.name.localeCompare(b.name,'es'));
+  if(items.length===0){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;font-size:12px;color:var(--t3);">'+(soloFav?'No tienes ningún favorito marcado todavía.':'Sin activos en esta clase')+'</div>';return;}
   grid.innerHTML=items.map(a=>{
     const p=a.currentPrice||a.price;
     const chg=a.change||0;
     const sel=a.id===anSelectedId?'selected':'';
     const pStr=a.type==='divisa'&&p>100?p.toLocaleString('es-PA',{maximumFractionDigits:0}):p.toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:4});
-    return `<div class="an-asset-card ${sel}" onclick="selectAnalysisAsset('${a.id}','${a.type}')">
-      <div class="an-asset-card-tk">${a.ticker}</div>
+    const colorBarra = a.sector ? colorSector(a.sector) : 'transparent';
+    const esFav = favoritosAnalisis.has(a.id);
+    return `<div class="an-asset-card ${sel}" onclick="selectAnalysisAsset('${a.id}','${a.type}')" style="border-left:3px solid ${colorBarra};position:relative;">
+      <i class="ti ti-star${esFav?'-filled':''}" style="position:absolute;top:8px;right:8px;font-size:14px;color:${esFav?'var(--gold)':'var(--t3)'};cursor:pointer;" onclick="event.stopPropagation();alternarFavoritoAnalisis('${a.id}')" title="${esFav?'Quitar de favoritos':'Marcar como favorito'}"></i>
+      <div class="an-asset-card-tk">${a.ticker}${a.sector?` <span style="font-size:8px;color:${colorBarra};font-weight:600;">${a.sector}</span>`:''}</div>
       <div class="an-asset-card-nm">${a.name}</div>
       <div class="an-asset-card-row">
         <span class="an-asset-card-px">$${pStr}</span>
@@ -8215,6 +8399,63 @@ function renderAnalysis(id,type){
         </table>
       </div>`;
     body.appendChild(div);
+
+    // ── FLUJO DE CAJA — el dato ya existía en el modelo (asset.fs.cashflow)
+    // pero nunca se había construido la tarjeta que lo muestra; hasta ahora
+    // Análisis solo mostraba resultados y balance, sin la tercera pieza
+    // clásica de cualquier análisis financiero serio.
+    if(asset.fs.cashflow){
+      const cf=asset.fs.cashflow;
+      const fcl = cf.map(r=>r.operating+r.investing);
+      const divCF=document.createElement('div');
+      divCF.id='an-cashflow';
+      divCF.style.marginTop='14px';
+      divCF.innerHTML=`
+      <div class="card">
+        <div class="card-title"><i class="ti ti-cash" style="color:var(--gold);"></i> Estado de Flujo de Efectivo — ${asset.name}</div>
+        <p style="font-size:11px;color:var(--t3);margin-bottom:10px;">Cifras en millones USD (USD M) · Estimación con base en reportes públicos más recientes disponibles</p>
+        <table>
+          <thead><tr>
+            <th>Concepto</th>
+            ${cf.map(r=>`<th style="text-align:right;">Año ${r.year}</th>`).join('')}
+            <th style="text-align:right;">Var. interanual</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td style="color:var(--t2);">Flujo de efectivo operativo</td>
+              ${cf.map(r=>`<td class="mono ${r.operating>=0?'g':'r'}" style="text-align:right;">${r.operating.toLocaleString('es-PA')}</td>`).join('')}
+              <td class="mono ${cf[0].operating>cf[1].operating?'g':'r'}" style="text-align:right;">${((cf[0].operating-cf[1].operating)/Math.abs(cf[1].operating)*100).toFixed(1)}%</td>
+            </tr>
+            <tr>
+              <td style="color:var(--t2);">Flujo de efectivo de inversión</td>
+              ${cf.map(r=>`<td class="mono ${r.investing>=0?'g':'r'}" style="text-align:right;">${r.investing.toLocaleString('es-PA')}</td>`).join('')}
+              <td class="mono" style="text-align:right;">—</td>
+            </tr>
+            <tr>
+              <td style="color:var(--t2);">Flujo de efectivo de financiamiento</td>
+              ${cf.map(r=>`<td class="mono ${r.financing>=0?'g':'r'}" style="text-align:right;">${r.financing.toLocaleString('es-PA')}</td>`).join('')}
+              <td class="mono" style="text-align:right;">—</td>
+            </tr>
+            <tr style="background:rgba(212,175,55,.06);">
+              <td style="color:var(--t1);font-weight:500;">Flujo de caja libre (estimado)</td>
+              ${fcl.map(v=>`<td class="mono ${v>=0?'g':'r'}" style="text-align:right;font-weight:500;">${v.toLocaleString('es-PA')}</td>`).join('')}
+              <td class="mono ${fcl[0]>fcl[1]?'g':'r'}" style="text-align:right;font-weight:500;">${((fcl[0]-fcl[1])/Math.abs(fcl[1])*100).toFixed(1)}%</td>
+            </tr>
+            <tr>
+              <td style="color:var(--t2);">Margen de flujo libre / ingresos</td>
+              ${cf.map((r,i)=>`<td class="mono" style="text-align:right;">${(fcl[i]/inc[i].revenue*100).toFixed(1)}%</td>`).join('')}
+              <td class="mono" style="text-align:right;">—</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="info-box" style="margin-top:10px;font-size:11px;">
+          <b>Sobre estas cifras:</b> CapitalLab es un simulador educativo. Las cifras de flujo de caja se aproximan a
+          reportes financieros públicos reales de cada empresa, redondeadas y simplificadas con fines pedagógicos —
+          no sustituyen los estados financieros auditados oficiales de cada compañía para fines de inversión real.
+        </div>
+      </div>`;
+      body.appendChild(divCF);
+    }
   }
 
   // ── PROSPECTO DEL BONO ──
