@@ -1346,6 +1346,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <button class="btn btn-sm" onclick="abrirAsesorCartera()" style="background:rgba(0,196,255,.12);color:var(--accent2);border:1px solid rgba(0,196,255,.3);"><i class="ti ti-bulb"></i> Asesor de Cartera</button>
         <button class="btn btn-sm" onclick="abrirReplayCartera()"><i class="ti ti-player-play"></i> Replay</button>
         <button class="btn btn-sm" onclick="abrirDiarioTrading()"><i class="ti ti-notebook"></i> Mi Diario de Trading</button>
+        <button class="btn btn-sm" onclick="abrirMetaPersonal()"><i class="ti ti-flag"></i> Meta Personal</button>
       </div>
     </div>
   </div>
@@ -2806,7 +2807,7 @@ async function cambiarSesionActiva(sesionId, sesionNombre, sesionCodigo){
   // Reinicia el estado de trading en memoria (cada sesión es independiente)
   // y carga lo que ya hubiera guardado antes en esta sesión, si aplica.
   capital = 50000; labCapital = 50000; portfolio = []; txHistory = [];
-  labHistory = []; navHistory = []; pendingOrders = []; marketSessionLog = []; diarioTrading = [];
+  labHistory = []; navHistory = []; pendingOrders = []; marketSessionLog = []; diarioTrading = []; metaPersonal = null;
   savedPortfolios = []; newsFeed = []; labPickedIds = [];
   labConfig = {capital:50000, horizon:6, target:8, started:false, startCapital:0};
   loadProgress();
@@ -4143,6 +4144,7 @@ async function renderInicioPage(){
           <button class="btn btn-sm" onclick="abrirAsesorCartera()" style="background:rgba(0,196,255,.12);color:var(--accent2);border:1px solid rgba(0,196,255,.3);"><i class="ti ti-bulb"></i> Asesor de Cartera</button>
           <button class="btn btn-sm" onclick="abrirReplayCartera()"><i class="ti ti-player-play"></i> Replay de mi Cartera</button>
           <button class="btn btn-sm" onclick="abrirDiarioTrading()"><i class="ti ti-notebook"></i> Diario de Trading</button>
+          <button class="btn btn-sm" onclick="abrirMetaPersonal()"><i class="ti ti-flag"></i> Meta Personal</button>
           <button class="btn btn-sm" onclick="abrirInsigniaDesempeno()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-mood-smile"></i> Tarjeta de Desempeño</button>
         </div>
         ${rankingTxt ? `<div class="info-box-app" style="background:rgba(0,196,255,.08);border:1px solid var(--accent2);border-radius:var(--r);padding:10px 14px;font-size:13px;margin-bottom:16px;"><i class="ti ti-trophy" style="color:var(--accent2);margin-right:6px;"></i>${rankingTxt}</div>` : ''}
@@ -8254,6 +8256,58 @@ function mostrarPromptDiarioTrading(accion, nombreActivo){
   input.onkeydown = (e) => { if(e.key==='Enter') guardar(); };
 }
 
+// ══════════════════════════════════════════════════
+// META PERSONAL — el estudiante se pone su propia meta de valor de
+// cartera (distinta de la meta del Laboratorio, que es aparte y la
+// define el propio Laboratorio). Cuando la alcanza, se le avisa una sola
+// vez, con notificación nativa incluida si la tiene activada.
+// ══════════════════════════════════════════════════
+let metaPersonal = null; // { valor, celebrada }
+
+function abrirMetaPersonal(){
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  const valorActual = capital + portfolio.reduce((s,p)=>s+(p.qty*(p.currentPrice||p.buyPrice)),0);
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:420px;">
+    <h3><i class="ti ti-flag"></i> Mi meta personal</h3>
+    <div class="sub">Ponte una meta propia de valor de cartera — te avisamos cuando la alcances.</div>
+    ${metaPersonal ? `<div class="info-box" style="font-size:12px;margin-bottom:12px;">Tu meta actual: <b>$${metaPersonal.valor.toLocaleString('es-PA')}</b> — vas en $${valorActual.toLocaleString('es-PA',{maximumFractionDigits:0})} (${Math.min(100,(valorActual/metaPersonal.valor*100)).toFixed(0)}%).</div>` : ''}
+    <div class="grade-field"><label>Meta de valor de cartera ($)</label><input type="number" id="mp-valor" min="1" value="${metaPersonal ? metaPersonal.valor : Math.round(valorActual*1.2)}"></div>
+    <div class="auth-msg" id="mp-msg"></div>
+    <div style="display:flex;gap:10px;">
+      ${metaPersonal ? `<button class="btn btn-ghost" id="mp-quitar" style="flex:1;min-height:44px;">Quitar meta</button>` : ''}
+      <button class="btn btn-ghost" onclick="this.closest('.grade-modal-overlay').remove()" style="flex:1;min-height:44px;">Cerrar</button>
+      <button class="auth-submit" id="mp-guardar" style="flex:1;margin-top:0;min-height:44px;">Guardar meta</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  if(metaPersonal) overlay.querySelector('#mp-quitar').onclick = () => { metaPersonal = null; autosave(); overlay.remove(); notify('Meta personal eliminada.', 'success'); };
+  overlay.querySelector('#mp-guardar').onclick = () => {
+    const valor = +overlay.querySelector('#mp-valor').value;
+    const msg = overlay.querySelector('#mp-msg');
+    if(!valor || valor <= 0){ msg.className='auth-msg show error'; msg.textContent='Ingresa un valor válido.'; return; }
+    metaPersonal = { valor, celebrada: false };
+    autosave();
+    overlay.remove();
+    notify('Meta personal guardada.', 'success');
+  };
+}
+
+// Se llama cada vez que se refresca la cartera — revisa si ya se alcanzó
+// la meta y, si es la primera vez, celebra una sola vez (no se repite en
+// cada render siguiente).
+function verificarMetaPersonal(){
+  if(!metaPersonal || metaPersonal.celebrada) return;
+  const valorActual = capital + portfolio.reduce((s,p)=>s+(p.qty*(p.currentPrice||p.buyPrice)),0);
+  if(valorActual >= metaPersonal.valor){
+    metaPersonal.celebrada = true;
+    autosave();
+    notify(`🎯 ¡Alcanzaste tu meta personal de $${metaPersonal.valor.toLocaleString('es-PA')}!`, 'success');
+    enviarNotificacionNativa('¡Meta alcanzada! — CapitalLab', `Tu cartera ya llegó a $${metaPersonal.valor.toLocaleString('es-PA')}.`);
+  }
+}
+
 function abrirDiarioTrading(){
   const overlay = document.createElement('div');
   overlay.className = 'grade-modal-overlay';
@@ -9907,6 +9961,7 @@ function typeBadgeCls(t){
 
 function renderPortfolio(){
   updateNavCapital();
+  verificarMetaPersonal();
   const btnRepetir = document.getElementById('btn-repetir-op');
   if(btnRepetir) btnRepetir.style.display = txHistory.some(t=>t.action==='Compra'||t.action==='Venta') ? '' : 'none';
   const totalInv = portfolio.reduce((s,p)=>s+p.invested,0);
@@ -11777,6 +11832,7 @@ function saveProgress() {
       labConfig,
       labPickedIds,
       diarioTrading,
+      metaPersonal,
       savedAt: new Date().toISOString(),
     };
     localStorage.setItem(storageKey(), JSON.stringify(state));
@@ -11906,6 +11962,7 @@ function loadProgress() {
     if (state.labConfig)                      labConfig        = {...labConfig, ...state.labConfig};
     if (Array.isArray(state.labPickedIds))    labPickedIds     = state.labPickedIds;
     if (Array.isArray(state.diarioTrading))   diarioTrading    = state.diarioTrading;
+    if (state.metaPersonal)                   metaPersonal     = state.metaPersonal;
     return true;
   } catch(e) {
     console.warn('No se pudo cargar progreso:', e.message);
