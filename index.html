@@ -138,7 +138,10 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 
 /* ── SIDEBAR NAV ── */
 .wl-nav{display:flex;flex-direction:column;gap:1px;padding:6px 6px 0;border-bottom:1px solid var(--c4);margin-bottom:2px;flex-shrink:0;}
-.wl-nav-section{font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;padding:8px 8px 3px;font-weight:700;}
+.wl-nav-section{font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;padding:8px 8px 3px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;user-select:none;}
+.wl-nav-section:hover{color:var(--t2);}
+.wl-nav-section-flecha{font-size:11px;transition:transform .15s;}
+.wl-nav-section.colapsada .wl-nav-section-flecha{transform:rotate(-90deg);}
 .wl-nav-section:first-child{padding-top:2px;}
 .wl-nav-btn{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;color:var(--t2);font-size:11px;font-family:var(--font-body);width:100%;text-align:left;transition:all .12s;white-space:nowrap;overflow:hidden;}
 .nav-chat-dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);margin-left:auto;flex-shrink:0;}
@@ -279,8 +282,11 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 /* ── STANDARD CARDS ── */
 .card{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);padding:16px 20px;}
 .card-title{font-family:var(--font-head);font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;color:var(--t1);}
+.card-collapse-toggle{margin-left:auto;cursor:pointer;font-size:14px;color:var(--t3);transition:transform .15s;flex-shrink:0;}
+.card.tarjeta-colapsada > *:not(.card-title){display:none;}
+.card.tarjeta-colapsada .card-title{margin-bottom:0;}
 .card-title i{color:var(--accent2);font-size:15px;}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
 @media(max-width:900px){.grid2,.grid3,.market-layout{grid-template-columns:1fr;}}
 
@@ -1036,7 +1042,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   <div class="wl-nav" id="wl-nav">
     <button class="wl-nav-btn active" id="nav-inicio"        onclick="goPage('inicio')"><i class="ti ti-home"></i> Inicio</button>
 
-    <div class="wl-nav-section">Simulador</div>
+    <div class="wl-nav-section" onclick="alternarSeccionNav(this)"><i class="ti ti-chevron-down wl-nav-section-flecha"></i> Simulador</div>
     <button class="wl-nav-btn"        id="nav-mercado"       onclick="goPage('mercado')"><i class="ti ti-chart-candle"></i> Mercado</button>
     <button class="wl-nav-btn"        id="nav-analisis"      onclick="goPage('analisis')"><i class="ti ti-chart-bar"></i> Análisis</button>
     <button class="wl-nav-btn"        id="nav-personalizado" onclick="goPage('personalizado')"><i class="ti ti-adjustments-horizontal"></i> Personalizado</button>
@@ -1048,13 +1054,13 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <button class="wl-nav-btn"        id="nav-resultados-lab" onclick="goPage('resultados-lab')"><i class="ti ti-report-analytics"></i> Resultados Lab</button>
     <button class="wl-nav-btn"        id="nav-noticias"      onclick="goPage('noticias')"><i class="ti ti-news"></i> Noticias</button>
 
-    <div class="wl-nav-section">Mi progreso</div>
+    <div class="wl-nav-section" onclick="alternarSeccionNav(this)"><i class="ti ti-chevron-down wl-nav-section-flecha"></i> Mi progreso</div>
     <button class="wl-nav-btn"        id="nav-calificaciones" onclick="goPage('calificaciones')"><i class="ti ti-certificate"></i> Calificaciones</button>
     <button class="wl-nav-btn"        id="nav-cuestionarios"  onclick="goPage('cuestionarios')"><i class="ti ti-list-check"></i> Cuestionarios</button>
     <button class="wl-nav-btn"        id="nav-posiciones"     onclick="goPage('posiciones')"><i class="ti ti-trophy"></i> Posiciones</button>
     <button class="wl-nav-btn"        id="nav-logros"          onclick="goPage('logros')"><i class="ti ti-award"></i> Logros</button>
 
-    <div class="wl-nav-section" id="wl-nav-section-gestion" style="display:none;">Gestión</div>
+    <div class="wl-nav-section" id="wl-nav-section-gestion" onclick="alternarSeccionNav(this)" style="display:none;"><i class="ti ti-chevron-down wl-nav-section-flecha"></i> Gestión</div>
     <button class="wl-nav-btn"        id="nav-profesor"      onclick="goPage('profesor')" style="display:none;"><i class="ti ti-school"></i> Modo Profesor</button>
     <button class="wl-nav-btn"        id="nav-admin"          onclick="goPage('admin')" style="display:none;"><i class="ti ti-shield-cog"></i> Administración</button>
   </div>
@@ -1348,21 +1354,21 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   <!-- ── CHARTS GRID 2×2 ── -->
   <div class="grid2" style="margin-bottom:14px;">
     <div class="card">
-      <div class="card-title"><i class="ti ti-chart-area" style="color:var(--accent2);"></i> Evolución del valor total</div>
+      <div class="card-title"><i class="ti ti-chart-area" style="color:var(--accent2);"></i> Evolución del valor total<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
       <div class="chart-box"><canvas id="port-evolution"></canvas></div>
     </div>
     <div class="card">
-      <div class="card-title"><i class="ti ti-chart-donut" style="color:var(--amber);"></i> Distribución por tipo de activo</div>
+      <div class="card-title"><i class="ti ti-chart-donut" style="color:var(--amber);"></i> Distribución por tipo de activo<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
       <div class="chart-box"><canvas id="port-donut"></canvas></div>
     </div>
   </div>
   <div class="grid2" style="margin-bottom:14px;">
     <div class="card">
-      <div class="card-title"><i class="ti ti-chart-bar" style="color:var(--green);"></i> P&amp;L por posición ($)</div>
+      <div class="card-title"><i class="ti ti-chart-bar" style="color:var(--green);"></i> P&amp;L por posición ($)<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
       <div class="chart-box"><canvas id="port-pnl-bar"></canvas></div>
     </div>
     <div class="card">
-      <div class="card-title"><i class="ti ti-trending-up" style="color:var(--cyan,#00c4ff);"></i> Retorno % por posición</div>
+      <div class="card-title"><i class="ti ti-trending-up" style="color:var(--cyan,#00c4ff);"></i> Retorno % por posición<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
       <div class="chart-box"><canvas id="port-ret-bar"></canvas></div>
     </div>
   </div>
@@ -1378,8 +1384,8 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
   <!-- ── RISK METRICS + HISTORY ── -->
   <div class="grid2" style="margin-bottom:14px;">
-    <div class="card"><div class="card-title"><i class="ti ti-shield"></i> Métricas de riesgo</div><div id="port-risk-metrics"></div></div>
-    <div class="card"><div class="card-title"><i class="ti ti-chart-scatter"></i> Riesgo σ vs Retorno por posición</div><div class="chart-box"><canvas id="port-scatter"></canvas></div></div>
+    <div class="card"><div class="card-title"><i class="ti ti-shield"></i> Métricas de riesgo<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div><div id="port-risk-metrics"></div></div>
+    <div class="card"><div class="card-title"><i class="ti ti-chart-scatter"></i> Riesgo σ vs Retorno por posición<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div><div class="chart-box"><canvas id="port-scatter"></canvas></div></div>
   </div>
   <div class="card" style="margin-top:14px;">
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
@@ -6568,6 +6574,62 @@ function toggleMobileSidebar(){
     document.body.style.overflow='hidden';
   }
 }
+// Colapsar/expandir una sección del menú lateral — para clases con
+// muchos botones (Simulador tiene once), poder ocultar lo que no se usa
+// por ahora ahorra bastante espacio en pantalla, sobre todo en el
+// celular. Se recuerda la preferencia entre sesiones de uso.
+function alternarSeccionNav(header, forzarEstado){
+  const colapsar = forzarEstado !== undefined ? forzarEstado : !header.classList.contains('colapsada');
+  header.classList.toggle('colapsada', colapsar);
+  let el = header.nextElementSibling;
+  while(el && !el.classList.contains('wl-nav-section')){
+    el.style.display = colapsar ? 'none' : '';
+    el = el.nextElementSibling;
+  }
+  const nombreSeccion = header.textContent.trim();
+  const clave = 'capitallab_nav_colapsada_'+nombreSeccion;
+  if(colapsar) localStorage.setItem(clave, '1'); else localStorage.removeItem(clave);
+}
+
+// Aplica las secciones que ya estaban colapsadas de una visita anterior,
+// apenas se pinta el menú — así no hay que volver a cerrarlas cada vez.
+function restaurarSeccionesNavColapsadas(){
+  document.querySelectorAll('.wl-nav-section').forEach(header => {
+    const nombreSeccion = header.textContent.trim();
+    if(localStorage.getItem('capitallab_nav_colapsada_'+nombreSeccion) === '1'){
+      alternarSeccionNav(header, true);
+    }
+  });
+}
+
+// Lo mismo que las secciones del menú, pero para cualquier tarjeta de
+// contenido dentro de una página — para páginas con varias tarjetas
+// apiladas (como Cartera), poder cerrar la que no se está usando ahora
+// mismo ahorra bastante desplazamiento, sobre todo en el celular.
+function alternarTarjeta(icono){
+  const tarjeta = icono.closest('.card');
+  if(!tarjeta) return;
+  tarjeta.dataset.tocada = '1';
+  const colapsada = tarjeta.classList.toggle('tarjeta-colapsada');
+  icono.style.transform = colapsada ? 'rotate(-90deg)' : '';
+}
+
+// En pantallas angostas, las tarjetas secundarias (gráficas de detalle,
+// estados financieros) empiezan colapsadas la primera vez que aparecen,
+// para que lo esencial quede a la vista sin desplazarse tanto — pero
+// solo la primera vez: si la persona ya la abrió, se respeta su elección
+// y no se le vuelve a cerrar sola.
+function autoColapsarEnMovil(contenedor){
+  if(window.innerWidth > 640 || !contenedor) return;
+  contenedor.querySelectorAll('.card-collapse-toggle').forEach(icono => {
+    const tarjeta = icono.closest('.card');
+    if(tarjeta && !tarjeta.dataset.tocada){
+      tarjeta.classList.add('tarjeta-colapsada');
+      icono.style.transform = 'rotate(-90deg)';
+    }
+  });
+}
+
 function closeMobileSidebar(){
   const sidebar = document.querySelector('.sidebar');
   const overlay = document.getElementById('sidebar-overlay');
@@ -8408,7 +8470,7 @@ function renderAnalysis(id,type){
     div.style.marginTop='14px';
     div.innerHTML=`
       <div class="card" style="margin-bottom:14px;">
-        <div class="card-title"><i class="ti ti-file-invoice" style="color:var(--accent2);"></i> Estado de Resultados Auditado — ${asset.name}</div>
+        <div class="card-title"><i class="ti ti-file-invoice" style="color:var(--accent2);"></i> Estado de Resultados Auditado — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
         <p style="font-size:11px;color:var(--t3);margin-bottom:10px;">Cifras en millones USD (USD M) · Fuente: Reportes anuales auditados</p>
         <table>
           <thead><tr>
@@ -8446,7 +8508,7 @@ function renderAnalysis(id,type){
         </table>
       </div>
       <div class="card">
-        <div class="card-title"><i class="ti ti-building" style="color:var(--green);"></i> Estado de Situación Financiera Auditado — ${asset.name}</div>
+        <div class="card-title"><i class="ti ti-building" style="color:var(--green);"></i> Estado de Situación Financiera Auditado — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
         <p style="font-size:11px;color:var(--t3);margin-bottom:10px;">Cifras en millones USD (USD M) · Fuente: Reportes anuales auditados</p>
         <table>
           <thead><tr>
@@ -8502,7 +8564,7 @@ function renderAnalysis(id,type){
       divCF.style.marginTop='14px';
       divCF.innerHTML=`
       <div class="card">
-        <div class="card-title"><i class="ti ti-cash" style="color:var(--gold);"></i> Estado de Flujo de Efectivo — ${asset.name}</div>
+        <div class="card-title"><i class="ti ti-cash" style="color:var(--gold);"></i> Estado de Flujo de Efectivo — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
         <p style="font-size:11px;color:var(--t3);margin-bottom:10px;">Cifras en millones USD (USD M) · Estimación con base en reportes públicos más recientes disponibles</p>
         <table>
           <thead><tr>
@@ -8546,6 +8608,7 @@ function renderAnalysis(id,type){
       </div>`;
       body.appendChild(divCF);
     }
+    autoColapsarEnMovil(body);
   }
 
   // ── PROSPECTO DEL BONO ──
@@ -9126,6 +9189,7 @@ function renderPortfolio(){
 
   // ── Transaction history ──
   renderTablaHistorialTx(aplicarFiltroYOrdenTx(txHistory));
+  autoColapsarEnMovil(document.getElementById('page-cartera'));
 }
 
 // ── Buscador y orden por columnas del historial de transacciones ──
@@ -12604,6 +12668,7 @@ function initApp() {
       }
     }
   } catch(e) {}
+  try { restaurarSeccionesNavColapsadas(); } catch(e){}
   try { actualizarRachaActividad(); } catch(e){}
   try { iniciarEscuchaEncuestas(); } catch(e){}
   try { cargarMisSeguidos().then(()=>{ if(misSeguidos.size) iniciarEscuchaOperacionesSeguidos(); }); } catch(e){}
