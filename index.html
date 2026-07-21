@@ -1343,6 +1343,8 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <button class="btn btn-sm" onclick="alternarTodasLasTarjetas('page-cartera')" title="Expandir o colapsar todas las tarjetas"><i class="ti ti-arrows-vertical"></i></button>
         <button class="btn btn-sm" onclick="repetirUltimaOperacion()" id="btn-repetir-op" style="display:none;"><i class="ti ti-repeat"></i> Repetir última</button>
         <button class="btn btn-sm" onclick="abrirResumenParaPresentar()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-presentation"></i> Resumen para presentar</button>
+        <button class="btn btn-sm" onclick="abrirAsesorCartera()" style="background:rgba(0,196,255,.12);color:var(--accent2);border:1px solid rgba(0,196,255,.3);"><i class="ti ti-bulb"></i> Asesor de Cartera</button>
+        <button class="btn btn-sm" onclick="abrirReplayCartera()"><i class="ti ti-player-play"></i> Replay</button>
       </div>
     </div>
   </div>
@@ -3933,7 +3935,10 @@ async function renderLogrosPage(){
         </div>
         ${pendientes.length ? `<div style="font-size:11.5px;color:var(--t3);margin-top:8px;"><i class="ti ti-target-arrow" style="color:var(--gold);"></i> Siguiente: <b style="color:var(--t1);">${CATALOGO_LOGROS[pendientes[0]].titulo}</b> — ${CATALOGO_LOGROS[pendientes[0]].desc}</div>` : `<div style="font-size:11.5px;color:var(--green);margin-top:8px;"><i class="ti ti-confetti"></i> ¡Desbloqueaste todos los logros!</div>`}
       </div>
-      <button class="btn" style="margin-bottom:16px;background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);" onclick="exportarPortafolioEvidenciasPDF('${currentUser.usuario_id}','${currentUser.nombre.replace(/'/g,"\\'")}','${currentUser.sesion_id}')"><i class="ti ti-folder-star"></i> Exportar mi Portafolio de Evidencias</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+        <button class="btn" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);min-height:44px;" onclick="exportarPortafolioEvidenciasPDF('${currentUser.usuario_id}','${currentUser.nombre.replace(/'/g,"\\'")}','${currentUser.sesion_id}')"><i class="ti ti-folder-star"></i> Exportar mi Portafolio de Evidencias</button>
+        <button class="btn" style="background:rgba(0,196,255,.12);color:var(--accent2);border:1px solid rgba(0,196,255,.3);min-height:44px;" onclick="abrirCertificado()"><i class="ti ti-certificate"></i> Ver mi Certificado</button>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;">
       ${codigos.map(cod => {
         const l = CATALOGO_LOGROS[cod];
@@ -4913,11 +4918,12 @@ async function renderAdminPage(){
   resumen.innerHTML = '<div class="auth-hint">Cargando…</div>';
   listaCont.innerHTML = '<div class="auth-hint">Cargando…</div>';
   try {
-    const [{data: sesiones, error: e1}, {data: usuarios, error: e2}] = await Promise.all([
+    const [{data: sesiones, error: e1}, {data: usuarios, error: e2}, {data: ports, error: e3}] = await Promise.all([
       sb.from('sesiones_clase').select('id,nombre,codigo,activa,creado_en,docente_id').order('creado_en',{ascending:false}),
       sb.from('usuarios').select('id,auth_id,nombre,correo,rol,sesion_id'),
+      sb.from('portafolios').select('sesion_id,retorno_pct'),
     ]);
-    if(e1) throw e1; if(e2) throw e2;
+    if(e1) throw e1; if(e2) throw e2; if(e3) throw e3;
 
     const totalDocentes = (usuarios||[]).filter(u=>u.rol==='docente').length;
     const totalEstudiantes = (usuarios||[]).filter(u=>u.rol==='estudiante').length;
@@ -4946,7 +4952,30 @@ async function renderAdminPage(){
     (usuarios||[]).forEach(u=>{ if(u.rol==='estudiante' && u.sesion_id) conteoEstPorSesion[u.sesion_id] = (conteoEstPorSesion[u.sesion_id]||0)+1; });
 
     if(!sesiones || !sesiones.length){ listaCont.innerHTML = '<div class="auth-hint">Todavía no hay sesiones creadas en la plataforma.</div>'; return; }
-    listaCont.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+
+    // ── TORNEO INTER-SESIONES — compara el retorno promedio de cada
+    // sesión activa contra las demás, para tener una vista de "qué clase
+    // le está yendo mejor" a nivel de toda la plataforma, no solo dentro
+    // de una sesión individual.
+    const retornosPorSesion = {};
+    (ports||[]).forEach(p => { if(p.retorno_pct!=null){ (retornosPorSesion[p.sesion_id] = retornosPorSesion[p.sesion_id]||[]).push(Number(p.retorno_pct)); } });
+    const torneo = sesiones.filter(s => s.activa!==false && retornosPorSesion[s.id]?.length)
+      .map(s => ({ nombre: s.nombre, promedio: retornosPorSesion[s.id].reduce((a,b)=>a+b,0)/retornosPorSesion[s.id].length, n: retornosPorSesion[s.id].length }))
+      .sort((a,b) => b.promedio - a.promedio);
+    let torneoHtml = '';
+    if(torneo.length >= 2){
+      torneoHtml = `<div class="card" style="margin-bottom:16px;">
+        <div class="card-title"><i class="ti ti-trophy" style="color:var(--gold);"></i> Torneo entre sesiones</div>
+        <div class="card-sub" style="margin-bottom:10px;">Retorno promedio de cada sesión activa, comparado entre sí.</div>
+        ${torneo.map((t,i) => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--c3);">
+          <div style="width:26px;font-weight:700;color:var(--t3);">${i<3?['🥇','🥈','🥉'][i]:'#'+(i+1)}</div>
+          <div style="flex:1;font-size:13px;font-weight:600;">${t.nombre} <span style="color:var(--t3);font-weight:400;">(${t.n} estudiante${t.n===1?'':'s'})</span></div>
+          <div style="font-weight:700;color:${t.promedio>=0?'var(--green)':'var(--red)'};">${t.promedio>=0?'+':''}${t.promedio.toFixed(1)}%</div>
+        </div>`).join('')}
+      </div>`;
+    }
+
+    listaCont.innerHTML = torneoHtml + `<table style="width:100%;border-collapse:collapse;font-size:12.5px;">
       <thead><tr style="text-align:left;color:var(--t3);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--c4);">
         <th style="padding:8px 10px;">Sesión</th><th style="padding:8px 10px;">Código</th><th style="padding:8px 10px;">Docente responsable</th><th style="padding:8px 10px;">Estudiantes</th><th style="padding:8px 10px;">Estado</th>
       </tr></thead>
@@ -8067,6 +8096,278 @@ function actualizarRachaActividad(){
   }
   localStorage.setItem(clave, JSON.stringify(datos));
   rachaActividad = datos.dias;
+}
+
+// ══════════════════════════════════════════════════
+// ASESOR DE CARTERA — analiza la cartera actual con reglas concretas de
+// finanzas (concentración, diversificación, riesgo, posiciones perdedoras)
+// y da alertas y sugerencias accionables, como lo haría un asesor real
+// revisando la cartera de un cliente. No usa ninguna IA externa: son
+// reglas financieras estándar aplicadas a los datos que ya existen.
+// ══════════════════════════════════════════════════
+function generarConsejosCartera(){
+  const consejos = [];
+  const valorTotal = capital + portfolio.reduce((s,p)=>s+(p.qty*(p.currentPrice||p.buyPrice)),0);
+  if(portfolio.length === 0){
+    consejos.push({ tipo:'info', icono:'ti-info-circle', titulo:'Todavía no has invertido nada',
+      texto:'Tienes todo tu capital sin invertir. Considera empezar con una o dos posiciones pequeñas para ir familiarizándote con el simulador.' });
+    return consejos;
+  }
+
+  // Concentración: alguna posición representa más del 40% de la cartera.
+  const valores = portfolio.map(p => ({ p, v: p.qty*(p.currentPrice||p.buyPrice) }));
+  const mayor = valores.reduce((a,b) => b.v > a.v ? b : a, valores[0]);
+  const pctMayor = (mayor.v / valorTotal) * 100;
+  if(pctMayor > 40){
+    consejos.push({ tipo:'alerta', icono:'ti-alert-triangle', titulo:'Concentración alta',
+      texto:`${mayor.p.name} representa el ${pctMayor.toFixed(0)}% de tu cartera. Si ese activo cae, el golpe a tu retorno total sería grande — considera repartir ese capital en más posiciones.` });
+  }
+
+  // Diversificación por tipo de activo.
+  const tipos = new Set(portfolio.map(p=>p.type));
+  if(tipos.size === 1 && portfolio.length >= 2){
+    const tipoUnico = { accion:'acciones', bono:'bonos', divisa:'divisas', futuro:'futuros', derivado:'derivados' }[[...tipos][0]] || 'un solo tipo de activo';
+    consejos.push({ tipo:'sugerencia', icono:'ti-chart-pie', titulo:'Todo en un solo mercado',
+      texto:`Toda tu cartera está en ${tipoUnico}. Combinar con otro tipo de activo (por ejemplo, bonos si solo tienes acciones) suele reducir el riesgo total sin sacrificar tanto retorno.` });
+  }
+
+  // Riesgo de la cartera (sigma ponderada) muy alto.
+  const pm = computePortfolioMetrics(portfolio);
+  if(pm.wSigma > 35){
+    consejos.push({ tipo:'alerta', icono:'ti-activity', titulo:'Riesgo elevado',
+      texto:`La volatilidad estimada de tu cartera es de ${pm.wSigma.toFixed(1)}%, considerablemente alta. Es una estrategia válida si buscas retorno agresivo, pero prepárate para movimientos fuertes en ambas direcciones.` });
+  }
+
+  // Sharpe negativo o muy bajo.
+  if(pm.sharpe < 0){
+    consejos.push({ tipo:'alerta', icono:'ti-trending-down', titulo:'Retorno no compensa el riesgo',
+      texto:'Tu ratio de Sharpe está en negativo — el riesgo que estás tomando no se está viendo recompensado con retorno. Vale la pena revisar si alguna posición ya cumplió su propósito y conviene cerrarla.' });
+  } else if(pm.sharpe > 1){
+    consejos.push({ tipo:'positivo', icono:'ti-trophy', titulo:'Buen equilibrio riesgo-retorno',
+      texto:`Tu ratio de Sharpe (${pm.sharpe.toFixed(2)}) es sólido — estás obteniendo un buen retorno en proporción al riesgo que asumes. Sigue así.` });
+  }
+
+  // Posición individual con pérdida fuerte.
+  portfolio.forEach(p => {
+    const cambio = ((p.currentPrice - p.buyPrice) / p.buyPrice) * 100;
+    if(cambio < -15){
+      consejos.push({ tipo:'alerta', icono:'ti-trending-down', titulo:`${p.name} en pérdida fuerte`,
+        texto:`Esta posición está ${Math.abs(cambio).toFixed(1)}% por debajo de tu precio de compra. Decide con calma: ¿sigues creyendo en este activo a largo plazo, o es momento de cortar la pérdida?` });
+    }
+  });
+
+  // Capital sin invertir muy alto en proporción a la cartera.
+  const pctSinInvertir = (capital / valorTotal) * 100;
+  if(pctSinInvertir > 60 && portfolio.length > 0){
+    consejos.push({ tipo:'sugerencia', icono:'ti-cash', titulo:'Mucho capital sin invertir',
+      texto:`Tienes el ${pctSinInvertir.toFixed(0)}% de tu cartera todavía en efectivo. Dinero sin invertir no genera retorno — si ya perdiste el miedo inicial, considera poner a trabajar una parte más.` });
+  }
+
+  if(!consejos.length){
+    consejos.push({ tipo:'positivo', icono:'ti-check', titulo:'Cartera balanceada',
+      texto:'No encontré ninguna señal de alerta en tu cartera ahora mismo — se ve razonablemente diversificada y con un riesgo controlado.' });
+  }
+  return consejos;
+}
+
+function abrirAsesorCartera(){
+  if(!currentUser){ notify('Inicia sesión para usar el asesor.', 'error'); return; }
+  const consejos = generarConsejosCartera();
+  const colorTipo = { alerta:'var(--red)', sugerencia:'var(--accent2)', positivo:'var(--green)', info:'var(--t3)' };
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:520px;max-height:85vh;overflow-y:auto;">
+    <h3><i class="ti ti-bulb"></i> Asesor de Cartera</h3>
+    <div class="sub">Un vistazo rápido a tu cartera, con reglas de finanzas reales — no reemplaza tu propio criterio.</div>
+    ${consejos.map(c => `<div style="background:var(--c2);border-left:3px solid ${colorTipo[c.tipo]};border-radius:var(--r);padding:12px 14px;margin-bottom:10px;">
+      <div style="font-weight:700;font-size:13px;color:${colorTipo[c.tipo]};margin-bottom:4px;"><i class="ti ${c.icono}"></i> ${c.titulo}</div>
+      <div style="font-size:12.5px;color:var(--t2);line-height:1.5;">${c.texto}</div>
+    </div>`).join('')}
+    <button class="btn btn-ghost" onclick="this.closest('.grade-modal-overlay').remove()" style="width:100%;margin-top:6px;min-height:44px;">Cerrar</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+}
+
+// ══════════════════════════════════════════════════
+// CERTIFICADO DE FINALIZACIÓN — una imagen formal, tipo diploma, con el
+// desempeño del estudiante en CapitalLab. Pensado para que se lo lleve
+// como constancia, para un portafolio personal o para mostrarlo en la
+// clase — no es una calificación oficial, es un reconocimiento simbólico
+// generado por el propio simulador.
+// ══════════════════════════════════════════════════
+function abrirCertificado(){
+  if(!currentUser || guestMode){ notify('Necesitas una cuenta real para generar tu certificado.', 'error'); return; }
+  const valorTotal = capital + portfolio.reduce((s,p)=>s+(p.qty*(p.currentPrice||p.buyPrice)),0);
+  const retornoPct = ((valorTotal - 50000) / 50000) * 100;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:520px;text-align:center;">
+    <h3>Tu certificado</h3>
+    <div class="sub">Una constancia de tu participación en CapitalLab.</div>
+    <canvas id="cert-canvas" width="1400" height="990" style="width:100%;border-radius:10px;margin:10px auto;display:block;box-shadow:0 8px 24px rgba(0,0,0,.35);"></canvas>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn btn-ghost" id="cert-cerrar" style="flex:1;min-height:44px;">Cerrar</button>
+      <button class="auth-submit" id="cert-descargar" style="flex:1;margin-top:0;min-height:44px;"><i class="ti ti-download"></i> Descargar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#cert-cerrar').onclick = () => overlay.remove();
+
+  dibujarCertificado(overlay.querySelector('#cert-canvas'), {
+    nombre: currentUser.nombre, sesion: currentUser.sesion_nombre || 'CapitalLab', retornoPct,
+    operaciones: txHistory.filter(t=>t.action==='Compra'||t.action==='Venta').length,
+  });
+
+  overlay.querySelector('#cert-descargar').onclick = () => {
+    overlay.querySelector('#cert-canvas').toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `certificado-capitallab-${(currentUser.nombre||'estudiante').replace(/\s+/g,'_')}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  };
+}
+
+function dibujarCertificado(canvas, d){
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#0B0E14'; ctx.fillRect(0,0,W,H);
+  const grad = ctx.createLinearGradient(0,0,W,H);
+  grad.addColorStop(0,'#10141D'); grad.addColorStop(1,'#0B0E14');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+
+  ctx.strokeStyle = '#D4AF37'; ctx.lineWidth = 3;
+  ctx.strokeRect(40,40,W-80,H-80);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(56,56,W-112,H-112);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#00C4FF'; ctx.font = 'bold 26px Arial';
+  ctx.fillText('CAPITALLAB', W/2, 140);
+  ctx.fillStyle = '#7A8AB0'; ctx.font = '16px Arial';
+  ctx.fillText('SIMULADOR DE MERCADOS FINANCIEROS · UNIVERSIDAD DE PANAMÁ', W/2, 168);
+
+  ctx.fillStyle = '#D4AF37'; ctx.font = '20px Georgia';
+  ctx.fillText('Certificado de Participación', W/2, 250);
+
+  ctx.fillStyle = '#7A8AB0'; ctx.font = '18px Arial';
+  ctx.fillText('Se otorga el presente reconocimiento a', W/2, 320);
+
+  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 54px Georgia';
+  ctx.fillText(d.nombre, W/2, 400);
+
+  ctx.strokeStyle = '#242D42'; ctx.beginPath(); ctx.moveTo(W/2-220,420); ctx.lineTo(W/2+220,420); ctx.stroke();
+
+  ctx.fillStyle = '#7A8AB0'; ctx.font = '18px Arial';
+  ctx.fillText(`por su participación en la sesión "${d.sesion}"`, W/2, 470);
+
+  const gan = d.retornoPct >= 0;
+  ctx.fillStyle = '#1C2333';
+  ctx.beginPath(); ctx.roundRect(W/2-380, 530, 340, 140, 12); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(W/2+40, 530, 340, 140, 12); ctx.fill();
+
+  ctx.fillStyle = gan?'#00D084':'#FF4757'; ctx.font = 'bold 46px Arial';
+  ctx.fillText((gan?'+':'')+d.retornoPct.toFixed(1)+'%', W/2-210, 605);
+  ctx.fillStyle = '#7A8AB0'; ctx.font = '15px Arial';
+  ctx.fillText('RETORNO OBTENIDO', W/2-210, 640);
+
+  ctx.fillStyle = '#00C4FF'; ctx.font = 'bold 46px Arial';
+  ctx.fillText(String(d.operaciones), W/2+210, 605);
+  ctx.fillStyle = '#7A8AB0'; ctx.font = '15px Arial';
+  ctx.fillText('OPERACIONES REGISTRADAS', W/2+210, 640);
+
+  const fecha = new Date().toLocaleDateString('es-PA', { day:'numeric', month:'long', year:'numeric' });
+  ctx.fillStyle = '#3D4D72'; ctx.font = '15px Arial';
+  ctx.fillText('Emitido el ' + fecha + ' · Facultad de Economía / Finanzas y Banca', W/2, 900);
+}
+
+// ══════════════════════════════════════════════════
+// REPLAY DE MI CARTERA — recorre con un control deslizante cómo fue
+// cambiando el valor de la cartera a lo largo de la sesión, en vez de
+// solo ver el número final. Usa navHistory, que ya se guarda tick a
+// tick — no hace falta ninguna tabla ni consulta nueva.
+// ══════════════════════════════════════════════════
+function abrirReplayCartera(){
+  if(!navHistory || navHistory.length < 2){ notify('Todavía no hay suficiente historial de tu cartera para reproducir — sigue operando y vuelve más tarde.', 'error'); return; }
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:560px;">
+    <h3><i class="ti ti-player-play"></i> Replay de mi Cartera</h3>
+    <div class="sub">Recorre cómo fue cambiando el valor de tu cartera durante la sesión.</div>
+    <canvas id="rc-canvas" width="900" height="260" style="width:100%;height:180px;background:var(--c2);border-radius:var(--r);margin-bottom:10px;"></canvas>
+    <input type="range" id="rc-slider" min="0" max="${navHistory.length-1}" value="${navHistory.length-1}" style="width:100%;">
+    <div style="display:flex;justify-content:space-between;margin-top:10px;">
+      <div>
+        <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;">Valor en este momento</div>
+        <div id="rc-valor" style="font-size:24px;font-weight:700;">—</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;">Momento</div>
+        <div id="rc-fecha" style="font-size:13px;color:var(--t2);">—</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button class="btn btn-sm" id="rc-play" style="flex:1;min-height:44px;"><i class="ti ti-player-play"></i> Reproducir</button>
+      <button class="btn btn-ghost" onclick="this.closest('.grade-modal-overlay').remove()" style="flex:1;min-height:44px;">Cerrar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+
+  const slider = overlay.querySelector('#rc-slider');
+  const canvas = overlay.querySelector('#rc-canvas');
+  let reproduciendo = null;
+
+  function actualizarReplay(i){
+    const punto = navHistory[i];
+    if(!punto) return;
+    overlay.querySelector('#rc-valor').textContent = '$'+punto.value.toLocaleString('es-PA',{maximumFractionDigits:0});
+    overlay.querySelector('#rc-fecha').textContent = new Date(punto.t).toLocaleString('es-PA',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    dibujarReplayChart(canvas, navHistory, i);
+  }
+  slider.oninput = () => actualizarReplay(+slider.value);
+  actualizarReplay(navHistory.length-1);
+
+  overlay.querySelector('#rc-play').onclick = () => {
+    if(reproduciendo){ clearInterval(reproduciendo); reproduciendo = null; overlay.querySelector('#rc-play').innerHTML = '<i class="ti ti-player-play"></i> Reproducir'; return; }
+    slider.value = 0;
+    actualizarReplay(0);
+    overlay.querySelector('#rc-play').innerHTML = '<i class="ti ti-player-pause"></i> Pausar';
+    reproduciendo = setInterval(() => {
+      let i = +slider.value;
+      if(i >= navHistory.length-1){ clearInterval(reproduciendo); reproduciendo = null; overlay.querySelector('#rc-play').innerHTML = '<i class="ti ti-player-play"></i> Reproducir'; return; }
+      slider.value = i+1;
+      actualizarReplay(i+1);
+    }, 150);
+  };
+}
+
+function dibujarReplayChart(canvas, historial, indiceActual){
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  const valores = historial.map(h=>h.value);
+  const min = Math.min(...valores), max = Math.max(...valores);
+  const rango = (max-min) || 1;
+  const pad = 20;
+  const puntoX = i => pad + (i/(historial.length-1)) * (W-pad*2);
+  const puntoY = v => H-pad - ((v-min)/rango) * (H-pad*2);
+
+  ctx.strokeStyle = '#3D4D72'; ctx.lineWidth = 2; ctx.beginPath();
+  historial.forEach((h,i) => i===0 ? ctx.moveTo(puntoX(i),puntoY(h.value)) : ctx.lineTo(puntoX(i),puntoY(h.value)));
+  ctx.stroke();
+
+  const ganando = historial[indiceActual].value >= historial[0].value;
+  ctx.strokeStyle = ganando ? '#00D084' : '#FF4757'; ctx.lineWidth = 3; ctx.beginPath();
+  for(let i=0;i<=indiceActual;i++){ i===0 ? ctx.moveTo(puntoX(i),puntoY(historial[i].value)) : ctx.lineTo(puntoX(i),puntoY(historial[i].value)); }
+  ctx.stroke();
+
+  ctx.fillStyle = ganando ? '#00D084' : '#FF4757';
+  ctx.beginPath(); ctx.arc(puntoX(indiceActual), puntoY(historial[indiceActual].value), 5, 0, Math.PI*2); ctx.fill();
 }
 
 function abrirTarjetaCompartir(){
