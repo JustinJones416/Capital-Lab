@@ -1705,10 +1705,13 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       <div class="page-title">Tabla de posiciones</div>
       <div class="page-sub" id="pos-page-sub">Ranking de retorno de tu sesión.</div>
     </div>
-    <label id="pos-toggle-wrap" style="display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--t2);cursor:pointer;">
-      <input type="checkbox" id="pos-toggle-visible" onchange="alternarVisibilidadRanking(this.checked)" style="width:auto;">
-      Mostrar a mis estudiantes
-    </label>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <label id="pos-toggle-wrap" style="display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--t2);cursor:pointer;">
+        <input type="checkbox" id="pos-toggle-visible" onchange="alternarVisibilidadRanking(this.checked)" style="width:auto;">
+        Mostrar a mis estudiantes
+      </label>
+      <button class="btn btn-sm" id="pos-btn-exportar" style="display:none;" onclick="exportarRankingCSV()"><i class="ti ti-file-spreadsheet"></i> Exportar CSV</button>
+    </div>
   </div>
 
   <div id="reto-card" class="card" style="margin-bottom:16px;display:none;">
@@ -2385,7 +2388,7 @@ async function mostrarNotificaciones(){
             </span>` : ''}
           </div>
           ${it.cuerpo ? `<div style="font-size:12.5px;color:var(--t2);margin-top:3px;">${it.cuerpo}</div>` : ''}
-          <div style="font-size:10.5px;color:var(--t3);margin-top:4px;">${formatearFechaHora(it.fecha)}</div>
+          <div style="font-size:10.5px;color:var(--t3);margin-top:4px;">${tiempoRelativo(it.fecha)}</div>
         </div>`).join('');
     } catch(e){
       cont.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
@@ -2921,6 +2924,25 @@ function formatearFechaHora(iso){
     const d=new Date(iso);
     return d.toLocaleDateString('es-PA',{day:'2-digit',month:'short'}) + ' · ' + d.toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'});
   } catch(e){ return '—'; }
+}
+
+// Tiempo relativo ("hace 2 min") para mensajes recientes del chat — más
+// fácil de leer de un vistazo que una fecha y hora completas cuando
+// alguien acaba de escribir. Para algo de hace más de un día, usa la
+// fecha completa de siempre, donde sí hace falta el detalle.
+function tiempoRelativo(iso){
+  try {
+    const ahora = Date.now();
+    const fecha = new Date(iso).getTime();
+    const segundos = Math.floor((ahora - fecha) / 1000);
+    if(segundos < 0) return formatearFechaHora(iso); // reloj desincronizado, mejor mostrar la fecha exacta
+    if(segundos < 60) return 'ahora mismo';
+    const minutos = Math.floor(segundos / 60);
+    if(minutos < 60) return `hace ${minutos} min`;
+    const horas = Math.floor(minutos / 60);
+    if(horas < 24) return `hace ${horas} h`;
+    return formatearFechaHora(iso);
+  } catch(e){ return formatearFechaHora(iso); }
 }
 
 // ── Control de asistencia ──
@@ -4429,6 +4451,7 @@ async function tomarCuestionario(id, titulo){
 // ══════════════════════════════════════════════════
 // TABLA DE POSICIONES — ranking en vivo por sesión
 // ══════════════════════════════════════════════════
+let rankingPosicionesCache = null;
 async function renderPosicionesPage(){
   const cont = document.getElementById('pos-lista');
   const empty = document.getElementById('pos-empty');
@@ -4445,6 +4468,7 @@ async function renderPosicionesPage(){
     if(esDocente){
       toggleWrap.style.display = 'flex';
       document.getElementById('pos-toggle-visible').checked = !!sesion?.mostrar_ranking;
+      document.getElementById('pos-btn-exportar').style.display = '';
     } else {
       toggleWrap.style.display = 'none';
       if(!sesion?.mostrar_ranking){
@@ -4459,9 +4483,31 @@ async function renderPosicionesPage(){
 
     const { data: usuarios } = await sb.from('usuarios').select('id,nombre').eq('sesion_id', currentUser.sesion_id);
     const nombreMap = {}; (usuarios||[]).forEach(u=>{ nombreMap[u.id] = u.nombre; });
+    rankingPosicionesCache = ports.map(p => ({ nombre: nombreMap[p.usuario_id]||'Estudiante', retorno: p.retorno_pct!=null?Number(p.retorno_pct):0, valor: p.valor_total }));
 
     const medallas = ['🥇','🥈','🥉'];
-    cont.innerHTML = ports.map((p,i) => {
+    const promedioSesion = ports.reduce((s,p)=>s+(p.retorno_pct!=null?Number(p.retorno_pct):0),0) / ports.length;
+    const miPos = ports.find(p=>p.usuario_id===currentUser.usuario_id);
+    let resumenHtml = '';
+    if(!esDocente && miPos){
+      const miRetorno = miPos.retorno_pct!=null ? Number(miPos.retorno_pct) : 0;
+      const diferencia = miRetorno - promedioSesion;
+      resumenHtml = `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+        <div style="flex:1;min-width:140px;background:var(--c2);border-radius:var(--r2);padding:12px;">
+          <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;">Tu retorno</div>
+          <div style="font-size:20px;font-weight:700;color:${miRetorno>=0?'var(--green)':'var(--red)'};">${miRetorno>=0?'+':''}${miRetorno.toFixed(2)}%</div>
+        </div>
+        <div style="flex:1;min-width:140px;background:var(--c2);border-radius:var(--r2);padding:12px;">
+          <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;">Promedio de la clase</div>
+          <div style="font-size:20px;font-weight:700;">${promedioSesion>=0?'+':''}${promedioSesion.toFixed(2)}%</div>
+        </div>
+        <div style="flex:1;min-width:140px;background:var(--c2);border-radius:var(--r2);padding:12px;">
+          <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;">Diferencia</div>
+          <div style="font-size:20px;font-weight:700;color:${diferencia>=0?'var(--green)':'var(--red)'};">${diferencia>=0?'+':''}${diferencia.toFixed(2)}%</div>
+        </div>
+      </div>`;
+    }
+    cont.innerHTML = resumenHtml + ports.map((p,i) => {
       const soyYo = p.usuario_id === currentUser.usuario_id;
       const retorno = p.retorno_pct!=null ? Number(p.retorno_pct) : 0;
       return `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--r);margin-bottom:6px;${soyYo?'background:rgba(0,196,255,.08);border:1px solid var(--accent2);':'border:1px solid var(--c3);'}">
@@ -4473,6 +4519,22 @@ async function renderPosicionesPage(){
   } catch(e){
     cont.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
   }
+}
+
+// Exporta el ranking ya cargado en pantalla a CSV — pensado para que el
+// docente se lleve una copia del desempeño de la clase a un momento
+// dado, sin depender de volver a entrar a la aplicación para verlo.
+function exportarRankingCSV(){
+  if(!rankingPosicionesCache || !rankingPosicionesCache.length){ notify('Todavía no hay datos del ranking para exportar.', 'error'); return; }
+  const filas = rankingPosicionesCache.map((p,i) => [i+1, '"'+p.nombre+'"', p.retorno.toFixed(2), (p.valor||0).toFixed(2)].join(','));
+  const csv = ['Puesto,Estudiante,Retorno (%),Valor de cartera ($)', ...filas].join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `ranking_${(currentUser?.sesion_nombre||'sesion').replace(/[^a-z0-9]/gi,'_')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  notify('Ranking exportado.', 'success');
 }
 
 async function alternarVisibilidadRanking(visible){
@@ -4658,15 +4720,14 @@ async function renderAdminPage(){
   const resumen = document.getElementById('admin-resumen');
   const listaCont = document.getElementById('admin-sesiones');
   if(!currentUser || currentUser.rol!=='superadmin'){
-    // Antes esto se quedaba en silencio, con la página completamente en
-    // blanco, sin explicar nada — ahora deja claro que esta vista es
-    // exclusiva del rol de Superadministrador, y cómo se asigna.
+    // Se avisa que la sección existe y es restringida, sin explicar el
+    // mecanismo exacto para obtener ese rol — hacerlo público dentro del
+    // propio sitio sería revelar la forma de conseguir el nivel de acceso
+    // más alto de toda la plataforma a cualquiera que la visite.
     resumen.innerHTML = '';
     listaCont.innerHTML = `<div class="info-box" style="font-size:12.5px;">
       <b>Esta sección es exclusiva del Superadministrador.</b><br>
-      Tu cuenta actual no tiene ese rol asignado. Ese rol no se activa desde la aplicación —
-      se asigna directamente en Supabase, ejecutando esto en el editor SQL con tu propio correo:<br>
-      <code style="display:block;margin-top:6px;padding:8px;background:var(--c1);border-radius:6px;font-size:11px;">update usuarios set rol = 'superadmin' where correo = 'tu-correo@ejemplo.com';</code>
+      Tu cuenta actual no tiene ese rol asignado. Si necesitas acceso, contacta a quien administra la plataforma.
     </div>`;
     return;
   }
@@ -6324,16 +6385,63 @@ function computePrices(months){
 function openCapModal(){
   // Un estudiante con cuenta real no puede editarse el capital a mano: eso
   // invalidaría el retorno del que dependen sus calificaciones, la tabla
-  // de posiciones y los logros. Sigue disponible en modo de prueba y para
-  // docentes/superadmin que quieran explorar el simulador libremente.
+  // de posiciones y los logros. Antes, tocar el capital solo le mostraba
+  // un error y no pasaba nada más — ahora, en vez de dejarlo en un
+  // callejón sin salida, le muestra una vista rápida de su cartera, que
+  // es justo lo que probablemente quería ver al tocar ahí.
   if(currentUser && currentUser.rol==='estudiante' && !guestMode){
-    notify('No puedes editar tu capital: tu retorno se usa para calificaciones, el ranking y los logros. Si necesitas reiniciar tu progreso, pídeselo a tu docente.', 'error');
+    abrirVistaRapidaCartera();
     return;
   }
   document.getElementById('cap-modal-current').textContent=fmt(capital);
   document.getElementById('cap-modal-input').value=Math.round(capital);
   document.getElementById('cap-modal').classList.add('open');
   setTimeout(()=>document.getElementById('cap-modal-input').select(),80);
+}
+
+// Popover ligero con el resumen de la cartera, accesible desde cualquier
+// pantalla tocando el capital en la topbar — sin tener que navegar hasta
+// Cartera solo para ver cómo va.
+function abrirVistaRapidaCartera(){
+  document.querySelectorAll('.vista-rapida-cartera').forEach(el=>el.remove());
+  const valorTotal = capital + portfolio.reduce((s,p)=>s+(p.qty*(p.currentPrice||p.buyPrice)),0);
+  const retornoPct = ((valorTotal - 50000) / 50000) * 100;
+  const topPosiciones = [...portfolio].sort((a,b)=>(b.qty*(b.currentPrice||b.buyPrice))-(a.qty*(a.currentPrice||a.buyPrice))).slice(0,3);
+
+  const el = document.createElement('div');
+  el.className = 'vista-rapida-cartera';
+  el.style.cssText = 'position:fixed;z-index:2500;background:var(--c1);border:1px solid var(--c4);border-radius:var(--r2);padding:16px;width:280px;max-width:90vw;box-shadow:0 12px 32px rgba(0,0,0,.45);';
+  el.innerHTML = `
+    <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;margin-bottom:4px;">Valor de mi cartera</div>
+    <div style="font-size:24px;font-weight:700;">$${valorTotal.toLocaleString('es-PA',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+    <div style="font-size:14px;font-weight:600;color:${retornoPct>=0?'var(--green)':'var(--red)'};margin-bottom:12px;">${retornoPct>=0?'+':''}${retornoPct.toFixed(2)}%</div>
+    ${topPosiciones.length ? `<div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;margin-bottom:6px;">Principales posiciones</div>` + topPosiciones.map(p=>{
+      const gan = p.currentPrice >= p.buyPrice;
+      return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px solid var(--c3);">
+        <span>${(p.name||'').substring(0,20)}</span>
+        <span class="mono" style="color:${gan?'var(--green)':'var(--red)'};">$${(p.qty*(p.currentPrice||p.buyPrice)).toLocaleString('es-PA',{maximumFractionDigits:0})}</span>
+      </div>`;
+    }).join('') : '<div class="auth-hint">Todavía no tienes posiciones abiertas.</div>'}
+    <button class="btn btn-sm" style="width:100%;margin-top:12px;" onclick="document.querySelectorAll('.vista-rapida-cartera').forEach(el=>el.remove());goPage('cartera');"><i class="ti ti-briefcase"></i> Ver cartera completa</button>
+  `;
+  document.body.appendChild(el);
+
+  // Posicionarlo justo debajo de la píldora de capital, ajustando si se
+  // sale de la pantalla en el celular.
+  const pill = document.querySelector('.cap-pill');
+  const rect = pill.getBoundingClientRect();
+  let left = rect.left;
+  if(left + 280 > window.innerWidth - 10) left = window.innerWidth - 290;
+  el.style.top = (rect.bottom + 8) + 'px';
+  el.style.left = Math.max(10, left) + 'px';
+
+  const cerrarAlTocarFuera = (e) => {
+    if(!el.contains(e.target) && e.target !== pill){
+      el.remove();
+      document.removeEventListener('click', cerrarAlTocarFuera);
+    }
+  };
+  setTimeout(()=>document.addEventListener('click', cerrarAlTocarFuera), 50);
 }
 function closeCapModal(){
   document.getElementById('cap-modal').classList.remove('open');
@@ -7548,7 +7656,7 @@ function renderMensajesChat(canal, mensajes, forzarAbajo){
     const soyYo = m.autor_id === currentUser.usuario_id;
     const esDocenteMsg = m.autor_rol === 'docente' || m.autor_rol === 'superadmin';
     return `<div style="margin-bottom:10px;${soyYo?'text-align:right;':''}">
-      <div style="font-size:10px;color:${esDocenteMsg?'var(--gold)':'var(--t3)'};margin-bottom:2px;">${escaparHTML(m.autor_nombre)}${esDocenteMsg?' · docente':''} · ${formatearFechaHora(m.creado_en)}${soyYo?` · <span style="cursor:pointer;text-decoration:underline;" onclick="borrarMensajeChat('${m.id}','${canal}')">borrar</span>`:''}</div>
+      <div style="font-size:10px;color:${esDocenteMsg?'var(--gold)':'var(--t3)'};margin-bottom:2px;">${escaparHTML(m.autor_nombre)}${esDocenteMsg?' · docente':''} · ${tiempoRelativo(m.creado_en)}${soyYo?` · <span style="cursor:pointer;text-decoration:underline;" onclick="borrarMensajeChat('${m.id}','${canal}')">borrar</span>`:''}</div>
       <div style="display:inline-block;max-width:80%;padding:8px 12px;border-radius:var(--r2);background:${soyYo?'var(--accent)':'var(--c3)'};color:${soyYo?'#fff':'var(--t1)'};font-size:13px;text-align:left;word-break:break-word;">${escaparHTML(m.cuerpo)}</div>
     </div>`;
   }).join('');
@@ -7617,6 +7725,106 @@ function iniciarRealtimeChat(){
 }
 function detenerRealtimeChat(){
   if(chatChannel && sb){ sb.removeChannel(chatChannel); chatChannel = null; }
+}
+
+// ══════════════════════════════════════════════════
+// COPIAR OPERACIONES ENTRE COMPAÑEROS — seguir a otro estudiante de la
+// misma sesión y recibir un aviso con un botón de copiar cuando esa
+// persona compra o vende. Reutiliza la tabla `operaciones` que ya existía
+// para la Sala en Vivo del docente, así que no hace falta ningún cambio
+// en el motor de trading ni en cómo se registran las compras y ventas.
+//
+// NOTA: este bloque completo desapareció por accidente al borrar el
+// Modo Crisis (vivían uno junto al otro en el archivo, y el borrado por
+// rango de líneas se llevó de más). Reconstruido tal como estaba.
+// ══════════════════════════════════════════════════
+let misSeguidos = new Set();
+let operacionesChannel = null;
+
+async function cargarMisSeguidos(){
+  if(!sb || !currentUser || !currentUser.usuario_id || guestMode) { misSeguidos = new Set(); return; }
+  try {
+    const { data } = await sb.from('seguidores_trading').select('seguido_id').eq('seguidor_id', currentUser.usuario_id);
+    misSeguidos = new Set((data||[]).map(f=>f.seguido_id));
+  } catch(e){ misSeguidos = new Set(); }
+}
+
+async function alternarSeguirEstudiante(usuarioId, nombre){
+  if(!currentUser || currentUser.usuario_id === usuarioId) return;
+  try {
+    if(misSeguidos.has(usuarioId)){
+      await sb.from('seguidores_trading').delete().eq('seguidor_id', currentUser.usuario_id).eq('seguido_id', usuarioId);
+      misSeguidos.delete(usuarioId);
+      notify(`Dejaste de seguir a ${nombre}.`, 'success');
+    } else {
+      await sb.from('seguidores_trading').insert({ seguidor_id: currentUser.usuario_id, seguido_id: usuarioId, sesion_id: currentUser.sesion_id });
+      misSeguidos.add(usuarioId);
+      notify(`Ahora sigues a ${nombre} — te avisamos cuando opere.`, 'success');
+      iniciarEscuchaOperacionesSeguidos();
+    }
+    renderMercadoP2P();
+  } catch(e){ notify('No se pudo actualizar: ' + (e.message||e), 'error'); }
+}
+
+function iniciarEscuchaOperacionesSeguidos(){
+  if(!sb || !currentUser || !currentUser.sesion_id || guestMode || operacionesChannel) return;
+  operacionesChannel = sb.channel('operaciones-seguidos-'+currentUser.sesion_id)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'operaciones', filter:`sesion_id=eq.${currentUser.sesion_id}` }, (payload) => {
+      const op = payload.new;
+      if(op.usuario_id === currentUser.usuario_id) return; // nunca avisar de las propias
+      if(!misSeguidos.has(op.usuario_id)) return; // solo de a quien sigo
+      mostrarAvisoCopiarOperacion(op);
+    })
+    .subscribe();
+}
+function detenerEscuchaOperacionesSeguidos(){
+  if(operacionesChannel && sb){ sb.removeChannel(operacionesChannel); operacionesChannel = null; }
+}
+
+function mostrarAvisoCopiarOperacion(op){
+  enviarNotificacionNativa('Un compañero que sigues operó — CapitalLab', `${op.tipo==='compra'?'Compró':'Vendió'} ${op.cantidad}u de ${op.simbolo} a $${fmt(op.precio_ejecucion)}.`);
+  const toast = document.createElement('div');
+  toast.className = 'deshacer-toast';
+  toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:4500;background:var(--c1);border:1px solid var(--gold);border-radius:var(--r2);padding:12px 16px;display:flex;align-items:center;gap:14px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:92vw;';
+  toast.innerHTML = `<span style="font-size:12.5px;white-space:nowrap;"><i class="ti ti-user-check" style="color:var(--gold);"></i> Alguien que sigues ${op.tipo==='compra'?'compró':'vendió'} ${op.cantidad}u de ${op.simbolo} a $${fmt(op.precio_ejecucion)}</span><button class="btn btn-sm" style="background:rgba(212,175,55,.15);color:var(--gold);flex-shrink:0;">Copiar</button>`;
+  document.body.appendChild(toast);
+  const timeoutId = setTimeout(()=>toast.remove(), 15000);
+  toast.querySelector('button').onclick = () => {
+    clearTimeout(timeoutId);
+    copiarOperacion(op);
+    toast.remove();
+  };
+}
+
+// Copia la operación a mi propia cartera, al precio ACTUAL del mercado
+// (no al precio exacto que tenía la otra persona en ese instante, que ya
+// pudo haber cambiado) — es la misma lógica que cualquier compra o venta
+// normal, solo que la dispara este aviso en vez del panel de Mercado.
+function copiarOperacion(op){
+  const activo = allAssets().find(a => a.name === op.simbolo);
+  if(!activo){ notify('No se pudo encontrar ese activo para copiarlo.', 'error'); return; }
+  const precioActual = activo.currentPrice || activo.price;
+  if(op.tipo === 'compra'){
+    const costo = op.cantidad * precioActual;
+    if(costo > capital){ notify('No tienes suficiente capital para copiar esta compra.', 'error'); return; }
+    const ex = portfolio.find(x=>x.id===activo.id && x.type===activo.type);
+    capital -= costo;
+    if(ex){ ex.qty += Number(op.cantidad); ex.invested = (ex.invested||0) + costo; }
+    else portfolio.push({ ...activo, qty:Number(op.cantidad), invested:costo, buyPrice:precioActual, currentPrice:precioActual });
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:activo.name+' (copiada)',type:activo.type,qty:op.cantidad,price:precioActual,total:costo,fee:0});
+  } else {
+    const pos = portfolio.find(x=>x.id===activo.id && x.type===activo.type);
+    if(!pos || pos.qty < op.cantidad){ notify('No tienes suficientes unidades para copiar esta venta.', 'error'); return; }
+    const ingreso = op.cantidad * precioActual;
+    pos.qty -= op.cantidad;
+    capital += ingreso;
+    if(pos.qty<=0) portfolio = portfolio.filter(x=>!(x.id===activo.id && x.type===activo.type));
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:activo.name+' (copiada)',type:activo.type,qty:op.cantidad,price:precioActual,total:ingreso,fee:0});
+  }
+  updateNavCapital();
+  autosave();
+  if(typeof renderPortfolio==='function') renderPortfolio();
+  notify(`Copiaste la operación — ${op.cantidad}u de ${activo.name} a $${fmt(precioActual)}.`, 'success');
 }
 
 // ══════════════════════════════════════════════════
