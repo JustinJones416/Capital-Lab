@@ -4642,9 +4642,21 @@ async function finalizarReto(id){
 // SUPERADMINISTRADOR — panorama de toda la plataforma
 // ══════════════════════════════════════════════════
 async function renderAdminPage(){
-  if(!currentUser || currentUser.rol!=='superadmin') return;
   const resumen = document.getElementById('admin-resumen');
   const listaCont = document.getElementById('admin-sesiones');
+  if(!currentUser || currentUser.rol!=='superadmin'){
+    // Antes esto se quedaba en silencio, con la página completamente en
+    // blanco, sin explicar nada — ahora deja claro que esta vista es
+    // exclusiva del rol de Superadministrador, y cómo se asigna.
+    resumen.innerHTML = '';
+    listaCont.innerHTML = `<div class="info-box" style="font-size:12.5px;">
+      <b>Esta sección es exclusiva del Superadministrador.</b><br>
+      Tu cuenta actual no tiene ese rol asignado. Ese rol no se activa desde la aplicación —
+      se asigna directamente en Supabase, ejecutando esto en el editor SQL con tu propio correo:<br>
+      <code style="display:block;margin-top:6px;padding:8px;background:var(--c1);border-radius:6px;font-size:11px;">update usuarios set rol = 'superadmin' where correo = 'tu-correo@ejemplo.com';</code>
+    </div>`;
+    return;
+  }
   resumen.innerHTML = '<div class="auth-hint">Cargando…</div>';
   listaCont.innerHTML = '<div class="auth-hint">Cargando…</div>';
   try {
