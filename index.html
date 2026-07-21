@@ -3937,7 +3937,7 @@ async function renderLogrosPage(){
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
         <button class="btn" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);min-height:44px;" onclick="exportarPortafolioEvidenciasPDF('${currentUser.usuario_id}','${currentUser.nombre.replace(/'/g,"\\'")}','${currentUser.sesion_id}')"><i class="ti ti-folder-star"></i> Exportar mi Portafolio de Evidencias</button>
-        <button class="btn" style="background:rgba(0,196,255,.12);color:var(--accent2);border:1px solid rgba(0,196,255,.3);min-height:44px;" onclick="abrirCertificado()"><i class="ti ti-certificate"></i> Ver mi Certificado</button>
+        <button class="btn" style="background:rgba(0,196,255,.12);color:var(--accent2);border:1px solid rgba(0,196,255,.3);min-height:44px;" onclick="abrirInsigniaDesempeno()"><i class="ti ti-mood-smile"></i> Ver mi Tarjeta de Desempeño</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;">
       ${codigos.map(cod => {
@@ -4137,6 +4137,11 @@ async function renderInicioPage(){
             <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Cuestionarios pendientes</div>
             <div style="font-size:22px;font-weight:700;">${pendientes.length}</div>
           </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+          <button class="btn btn-sm" onclick="abrirAsesorCartera()" style="background:rgba(0,196,255,.12);color:var(--accent2);border:1px solid rgba(0,196,255,.3);"><i class="ti ti-bulb"></i> Asesor de Cartera</button>
+          <button class="btn btn-sm" onclick="abrirReplayCartera()"><i class="ti ti-player-play"></i> Replay de mi Cartera</button>
+          <button class="btn btn-sm" onclick="abrirInsigniaDesempeno()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-mood-smile"></i> Tarjeta de Desempeño</button>
         </div>
         ${rankingTxt ? `<div class="info-box-app" style="background:rgba(0,196,255,.08);border:1px solid var(--accent2);border-radius:var(--r);padding:10px 14px;font-size:13px;margin-bottom:16px;"><i class="ti ti-trophy" style="color:var(--accent2);margin-right:6px;"></i>${rankingTxt}</div>` : ''}
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">
@@ -8196,17 +8201,31 @@ function abrirAsesorCartera(){
 // clase — no es una calificación oficial, es un reconocimiento simbólico
 // generado por el propio simulador.
 // ══════════════════════════════════════════════════
-function abrirCertificado(){
-  if(!currentUser || guestMode){ notify('Necesitas una cuenta real para generar tu certificado.', 'error'); return; }
+// ══════════════════════════════════════════════════
+// TARJETA DE DESEMPEÑO — antes se llamaba "Certificado de Finalización"
+// y tenía apariencia de diploma formal (borde decorativo doble, tipografía
+// de certificado, mención de la Universidad de Panamá como si la
+// emitiera). Un cliente hizo notar, con razón, que eso podía interpretarse
+// como un intento de simular un documento oficial, sin ninguna
+// institución real detrás de su emisión. Se rediseñó por completo: ahora
+// tiene la misma apariencia informal de "tarjeta para compartir" que ya
+// usan el resumen de cartera y los logros, con un aviso explícito de que
+// no es ningún tipo de certificación oficial.
+// ══════════════════════════════════════════════════
+function abrirInsigniaDesempeno(){
+  if(!currentUser || guestMode){ notify('Necesitas una cuenta real para generar tu tarjeta.', 'error'); return; }
   const valorTotal = capital + portfolio.reduce((s,p)=>s+(p.qty*(p.currentPrice||p.buyPrice)),0);
   const retornoPct = ((valorTotal - 50000) / 50000) * 100;
 
   const overlay = document.createElement('div');
   overlay.className = 'grade-modal-overlay';
-  overlay.innerHTML = `<div class="grade-modal" style="max-width:520px;text-align:center;">
-    <h3>Tu certificado</h3>
-    <div class="sub">Una constancia de tu participación en CapitalLab.</div>
-    <canvas id="cert-canvas" width="1400" height="990" style="width:100%;border-radius:10px;margin:10px auto;display:block;box-shadow:0 8px 24px rgba(0,0,0,.35);"></canvas>
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:480px;text-align:center;">
+    <h3>Tu tarjeta de desempeño</h3>
+    <div class="sub">Un resumen informal de tu paso por CapitalLab, para compartir o guardar.</div>
+    <canvas id="cert-canvas" width="1200" height="1000" style="width:100%;max-width:340px;border-radius:12px;margin:10px auto;display:block;box-shadow:0 8px 24px rgba(0,0,0,.35);"></canvas>
+    <div class="info-box" style="font-size:11px;text-align:left;margin-bottom:10px;">
+      Esta tarjeta la genera el propio simulador y <b>no es un certificado oficial</b> — no acredita estudios ni la emite ninguna institución. Es solo un resumen para compartir.
+    </div>
     <div style="display:flex;gap:10px;margin-top:6px;">
       <button class="btn btn-ghost" id="cert-cerrar" style="flex:1;min-height:44px;">Cerrar</button>
       <button class="auth-submit" id="cert-descargar" style="flex:1;margin-top:0;min-height:44px;"><i class="ti ti-download"></i> Descargar</button>
@@ -8216,7 +8235,7 @@ function abrirCertificado(){
   overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
   overlay.querySelector('#cert-cerrar').onclick = () => overlay.remove();
 
-  dibujarCertificado(overlay.querySelector('#cert-canvas'), {
+  dibujarInsigniaDesempeno(overlay.querySelector('#cert-canvas'), {
     nombre: currentUser.nombre, sesion: currentUser.sesion_nombre || 'CapitalLab', retornoPct,
     operaciones: txHistory.filter(t=>t.action==='Compra'||t.action==='Venta').length,
   });
@@ -8225,64 +8244,62 @@ function abrirCertificado(){
     overlay.querySelector('#cert-canvas').toBlob((blob) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = `certificado-capitallab-${(currentUser.nombre||'estudiante').replace(/\s+/g,'_')}.png`;
+      a.href = url; a.download = `tarjeta-desempeno-capitallab-${(currentUser.nombre||'estudiante').replace(/\s+/g,'_')}.png`;
       a.click();
       URL.revokeObjectURL(url);
     }, 'image/png');
   };
 }
 
-function dibujarCertificado(canvas, d){
+function dibujarInsigniaDesempeno(canvas, d){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#0B0E14'; ctx.fillRect(0,0,W,H);
-  const grad = ctx.createLinearGradient(0,0,W,H);
+  const grad = ctx.createLinearGradient(0,0,0,H);
   grad.addColorStop(0,'#10141D'); grad.addColorStop(1,'#0B0E14');
   ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
 
-  ctx.strokeStyle = '#D4AF37'; ctx.lineWidth = 3;
-  ctx.strokeRect(40,40,W-80,H-80);
-  ctx.lineWidth = 1;
-  ctx.strokeRect(56,56,W-112,H-112);
-
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#00C4FF'; ctx.font = 'bold 26px Arial';
-  ctx.fillText('CAPITALLAB', W/2, 140);
-  ctx.fillStyle = '#7A8AB0'; ctx.font = '16px Arial';
-  ctx.fillText('SIMULADOR DE MERCADOS FINANCIEROS · UNIVERSIDAD DE PANAMÁ', W/2, 168);
-
-  ctx.fillStyle = '#D4AF37'; ctx.font = '20px Georgia';
-  ctx.fillText('Certificado de Participación', W/2, 250);
-
+  // Sin borde doble de diploma — el mismo estilo simple de tarjeta que
+  // ya usan el resumen de cartera y los logros, para que se sienta como
+  // lo que es: un resumen informal, no un documento formal.
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#00C4FF'; ctx.font = 'bold 32px Arial';
+  ctx.fillText('CAPITALLAB', 60, 100);
   ctx.fillStyle = '#7A8AB0'; ctx.font = '18px Arial';
-  ctx.fillText('Se otorga el presente reconocimiento a', W/2, 320);
+  ctx.fillText('Tarjeta de desempeño · simulador educativo', 60, 132);
 
-  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 54px Georgia';
-  ctx.fillText(d.nombre, W/2, 400);
+  ctx.fillStyle = '#3D4D72'; ctx.font = '18px Arial';
+  ctx.fillText('Participación de', 60, 220);
+  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 46px Arial';
+  ctx.fillText(d.nombre, 60, 280);
+  ctx.fillStyle = '#7A8AB0'; ctx.font = '20px Arial';
+  ctx.fillText(`en "${d.sesion}"`, 60, 320);
 
-  ctx.strokeStyle = '#242D42'; ctx.beginPath(); ctx.moveTo(W/2-220,420); ctx.lineTo(W/2+220,420); ctx.stroke();
-
-  ctx.fillStyle = '#7A8AB0'; ctx.font = '18px Arial';
-  ctx.fillText(`por su participación en la sesión "${d.sesion}"`, W/2, 470);
+  ctx.strokeStyle = '#242D42'; ctx.beginPath(); ctx.moveTo(60,370); ctx.lineTo(W-60,370); ctx.stroke();
 
   const gan = d.retornoPct >= 0;
   ctx.fillStyle = '#1C2333';
-  ctx.beginPath(); ctx.roundRect(W/2-380, 530, 340, 140, 12); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(W/2+40, 530, 340, 140, 12); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(60, 410, (W-150)/2, 160, 12); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(90+(W-150)/2, 410, (W-150)/2, 160, 12); ctx.fill();
 
-  ctx.fillStyle = gan?'#00D084':'#FF4757'; ctx.font = 'bold 46px Arial';
-  ctx.fillText((gan?'+':'')+d.retornoPct.toFixed(1)+'%', W/2-210, 605);
-  ctx.fillStyle = '#7A8AB0'; ctx.font = '15px Arial';
-  ctx.fillText('RETORNO OBTENIDO', W/2-210, 640);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = gan?'#00D084':'#FF4757'; ctx.font = 'bold 42px Arial';
+  ctx.fillText((gan?'+':'')+d.retornoPct.toFixed(1)+'%', 90, 495);
+  ctx.fillStyle = '#7A8AB0'; ctx.font = '14px Arial';
+  ctx.fillText('RETORNO OBTENIDO', 90, 525);
 
-  ctx.fillStyle = '#00C4FF'; ctx.font = 'bold 46px Arial';
-  ctx.fillText(String(d.operaciones), W/2+210, 605);
-  ctx.fillStyle = '#7A8AB0'; ctx.font = '15px Arial';
-  ctx.fillText('OPERACIONES REGISTRADAS', W/2+210, 640);
+  ctx.fillStyle = '#00C4FF'; ctx.font = 'bold 42px Arial';
+  ctx.fillText(String(d.operaciones), 120+(W-150)/2, 495);
+  ctx.fillStyle = '#7A8AB0'; ctx.font = '14px Arial';
+  ctx.fillText('OPERACIONES', 120+(W-150)/2, 525);
 
+  // Aviso explícito, dentro de la propia imagen — no solo en el modal —
+  // para que quede claro incluso si la imagen circula por separado.
+  ctx.fillStyle = '#3D4D72'; ctx.font = 'italic 15px Arial';
+  ctx.fillText('Documento informal generado por el simulador.', 60, 900);
+  ctx.fillText('No constituye una certificación oficial ni acredita estudios.', 60, 924);
   const fecha = new Date().toLocaleDateString('es-PA', { day:'numeric', month:'long', year:'numeric' });
-  ctx.fillStyle = '#3D4D72'; ctx.font = '15px Arial';
-  ctx.fillText('Emitido el ' + fecha + ' · Facultad de Economía / Finanzas y Banca', W/2, 900);
+  ctx.fillStyle = '#242D42'; ctx.font = '13px Arial';
+  ctx.fillText(fecha, 60, 960);
 }
 
 // ══════════════════════════════════════════════════
