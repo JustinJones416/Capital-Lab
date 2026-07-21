@@ -2764,8 +2764,21 @@ function mostrarFormularioCompletarPerfil(user){
         <input type="text" id="cp-sesion-nombre" placeholder='Ej. "Mercados Financieros — 2026-2"'>
       </div>
       <button class="auth-submit" id="cp-btn">Continuar</button>
+      <button class="btn btn-ghost" id="cp-cancelar" style="width:100%;margin-top:10px;">Cancelar y volver al inicio</button>
     </div>`;
   document.body.appendChild(overlay);
+
+  overlay.querySelector('#cp-cancelar').onclick = async () => {
+    // La persona ya tiene una sesión real de Google/Supabase abierta en este
+    // punto, aunque todavía no tenga fila en `usuarios` — por eso cancelar
+    // no basta con cerrar la ventana: hay que cerrar esa sesión también,
+    // o si no, la próxima vez que entre va a caer otra vez aquí mismo.
+    overlay.remove();
+    try { await sb.auth.signOut(); } catch(e){}
+    location.reload();
+  };
+  const cerrarConEscape = (e) => { if(e.key==='Escape'){ document.removeEventListener('keydown', cerrarConEscape); overlay.querySelector('#cp-cancelar').click(); } };
+  document.addEventListener('keydown', cerrarConEscape);
 
   let cpRol = 'estudiante';
   overlay.querySelector('#cp-role-estudiante').onclick = () => {
