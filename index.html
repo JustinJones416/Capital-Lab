@@ -3323,16 +3323,20 @@ function renderHeatmapSalaVivo(ports){
     const nombre = salaVivoUsuarios[uid];
     const p = portMap[uid];
     const retorno = p?.retorno_pct!=null ? Number(p.retorno_pct) : null;
+    // Antes el fondo se saturaba con la intensidad del retorno Y el texto
+    // usaba ese mismo color — con retornos altos, el número casi
+    // desaparecía contra su propio fondo (el mismo problema que ya se
+    // había corregido en el mapa de calor sectorial de Análisis, aquí
+    // sin corregir todavía). Ahora el fondo siempre queda tenue, y el
+    // número usa un color fijo de alto contraste.
     let fondo = 'var(--c3)', textoColor = 'var(--t3)';
     if(retorno!==null){
-      const intensidad = Math.min(Math.abs(retorno)/15, 1); // satura a los ±15%
-      fondo = retorno>=0
-        ? `rgba(0,208,132,${0.12+intensidad*0.35})`
-        : `rgba(255,71,87,${0.12+intensidad*0.35})`;
+      fondo = retorno>=0 ? 'rgba(0,208,132,.1)' : 'rgba(255,71,87,.1)';
       textoColor = retorno>=0 ? 'var(--green)' : 'var(--red)';
     }
+    const bordeColor = retorno===null ? 'transparent' : (retorno>=0 ? 'var(--green)' : 'var(--red)');
     const activoHaceRato = p?.ultima_actividad && (Date.now() - new Date(p.ultima_actividad).getTime()) < 120000;
-    return `<div data-uid="${uid}" style="background:${fondo};border-radius:var(--r);padding:10px;text-align:center;position:relative;transition:background .4s;">
+    return `<div data-uid="${uid}" style="background:${fondo};border:1px solid ${bordeColor};border-radius:var(--r);padding:10px;text-align:center;position:relative;transition:background .4s;">
       ${activoHaceRato ? '<span style="position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--accent2);box-shadow:0 0 5px var(--accent2);"></span>' : ''}
       <div style="font-size:12px;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nombre}</div>
       <div style="font-size:15px;font-weight:700;color:${textoColor};">${retorno!==null?(retorno>=0?'+':'')+retorno.toFixed(1)+'%':'—'}</div>
