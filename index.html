@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" media="print" onload="this.media='all'">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
 :root{
   --c0:#0b0e14;--c1:#10141d;--c2:#151a27;--c3:#1c2333;--c4:#242d42;--c5:#2d3a55;
@@ -612,6 +613,10 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
      un poco más de alto para que el dedo no falle el toque, sin romper
      filas donde van varios botones juntos. */
   .btn-sm{padding:7px 12px;min-height:32px;}
+  /* El botón normal (.btn) nunca había tenido un mínimo táctil en móvil —
+     con su padding y tamaño de letra normales, quedaba en unos 30px de
+     alto, por debajo del mínimo recomendado de 44px para el dedo. */
+  .btn{min-height:44px;}
 
   /* ── TOPBAR elements ── */
   .hamburger-btn{display:flex;}
@@ -1337,6 +1342,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <button class="btn btn-sm" onclick="abrirTarjetaCompartir()"><i class="ti ti-share"></i> Compartir</button>
         <button class="btn btn-sm" onclick="alternarTodasLasTarjetas('page-cartera')" title="Expandir o colapsar todas las tarjetas"><i class="ti ti-arrows-vertical"></i></button>
         <button class="btn btn-sm" onclick="repetirUltimaOperacion()" id="btn-repetir-op" style="display:none;"><i class="ti ti-repeat"></i> Repetir última</button>
+        <button class="btn btn-sm" onclick="abrirResumenParaPresentar()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-presentation"></i> Resumen para presentar</button>
       </div>
     </div>
   </div>
@@ -3449,6 +3455,175 @@ function graficaEvolucionSVGImpresion(puntos){
     <path d="${area}" fill="${color}" opacity="0.1"></path>
     <path d="${linea}" fill="none" stroke="${color}" stroke-width="2"></path>
   </svg>`;
+}
+
+// ══════════════════════════════════════════════════
+// RESUMEN DE ACTIVIDADES PARA PRESENTAR — junta en una sola pantalla
+// todo lo que un estudiante ha hecho en CapitalLab (cartera, Laboratorio
+// si lo usó, subastas del Mercado P2P si participó, y sus operaciones),
+// pensado para mostrarlo en una reunión de clase frente a compañeros y
+// docente, con exportación a PDF o a PowerPoint. No crea nada que no
+// exista — si no ha usado el Laboratorio o no ha participado en
+// subastas, esas secciones simplemente no aparecen.
+// ══════════════════════════════════════════════════
+async function recopilarResumenActividades(){
+  const valorTotal = capital + portfolio.reduce((s,p)=>s+(p.qty*(p.currentPrice||p.buyPrice)),0);
+  const retornoPct = ((valorTotal - 50000) / 50000) * 100;
+  const pm = computePortfolioMetrics(portfolio);
+  const topPosiciones = [...portfolio].sort((a,b)=>(b.qty*(b.currentPrice||b.buyPrice))-(a.qty*(a.currentPrice||a.buyPrice))).slice(0,5);
+
+  // Laboratorio — solo si ya tiene sesiones registradas, nunca se crea una nueva aquí.
+  const labSesiones = labHistory.length ? labHistory.slice(0, 5) : [];
+
+  // Subastas del Mercado P2P en las que participó (ganadas o vendidas), si existen.
+  let subastas = [];
+  if(sb && currentUser && currentUser.usuario_id && !guestMode){
+    try {
+      const { data } = await sb.from('ofertas_p2p').select('*')
+        .eq('sesion_id', currentUser.sesion_id).eq('tipo','subasta').eq('estado','cumplida')
+        .or(`vendedor_id.eq.${currentUser.usuario_id},comprador_id.eq.${currentUser.usuario_id}`)
+        .order('creado_en',{ascending:false}).limit(10);
+      subastas = data || [];
+    } catch(e){ subastas = []; }
+  }
+
+  // Órdenes — las operaciones más recientes registradas en esta cartera.
+  const ordenes = txHistory.slice(0, 10);
+
+  return { valorTotal, retornoPct, pm, topPosiciones, labSesiones, subastas, ordenes };
+}
+
+async function abrirResumenParaPresentar(){
+  if(!currentUser || guestMode){ notify('Necesitas una cuenta real para generar este resumen.', 'error'); return; }
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:640px;max-height:88vh;overflow-y:auto;">
+    <h3><i class="ti ti-presentation"></i> Resumen para presentar</h3>
+    <div class="sub">Todo lo que has hecho en CapitalLab, listo para mostrar en clase.</div>
+    <div id="rp-contenido"><div class="auth-hint">Preparando tu resumen…</div></div>
+    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn btn-ghost" id="rp-cerrar" style="flex:1;min-width:100px;min-height:44px;">Cerrar</button>
+      <button class="btn" id="rp-pdf" style="flex:1;min-width:100px;min-height:44px;"><i class="ti ti-file-type-pdf"></i> Exportar PDF</button>
+      <button class="btn" id="rp-ppt" style="flex:1;min-width:100px;min-height:44px;background:rgba(212,102,0,.15);color:#e08000;"><i class="ti ti-presentation"></i> Exportar PPT</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#rp-cerrar').onclick = () => overlay.remove();
+
+  const datos = await recopilarResumenActividades();
+  overlay.querySelector('#rp-contenido').innerHTML = renderResumenActividadesHTML(datos);
+  overlay.querySelector('#rp-pdf').onclick = () => exportarResumenActividadesPDF(datos);
+  overlay.querySelector('#rp-ppt').onclick = () => exportarResumenActividadesPPT(datos);
+}
+
+function renderResumenActividadesHTML(d){
+  const gan = d.retornoPct >= 0;
+  let html = `
+    <div style="background:var(--c2);border-radius:var(--r2);padding:14px;margin-bottom:14px;">
+      <div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;">Mi cartera</div>
+      <div style="font-size:26px;font-weight:700;">$${d.valorTotal.toLocaleString('es-PA',{maximumFractionDigits:0})}</div>
+      <div style="font-size:15px;font-weight:600;color:${gan?'var(--green)':'var(--red)'};">${gan?'+':''}${d.retornoPct.toFixed(2)}% desde el capital inicial</div>
+    </div>`;
+
+  if(d.topPosiciones.length){
+    html += `<div style="font-weight:700;font-size:13px;margin-bottom:6px;">Principales posiciones</div>`;
+    html += d.topPosiciones.map(p => `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--c3);">
+      <span>${p.name}</span><span class="mono">$${(p.qty*(p.currentPrice||p.buyPrice)).toLocaleString('es-PA',{maximumFractionDigits:0})}</span>
+    </div>`).join('');
+  }
+
+  if(d.labSesiones.length){
+    html += `<div style="font-weight:700;font-size:13px;margin:14px 0 6px;">Laboratorio — sesiones completadas</div>`;
+    html += d.labSesiones.map(h => `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--c3);">
+      <span>${h.horizon||'—'} meses · meta ${h.target||0}%</span><span style="color:${h.passed?'var(--green)':'var(--red)'};">${h.passed?'Meta cumplida':'No alcanzada'}</span>
+    </div>`).join('');
+  }
+
+  if(d.subastas.length){
+    html += `<div style="font-weight:700;font-size:13px;margin:14px 0 6px;">Subastas del Mercado entre Estudiantes</div>`;
+    html += d.subastas.map(s => {
+      const fuiVendedor = s.vendedor_id === currentUser.usuario_id;
+      return `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--c3);">
+        <span>${fuiVendedor?'Vendí':'Gané'} ${s.cantidad}u de ${s.activo_nombre}</span><span class="mono">$${(s.cantidad*s.precio_actual).toLocaleString('es-PA',{maximumFractionDigits:0})}</span>
+      </div>`;
+    }).join('');
+  }
+
+  if(d.ordenes.length){
+    html += `<div style="font-weight:700;font-size:13px;margin:14px 0 6px;">Órdenes recientes</div>`;
+    html += d.ordenes.map(o => `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--c3);">
+      <span>${o.action} · ${o.name}</span><span class="mono">${o.qty}u a $${fmt(o.price)}</span>
+    </div>`).join('');
+  }
+
+  return html;
+}
+
+function exportarResumenActividadesPDF(d){
+  const gan = d.retornoPct >= 0;
+  const body = pdfHeader(`Resumen de actividades — ${currentUser.nombre}`)
+    + `<div class="section"><div class="section-title">Mi cartera</div>
+       <div class="section-sub">Valor total: $${d.valorTotal.toLocaleString('es-PA',{maximumFractionDigits:0})} · Retorno: ${gan?'+':''}${d.retornoPct.toFixed(2)}%</div></div>`
+    + (d.topPosiciones.length ? `<table><tr><th>Posición</th><th class="right">Valor</th></tr>${d.topPosiciones.map(p=>`<tr><td>${p.name}</td><td class="right">$${(p.qty*(p.currentPrice||p.buyPrice)).toLocaleString('es-PA',{maximumFractionDigits:0})}</td></tr>`).join('')}</table>` : '')
+    + (d.labSesiones.length ? `<div class="section"><div class="section-title">Laboratorio</div></div><table><tr><th>Horizonte</th><th>Meta</th><th>Resultado</th></tr>${d.labSesiones.map(h=>`<tr><td>${h.horizon||'—'} meses</td><td>${h.target||0}%</td><td>${h.passed?'Meta cumplida':'No alcanzada'}</td></tr>`).join('')}</table>` : '')
+    + (d.subastas.length ? `<div class="section"><div class="section-title">Subastas del Mercado entre Estudiantes</div></div><table><tr><th>Activo</th><th>Cantidad</th><th class="right">Valor</th></tr>${d.subastas.map(s=>`<tr><td>${s.activo_nombre}</td><td>${s.cantidad}u</td><td class="right">$${(s.cantidad*s.precio_actual).toLocaleString('es-PA',{maximumFractionDigits:0})}</td></tr>`).join('')}</table>` : '')
+    + (d.ordenes.length ? `<div class="section"><div class="section-title">Órdenes recientes</div></div><table><tr><th>Operación</th><th>Activo</th><th class="right">Cantidad</th><th class="right">Precio</th></tr>${d.ordenes.map(o=>`<tr><td>${o.action}</td><td>${o.name}</td><td class="right">${o.qty}u</td><td class="right">$${fmt(o.price)}</td></tr>`).join('')}</table>` : '')
+    + pdfFooter();
+  openPrintWindow(body, `Resumen de actividades — ${currentUser.nombre}`);
+}
+
+async function exportarResumenActividadesPPT(d){
+  if(typeof PptxGenJS === 'undefined'){ notify('No se pudo cargar el generador de PowerPoint. Revisa tu conexión a internet.', 'error'); return; }
+  notify('Generando PowerPoint…', 'success');
+  const pptx = new PptxGenJS();
+  pptx.defineLayout({ name:'CL', width:13.333, height:7.5 });
+  pptx.layout = 'CL';
+  const NAVY='10141D', GOLD='D4AF37', CYAN='00C4FF', GREEN='00D084', RED='FF4757', WHITE='FFFFFF';
+
+  let s = pptx.addSlide();
+  s.background = { color: NAVY };
+  s.addText('Resumen de Actividades', { x:0.6, y:2.6, w:12, h:1, fontSize:40, bold:true, color:WHITE, fontFace:'Arial' });
+  s.addText(currentUser.nombre, { x:0.6, y:3.5, w:12, h:0.6, fontSize:22, color:CYAN, fontFace:'Arial' });
+  s.addText('CapitalLab · Simulador de Mercados Financieros · Universidad de Panamá', { x:0.6, y:6.6, w:12, h:0.4, fontSize:12, color:'7A8AB0', fontFace:'Arial' });
+
+  const gan = d.retornoPct >= 0;
+  s = pptx.addSlide(); s.background = { color: NAVY };
+  s.addText('Mi Cartera', { x:0.6, y:0.4, w:12, h:0.7, fontSize:28, bold:true, color:WHITE, fontFace:'Arial' });
+  s.addText('$'+d.valorTotal.toLocaleString('es-PA',{maximumFractionDigits:0}), { x:0.6, y:1.4, w:6, h:1, fontSize:44, bold:true, color:WHITE, fontFace:'Arial' });
+  s.addText((gan?'+':'')+d.retornoPct.toFixed(2)+'%', { x:0.6, y:2.4, w:6, h:0.6, fontSize:24, bold:true, color:gan?GREEN:RED, fontFace:'Arial' });
+  if(d.topPosiciones.length){
+    const filas = [[{text:'Posición',options:{bold:true,color:GOLD}},{text:'Valor',options:{bold:true,color:GOLD}}]]
+      .concat(d.topPosiciones.map(p=>[p.name, '$'+(p.qty*(p.currentPrice||p.buyPrice)).toLocaleString('es-PA',{maximumFractionDigits:0})]));
+    s.addTable(filas, { x:0.6, y:3.3, w:9, fontSize:14, color:WHITE, border:{type:'solid',color:'242D42',pt:1}, fill:{color:'1C2333'} });
+  }
+
+  if(d.labSesiones.length){
+    s = pptx.addSlide(); s.background = { color: NAVY };
+    s.addText('Laboratorio', { x:0.6, y:0.4, w:12, h:0.7, fontSize:28, bold:true, color:WHITE, fontFace:'Arial' });
+    const filas = [[{text:'Horizonte',options:{bold:true,color:GOLD}},{text:'Meta',options:{bold:true,color:GOLD}},{text:'Resultado',options:{bold:true,color:GOLD}}]]
+      .concat(d.labSesiones.map(h=>[(h.horizon||'—')+' meses', (h.target||0)+'%', h.passed?'Meta cumplida':'No alcanzada']));
+    s.addTable(filas, { x:0.6, y:1.3, w:10, fontSize:14, color:WHITE, border:{type:'solid',color:'242D42',pt:1}, fill:{color:'1C2333'} });
+  }
+
+  if(d.subastas.length){
+    s = pptx.addSlide(); s.background = { color: NAVY };
+    s.addText('Subastas del Mercado entre Estudiantes', { x:0.6, y:0.4, w:12, h:0.7, fontSize:26, bold:true, color:WHITE, fontFace:'Arial' });
+    const filas = [[{text:'Activo',options:{bold:true,color:GOLD}},{text:'Cantidad',options:{bold:true,color:GOLD}},{text:'Valor',options:{bold:true,color:GOLD}}]]
+      .concat(d.subastas.map(sub=>[sub.activo_nombre, sub.cantidad+'u', '$'+(sub.cantidad*sub.precio_actual).toLocaleString('es-PA',{maximumFractionDigits:0})]));
+    s.addTable(filas, { x:0.6, y:1.3, w:10, fontSize:14, color:WHITE, border:{type:'solid',color:'242D42',pt:1}, fill:{color:'1C2333'} });
+  }
+
+  if(d.ordenes.length){
+    s = pptx.addSlide(); s.background = { color: NAVY };
+    s.addText('Órdenes Recientes', { x:0.6, y:0.4, w:12, h:0.7, fontSize:28, bold:true, color:WHITE, fontFace:'Arial' });
+    const filas = [[{text:'Operación',options:{bold:true,color:GOLD}},{text:'Activo',options:{bold:true,color:GOLD}},{text:'Cantidad',options:{bold:true,color:GOLD}},{text:'Precio',options:{bold:true,color:GOLD}}]]
+      .concat(d.ordenes.map(o=>[o.action, o.name, o.qty+'u', '$'+fmt(o.price)]));
+    s.addTable(filas, { x:0.4, y:1.3, w:12.5, fontSize:12, color:WHITE, border:{type:'solid',color:'242D42',pt:1}, fill:{color:'1C2333'} });
+  }
+
+  await pptx.writeFile({ fileName: `resumen-actividades-${(currentUser.nombre||'estudiante').replace(/\s+/g,'_')}.pptx` });
+  notify('PowerPoint generado.', 'success');
 }
 
 async function exportarPortafolioEvidenciasPDF(usuarioId, nombre, sesionId){
@@ -7232,17 +7407,17 @@ async function renderMercadoP2P(esManual){
   if(!contAbiertas) return;
   await cargarMisSeguidos();
 
-  if(!currentUser || guestMode || !currentUser.sesion_id || currentUser.rol==='superadmin'){
+  if(!currentUser || guestMode || !currentUser.sesion_id){
     contAbiertas.innerHTML = '<div class="auth-hint">El mercado entre estudiantes es solo para cuentas con una sesión activa.</div>';
     btnPublicar.style.display = 'none';
     if(btnActualizar) btnActualizar.style.display = 'none';
     cardMisOfertas.style.display = 'none';
     return;
   }
-  const esDocenteViendo = currentUser.rol==='docente';
-  // El docente puede ver todo lo que pasa en el mercado entre sus
-  // estudiantes (para supervisar), pero no puede comprar, pujar ni
-  // publicar — solo observa.
+  const esDocenteViendo = currentUser.rol==='docente' || currentUser.rol==='superadmin';
+  // El docente (y el superadministrador) puede ver todo lo que pasa en
+  // el mercado entre los estudiantes de esa sesión, para supervisar,
+  // pero no puede comprar, pujar ni publicar — solo observa.
   btnPublicar.style.display = esDocenteViendo ? 'none' : '';
   cardMisOfertas.style.display = esDocenteViendo ? 'none' : 'block';
   if(!esManual) contAbiertas.innerHTML = '<div class="auth-hint">Cargando…</div>';
