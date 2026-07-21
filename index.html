@@ -1553,8 +1553,8 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   </div>
 
   <div class="grid2" style="margin-bottom:14px;">
-    <div class="card"><div class="card-title"><i class="ti ti-chart-bar"></i> Retorno por tipo de activo</div><div class="chart-box"><canvas id="res-bar"></canvas></div></div>
-    <div class="card"><div class="card-title"><i class="ti ti-target"></i> Riesgo vs. Retorno</div><div class="chart-box"><canvas id="res-scatter"></canvas></div></div>
+    <div class="card"><div class="card-title"><i class="ti ti-chart-bar"></i> Retorno por tipo de activo<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div><div class="chart-box"><canvas id="res-bar"></canvas></div></div>
+    <div class="card"><div class="card-title"><i class="ti ti-target"></i> Riesgo vs. Retorno<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div><div class="chart-box"><canvas id="res-scatter"></canvas></div></div>
   </div>
 
   <div class="card" style="margin-bottom:14px;">
@@ -1567,12 +1567,12 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   <!-- Market session log -->
   <!-- SERIE 7: Synthetic market index -->
   <div class="card" style="margin-bottom:14px;border-color:rgba(0,208,132,.15);">
-    <div class="card-title"><i class="ti ti-chart-line" style="color:var(--green);"></i> Índice de Mercado Sintético CapitalLab (CL-30)</div>
+    <div class="card-title"><i class="ti ti-chart-line" style="color:var(--green);"></i> Índice de Mercado Sintético CapitalLab (CL-30)<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
     <div id="res-market-index"></div>
   </div>
 
   <div class="card" style="margin-bottom:14px;border-color:rgba(0,196,255,.15);" id="res-session-log-card">
-    <div class="card-title"><i class="ti ti-clock-record" style="color:var(--accent2);"></i> Registro de sesiones de mercado</div>
+    <div class="card-title"><i class="ti ti-clock-record" style="color:var(--accent2);"></i> Registro de sesiones de mercado<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
     <div id="res-session-log"></div>
   </div>
 
@@ -3719,7 +3719,19 @@ async function renderLogrosPage(){
     if(error) throw error;
     const fechaPorCodigo = {}; (data||[]).forEach(d=>{ fechaPorCodigo[d.codigo_logro] = d.desbloqueado_en; });
     const codigos = Object.keys(CATALOGO_LOGROS);
+    const pendientes = codigos.filter(c => !fechaPorCodigo[c]);
+    const pctGeneral = Math.round(((codigos.length - pendientes.length) / codigos.length) * 100);
     cont.innerHTML = `
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-weight:700;font-size:13px;">Progreso general</div>
+          <div class="mono" style="font-size:13px;color:var(--gold);">${codigos.length - pendientes.length}/${codigos.length}</div>
+        </div>
+        <div style="height:8px;background:var(--c3);border-radius:4px;overflow:hidden;">
+          <div style="height:100%;width:${pctGeneral}%;background:var(--gold);transition:width .4s;"></div>
+        </div>
+        ${pendientes.length ? `<div style="font-size:11.5px;color:var(--t3);margin-top:8px;"><i class="ti ti-target-arrow" style="color:var(--gold);"></i> Siguiente: <b style="color:var(--t1);">${CATALOGO_LOGROS[pendientes[0]].titulo}</b> — ${CATALOGO_LOGROS[pendientes[0]].desc}</div>` : `<div style="font-size:11.5px;color:var(--green);margin-top:8px;"><i class="ti ti-confetti"></i> ¡Desbloqueaste todos los logros!</div>`}
+      </div>
       <button class="btn" style="margin-bottom:16px;background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);" onclick="exportarPortafolioEvidenciasPDF('${currentUser.usuario_id}','${currentUser.nombre.replace(/'/g,"\\'")}','${currentUser.sesion_id}')"><i class="ti ti-folder-star"></i> Exportar mi Portafolio de Evidencias</button>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;">
       ${codigos.map(cod => {
@@ -3736,6 +3748,7 @@ async function renderLogrosPage(){
             </div>
           </div>
           <div style="font-size:12.5px;color:var(--t2);">${l.desc}</div>
+          ${logrado ? `<button class="btn btn-sm" style="width:100%;margin-top:10px;" onclick="compartirLogro('${cod}')"><i class="ti ti-share"></i> Compartir</button>` : ''}
         </div>`;
       }).join('')}
     </div>`;
@@ -7714,6 +7727,64 @@ function abrirTarjetaCompartir(){
   };
 }
 
+// Comparte un logro individual como imagen — reutiliza el mismo patrón
+// de canvas de la tarjeta de cartera, con un formato pensado para una
+// sola insignia en vez de todo el resumen financiero.
+function compartirLogro(codigo){
+  const l = CATALOGO_LOGROS[codigo];
+  if(!l || !currentUser) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:380px;text-align:center;">
+    <h3>Comparte tu logro</h3>
+    <canvas id="lg-canvas" width="1080" height="1080" style="width:100%;max-width:300px;border-radius:12px;margin:10px auto;display:block;box-shadow:0 8px 24px rgba(0,0,0,.35);"></canvas>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn btn-ghost" id="lg-cerrar" style="flex:1;">Cerrar</button>
+      <button class="auth-submit" id="lg-descargar" style="flex:1;margin-top:0;"><i class="ti ti-download"></i> Descargar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.querySelector('#lg-cerrar').onclick = () => overlay.remove();
+
+  const canvas = overlay.querySelector('#lg-canvas');
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,1080,1080);
+  grad.addColorStop(0,'#10141D'); grad.addColorStop(1,'#0B0E14');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,1080,1080);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#00C4FF'; ctx.font = 'bold 30px Arial';
+  ctx.fillText('CAPITALLAB', 540, 90);
+
+  ctx.fillStyle = 'rgba(212,175,55,.15)';
+  ctx.beginPath(); ctx.arc(540, 420, 140, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#D4AF37'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(540, 420, 140, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle = '#D4AF37'; ctx.font = '110px Arial';
+  ctx.fillText('★', 540, 460);
+
+  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 52px Arial';
+  ctx.fillText(l.titulo, 540, 660);
+  ctx.fillStyle = '#7A8AB0'; ctx.font = '28px Arial';
+  ctx.fillText(l.desc, 540, 715);
+
+  ctx.fillStyle = '#E8EDF8'; ctx.font = '30px Arial';
+  ctx.fillText(currentUser.nombre, 540, 880);
+  ctx.fillStyle = '#3D4D72'; ctx.font = '22px Arial';
+  ctx.fillText('Simulador de mercados financieros · Universidad de Panamá', 540, 990);
+
+  overlay.querySelector('#lg-descargar').onclick = () => {
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `logro-${codigo}-capitallab.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  };
+}
+
 function dibujarTarjetaCartera(canvas, datos){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
@@ -9385,7 +9456,10 @@ function onHorizonChange(){
 }
 function getLabMonths(){const v=document.getElementById('lab-horizon').value;if(v==='custom')return Math.max(1,Math.min(36,+document.getElementById('lab-custom-months').value||6));return+v;}
 function updateLabConfig(){
-  labConfig.capital=+document.getElementById('lab-capital').value||50000;
+  // El atributo min="1000" del campo solo frena las flechitas del navegador,
+  // no evita que alguien escriba un número negativo a mano — por eso se
+  // vuelve a forzar el mínimo aquí, en el propio cálculo.
+  labConfig.capital=Math.max(1000, +document.getElementById('lab-capital').value||50000);
   labConfig.horizon=getLabMonths();
   labConfig.target=+document.getElementById('lab-target').value||8;
   document.getElementById('lab-horizon-show').textContent=labConfig.horizon+' meses';
@@ -10369,6 +10443,7 @@ function renderResults(){
     <div style="font-size:10px;color:var(--t3);text-align:center;margin-top:8px;padding-top:6px;border-top:1px solid var(--c4);">
       CapitalLab · Simulador de Mercados Financieros · Facultad de Economía / Finanzas y Banca · Universidad de Panamá · 2026
     </div>`;
+  autoColapsarEnMovil(document.getElementById('page-resultados'));
 }
 
 // ═══════════════════ INIT (see window.load at bottom) ═══════════════════
