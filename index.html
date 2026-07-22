@@ -607,7 +607,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   /* Deja espacio abajo para que la barra fija no tape el contenido ni el
      resto de elementos flotantes (toasts, botón de exportar, etc.) */
   .main-content{padding-bottom:62px;}
-  .deshacer-toast{bottom:70px!important;}
+  .deshacer-toast{bottom:84px!important;}
   #prof-vivo-heatmap{grid-template-columns:repeat(auto-fill,minmax(95px,1fr))!important;gap:8px!important;}
   /* Botones pequeños en listas (roster, cuestionarios, calificaciones):
      un poco más de alto para que el dedo no falle el toque, sin romper
@@ -8238,7 +8238,13 @@ function mostrarPromptDiarioTrading(accion, nombreActivo){
   document.querySelectorAll('.diario-prompt').forEach(el=>el.remove());
   const el = document.createElement('div');
   el.className = 'diario-prompt';
-  el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:4500;background:var(--c1);border:1px solid var(--c4);border-radius:var(--r2);padding:12px 16px;max-width:92vw;width:360px;box-shadow:0 10px 30px rgba(0,0,0,.4);';
+  // Se coloca arriba, no abajo — la parte inferior de la pantalla ya la
+  // usan al mismo tiempo la notificación de la operación y el aviso de
+  // "Deshacer", y apilar un tercer aviso justo ahí garantizaba que se
+  // taparan entre sí (el campo de texto quedaba cubierto y no se podía
+  // escribir). Arriba queda solo, sin nadie más compitiendo por ese
+  // espacio.
+  el.style.cssText = 'position:fixed;top:92px;left:50%;transform:translateX(-50%);z-index:3000;background:var(--c1);border:1px solid var(--c4);border-radius:var(--r2);padding:12px 16px;max-width:92vw;width:360px;box-shadow:0 10px 30px rgba(0,0,0,.4);';
   el.innerHTML = `
     <div style="font-size:12px;color:var(--t3);margin-bottom:6px;"><i class="ti ti-notebook" style="color:var(--accent2);"></i> ¿Por qué hiciste esta ${accion.toLowerCase()} de ${nombreActivo}? <span style="color:var(--t3);">(opcional)</span></div>
     <div style="display:flex;gap:6px;">
@@ -8824,7 +8830,7 @@ async function buscarEncuestaActiva(){
 function mostrarAvisoEncuestaFlotante(encuesta){
   const el = document.createElement('div');
   el.className = 'encuesta-flotante';
-  el.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);z-index:4600;background:var(--c1);border:1px solid var(--accent2);border-radius:var(--r2);padding:14px 18px;max-width:92vw;width:380px;box-shadow:0 10px 30px rgba(0,0,0,.4);';
+  el.style.cssText = 'position:fixed;bottom:84px;left:50%;transform:translateX(-50%);z-index:4600;background:var(--c1);border:1px solid var(--accent2);border-radius:var(--r2);padding:14px 18px;max-width:92vw;width:380px;box-shadow:0 10px 30px rgba(0,0,0,.4);';
   el.innerHTML = `<div style="font-weight:700;font-size:13.5px;margin-bottom:10px;"><i class="ti ti-chart-pie" style="color:var(--accent2);"></i> ${escaparHTML(encuesta.pregunta)}</div>
     <div id="er-opciones-flotante"></div>`;
   document.body.appendChild(el);
@@ -8853,7 +8859,7 @@ async function mostrarResultadosEncuesta(encuestaId){
     el = document.createElement('div');
     el.id = 'er-resultados-docente';
     el.className = 'encuesta-flotante';
-    el.style.cssText = 'position:fixed;bottom:70px;right:16px;z-index:4600;background:var(--c1);border:1px solid var(--gold);border-radius:var(--r2);padding:14px 18px;max-width:92vw;width:340px;box-shadow:0 10px 30px rgba(0,0,0,.4);';
+    el.style.cssText = 'position:fixed;bottom:84px;right:16px;z-index:4600;background:var(--c1);border:1px solid var(--gold);border-radius:var(--r2);padding:14px 18px;max-width:92vw;width:340px;box-shadow:0 10px 30px rgba(0,0,0,.4);';
     document.body.appendChild(el);
   }
   el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
