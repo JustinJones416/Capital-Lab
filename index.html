@@ -1340,14 +1340,19 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <button class="btn btn-ghost btn-sm" onclick="saveCurrentPortfolio()"><i class="ti ti-device-floppy"></i> Guardar estrategia</button>
         <button class="btn btn-ghost btn-sm" onclick="togglePortfolioCompare()" id="compare-btn"><i class="ti ti-columns"></i> Comparar</button>
         <button class="btn btn-sm" onclick="abrirTarjetaCompartir()"><i class="ti ti-share"></i> Compartir</button>
-        <button class="btn btn-sm" onclick="alternarTodasLasTarjetas('page-cartera')" title="Expandir o colapsar todas las tarjetas"><i class="ti ti-arrows-vertical"></i></button>
         <button class="btn btn-sm" onclick="repetirUltimaOperacion()" id="btn-repetir-op" style="display:none;"><i class="ti ti-repeat"></i> Repetir última</button>
-        <button class="btn btn-sm" onclick="abrirResumenParaPresentar()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-presentation"></i> Resumen para presentar</button>
-        <button class="btn btn-sm" onclick="abrirAsesorCartera()" style="background:rgba(0,196,255,.12);color:var(--accent2);border:1px solid rgba(0,196,255,.3);"><i class="ti ti-bulb"></i> Asesor de Cartera</button>
-        <button class="btn btn-sm" onclick="abrirReplayCartera()"><i class="ti ti-player-play"></i> Replay</button>
-        <button class="btn btn-sm" onclick="abrirDiarioTrading()"><i class="ti ti-notebook"></i> Mi Diario de Trading</button>
-        <button class="btn btn-sm" onclick="abrirMetaPersonal()"><i class="ti ti-flag"></i> Meta Personal</button>
-        <button class="btn btn-sm" onclick="abrirComparadorIndice()"><i class="ti ti-scale"></i> Yo vs. el Mercado</button>
+        <div style="position:relative;">
+          <button class="btn btn-sm" onclick="alternarMenuHerramientasCartera(event)"><i class="ti ti-tools"></i> Más herramientas <i class="ti ti-chevron-down" style="font-size:11px;"></i></button>
+          <div id="menu-herramientas-cartera" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--c1);border:1px solid var(--c4);border-radius:var(--r2);box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:200;min-width:230px;padding:6px;">
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:2px;" onclick="alternarTodasLasTarjetas('page-cartera');cerrarMenuHerramientasCartera();"><i class="ti ti-arrows-vertical"></i> Expandir/colapsar tarjetas</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:2px;background:rgba(212,175,55,.1);color:var(--gold);" onclick="abrirResumenParaPresentar();cerrarMenuHerramientasCartera();"><i class="ti ti-presentation"></i> Resumen para presentar</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:2px;background:rgba(0,196,255,.1);color:var(--accent2);" onclick="abrirAsesorCartera();cerrarMenuHerramientasCartera();"><i class="ti ti-bulb"></i> Asesor de Cartera</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:2px;" onclick="abrirReplayCartera();cerrarMenuHerramientasCartera();"><i class="ti ti-player-play"></i> Replay de mi Cartera</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:2px;" onclick="abrirDiarioTrading();cerrarMenuHerramientasCartera();"><i class="ti ti-notebook"></i> Mi Diario de Trading</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:2px;" onclick="abrirMetaPersonal();cerrarMenuHerramientasCartera();"><i class="ti ti-flag"></i> Meta Personal</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;" onclick="abrirComparadorIndice();cerrarMenuHerramientasCartera();"><i class="ti ti-scale"></i> Yo vs. el Mercado</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -8248,6 +8253,7 @@ function mostrarPromptDiarioTrading(accion, nombreActivo){
     const texto = input.value.trim();
     if(texto){
       diarioTrading.unshift({ fecha: new Date().toISOString(), accion, activo: nombreActivo, nota: texto });
+      if(diarioTrading.length > 100) diarioTrading.length = 100; // tope razonable, no debe crecer sin límite para siempre
       autosave();
       notify('Nota guardada en tu Diario de Trading.', 'success');
     }
@@ -8279,6 +8285,7 @@ function abrirComparadorIndice(){
   const retornoPropio = ((valorActual - 50000) / 50000) * 100;
 
   const activos = allAssets();
+  if(!activos.length){ notify('No hay datos de mercado disponibles todavía.', 'error'); return; }
   const cambios = activos.map(a => {
     const inicial = a.price;
     const actual = a.currentPrice || a.price;
@@ -12993,6 +13000,29 @@ function switchPortfolio(idx){
   renderPortfolioTabs();
   renderPortfolio();
   if(idx>=0)notify(`Mostrando "${savedPortfolios[idx].name}" · Guardada el ${savedPortfolios[idx].savedAt}`);
+}
+
+// Menú de "Más herramientas" en Cartera — junta ocho botones que antes
+// vivían sueltos en el encabezado (Expandir tarjetas, Resumen, Asesor,
+// Replay, Diario, Meta, Comparador) en un solo lugar, para no saturar la
+// pantalla, sobre todo en el celular donde diez botones seguidos
+// obligaban a un scroll horizontal o varias filas antes de ver la
+// cartera de verdad.
+function alternarMenuHerramientasCartera(evento){
+  evento.stopPropagation();
+  const menu = document.getElementById('menu-herramientas-cartera');
+  const abrir = menu.style.display === 'none';
+  menu.style.display = abrir ? 'block' : 'none';
+  if(abrir){
+    const cerrarAlTocarFuera = (e) => {
+      if(!menu.contains(e.target)){ menu.style.display = 'none'; document.removeEventListener('click', cerrarAlTocarFuera); }
+    };
+    setTimeout(()=>document.addEventListener('click', cerrarAlTocarFuera), 10);
+  }
+}
+function cerrarMenuHerramientasCartera(){
+  const menu = document.getElementById('menu-herramientas-cartera');
+  if(menu) menu.style.display = 'none';
 }
 
 function togglePortfolioCompare(){
