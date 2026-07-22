@@ -312,6 +312,13 @@ input[type=number]{font-family:var(--font-mono);}
 
 /* ── BUTTONS ── */
 .btn{padding:8px 18px;border-radius:var(--r);font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
+/* El ícono dentro de un botón heredaba el line-height de la fuente de
+   íconos (más alto que el del texto normal), lo que lo dejaba un poco
+   "elevado" respecto al centro real del botón — casi imperceptible en
+   botones con texto al lado, pero muy notorio en botones que solo tienen
+   un ícono (como archivar o eliminar), donde no hay nada más que lo
+   compense visualmente. */
+.btn i[class*="ti-"]{line-height:1;display:inline-flex;align-items:center;}
 .btn-buy{background:var(--green);color:#000;font-weight:600;}.btn-buy:hover{filter:brightness(1.1);}
 .btn-sell{background:var(--red);color:#fff;font-weight:600;}.btn-sell:hover{filter:brightness(1.1);}
 .btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{background:#1a4fd8;}
