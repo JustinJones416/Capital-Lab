@@ -1267,11 +1267,11 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   </div>
   <div class="an-asset-grid" id="an-asset-grid"></div>
   <div id="analysis-body" style="display:none;">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <button class="btn btn-sm" onclick="abrirComparadorActivos()"><i class="ti ti-arrows-left-right"></i> Comparar con otro activo</button>
-      <button class="btn btn-sm" onclick="copiarResumenActivo()"><i class="ti ti-clipboard-text"></i> Copiar resumen</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+      <button class="btn btn-sm" onclick="abrirComparadorActivos()"><i class="ti ti-arrows-left-right"></i> Comparar</button>
+      <button class="btn btn-sm" onclick="copiarResumenActivo()" title="Copiar resumen al portapapeles"><i class="ti ti-clipboard-text"></i></button>
       <button class="btn btn-sm" onclick="alternarTodasLasTarjetas('analysis-body')" title="Expandir o colapsar todas las tarjetas"><i class="ti ti-arrows-vertical"></i></button>
-      <button class="btn btn-sm" onclick="exportarHistorialPreciosCSV()"><i class="ti ti-file-spreadsheet"></i> Exportar precios (CSV)</button>
+      <button class="btn btn-sm" onclick="exportarHistorialPreciosCSV()" title="Exportar historial de precios a CSV"><i class="ti ti-file-spreadsheet"></i></button>
     </div>
     <div class="metric-grid">
       <div class="metric"><div class="metric-label">Precio actual</div><div class="metric-val mono" id="an-price">—</div></div>
@@ -4146,13 +4146,16 @@ async function renderInicioPage(){
             <div style="font-size:22px;font-weight:700;">${pendientes.length}</div>
           </div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-          <button class="btn btn-sm" onclick="abrirAsesorCartera()" style="background:rgba(0,196,255,.12);color:var(--accent2);border:1px solid rgba(0,196,255,.3);"><i class="ti ti-bulb"></i> Asesor de Cartera</button>
-          <button class="btn btn-sm" onclick="abrirReplayCartera()"><i class="ti ti-player-play"></i> Replay de mi Cartera</button>
-          <button class="btn btn-sm" onclick="abrirDiarioTrading()"><i class="ti ti-notebook"></i> Diario de Trading</button>
-          <button class="btn btn-sm" onclick="abrirMetaPersonal()"><i class="ti ti-flag"></i> Meta Personal</button>
-          <button class="btn btn-sm" onclick="abrirInsigniaDesempeno()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-mood-smile"></i> Tarjeta de Desempeño</button>
-          <button class="btn btn-sm" onclick="abrirComparadorIndice()"><i class="ti ti-scale"></i> Yo vs. el Mercado</button>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:16px;position:relative;">
+          <button class="btn btn-sm" onclick="alternarMenuHerramientasInicio(event)"><i class="ti ti-tools"></i> Herramientas <i class="ti ti-chevron-down" style="font-size:11px;"></i></button>
+          <div id="menu-herramientas-inicio" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--c1);border:1px solid var(--c4);border-radius:var(--r2);box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:200;min-width:230px;padding:6px;">
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:2px;background:rgba(0,196,255,.1);color:var(--accent2);" onclick="abrirAsesorCartera();cerrarMenuHerramientasInicio();"><i class="ti ti-bulb"></i> Asesor de Cartera</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:2px;" onclick="abrirReplayCartera();cerrarMenuHerramientasInicio();"><i class="ti ti-player-play"></i> Replay de mi Cartera</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:2px;" onclick="abrirDiarioTrading();cerrarMenuHerramientasInicio();"><i class="ti ti-notebook"></i> Diario de Trading</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:2px;" onclick="abrirMetaPersonal();cerrarMenuHerramientasInicio();"><i class="ti ti-flag"></i> Meta Personal</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:2px;background:rgba(212,175,55,.1);color:var(--gold);" onclick="abrirInsigniaDesempeno();cerrarMenuHerramientasInicio();"><i class="ti ti-mood-smile"></i> Tarjeta de Desempeño</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;" onclick="abrirComparadorIndice();cerrarMenuHerramientasInicio();"><i class="ti ti-scale"></i> Yo vs. el Mercado</button>
+          </div>
         </div>
         ${rankingTxt ? `<div class="info-box-app" style="background:rgba(0,196,255,.08);border:1px solid var(--accent2);border-radius:var(--r);padding:10px 14px;font-size:13px;margin-bottom:16px;"><i class="ti ti-trophy" style="color:var(--accent2);margin-right:6px;"></i>${rankingTxt}</div>` : ''}
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">
@@ -13028,6 +13031,26 @@ function alternarMenuHerramientasCartera(evento){
 }
 function cerrarMenuHerramientasCartera(){
   const menu = document.getElementById('menu-herramientas-cartera');
+  if(menu) menu.style.display = 'none';
+}
+
+// Mismo patrón que el menú de Cartera, ahora también en Inicio — antes
+// había seis botones sueltos justo antes del contenido real de la
+// cartera, lo primero que se veía al entrar a la aplicación.
+function alternarMenuHerramientasInicio(evento){
+  evento.stopPropagation();
+  const menu = document.getElementById('menu-herramientas-inicio');
+  const abrir = menu.style.display === 'none';
+  menu.style.display = abrir ? 'block' : 'none';
+  if(abrir){
+    const cerrarAlTocarFuera = (e) => {
+      if(!menu.contains(e.target)){ menu.style.display = 'none'; document.removeEventListener('click', cerrarAlTocarFuera); }
+    };
+    setTimeout(()=>document.addEventListener('click', cerrarAlTocarFuera), 10);
+  }
+}
+function cerrarMenuHerramientasInicio(){
+  const menu = document.getElementById('menu-herramientas-inicio');
   if(menu) menu.style.display = 'none';
 }
 
