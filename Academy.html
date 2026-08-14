@@ -506,6 +506,7 @@ h1 > i.ti, h2 > i.ti, .card-title > i.ti, .eyebrow > i.ti{font-size:0.62em;verti
   <button class="nav-toggle" id="nav-toggle" onclick="toggleSidebar()" aria-label="Abrir menú"><i class="ti ti-menu-2"></i></button>
   <div class="brand" onclick="irAInicioSegunSesion()">CapitalLab Academy <span class="brand-sub" id="brand-sub">Portal de materias</span></div>
   <div class="topbar-spacer"></div>
+  <a href="Simulador.html" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:8px;border:1px solid var(--c4);color:var(--t2);text-decoration:none;font-size:11.5px;white-space:nowrap;" title="Ir al Simulador de CapitalLab"><i class="ti ti-chart-candle"></i> Simulador ↗</a>
   <button class="btn btn-ghost btn-sm" onclick="abrirBusquedaGlobal()" title="Buscar en todas las materias" style="flex-shrink:0;"><i class="ti ti-search"></i></button>
   <div class="mode-toggle">
     <button id="mode-student" class="active" onclick="setMode('student')"><i class="ti ti-school"></i> <span>Estudiante</span></button>
@@ -5888,6 +5889,11 @@ function responderPreguntaDocumentoNum(subjectId, docId, qIndex){
 // servidor. Todo lo que se genera queda como borrador, invisible para
 // los estudiantes, hasta que el docente lo revisa y lo aprueba.
 // ═══════════════════════════════════════════════════════════════════
+function actualizarFormularioIA(){
+  const esGlosario = $('ia-tipo').value === 'glosario';
+  $('ia-campos-caso').style.display = esGlosario ? 'none' : 'block';
+  $('ia-tema').placeholder = esGlosario ? 'Ej: Términos relacionados con la cobertura de riesgo cambiario…' : 'Ej: Una empresa exportadora panameña enfrenta un problema de tipo de cambio con un cliente en Colombia…';
+}
 function abrirGenerarCasoIA(subjectId){
   const s = SUBJECTS.find(x=>x.id===subjectId);
   const overlay = document.createElement('div');
@@ -5898,8 +5904,14 @@ function abrirGenerarCasoIA(subjectId){
     <h2><i class="ti ti-sparkles" style="color:var(--gold);"></i> Generar caso con IA — ${s?.title||''}</h2>
     <p style="font-size:12.5px;color:var(--t2);margin-bottom:16px;">El caso se genera como borrador. Usted lo revisa por completo antes de que quede visible para los estudiantes — nada se publica automáticamente.</p>
     <div id="ia-form">
+      <label style="font-size:12px;color:var(--t3);display:block;margin-bottom:4px;">¿Qué desea generar?</label>
+      <select id="ia-tipo" onchange="actualizarFormularioIA()" style="width:100%;padding:10px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:13px;margin-bottom:12px;">
+        <option value="caso">Un caso completo, con etapas y preguntas</option>
+        <option value="glosario">Un glosario de términos</option>
+      </select>
       <label style="font-size:12px;color:var(--t3);display:block;margin-bottom:4px;">Tema o situación específica *</label>
       <textarea id="ia-tema" placeholder="Ej: Una empresa exportadora panameña enfrenta un problema de tipo de cambio con un cliente en Colombia…" style="width:100%;min-height:70px;padding:10px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:13px;margin-bottom:12px;resize:vertical;"></textarea>
+      <div id="ia-campos-caso">
       <label style="font-size:12px;color:var(--t3);display:block;margin-bottom:4px;">Nivel de dificultad</label>
       <select id="ia-dificultad" style="width:100%;padding:10px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:13px;margin-bottom:12px;">
         <option value="básico">Básico</option>
@@ -5908,9 +5920,10 @@ function abrirGenerarCasoIA(subjectId){
       </select>
       <label style="font-size:12px;color:var(--t3);display:block;margin-bottom:4px;">Número de etapas (4 a 10)</label>
       <input type="number" id="ia-etapas" value="6" min="4" max="10" style="width:100%;padding:10px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:13px;margin-bottom:12px;">
+      </div>
       <label style="font-size:12px;color:var(--t3);display:block;margin-bottom:4px;">Contexto adicional (opcional)</label>
       <textarea id="ia-contexto" placeholder="Ej: Enfatizar el cálculo de cobertura con forwards, conectar con lo visto en la Etapa 2 del caso anterior…" style="width:100%;min-height:50px;padding:10px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:13px;margin-bottom:16px;resize:vertical;"></textarea>
-      <button class="btn" style="width:100%;justify-content:center;" onclick="enviarGeneracionCasoIA('${subjectId}')"><i class="ti ti-sparkles"></i> Generar caso</button>
+      <button class="btn" style="width:100%;justify-content:center;" onclick="enviarGeneracionCasoIA('${subjectId}')"><i class="ti ti-sparkles"></i> Generar</button>
       <div id="ia-msg" class="auth-msg" style="margin-top:10px;"></div>
     </div>
     <div id="ia-resultado" style="margin-top:16px;"></div>
@@ -5925,7 +5938,26 @@ async function enviarGeneracionCasoIA(subjectId){
   const msg = $('ia-msg');
   if(!tema){ msg.className='auth-msg show error'; msg.textContent='Describa el tema o la situación del caso antes de generar.'; return; }
   const boton = document.querySelector('#ia-form button.btn');
-  boton.disabled = true; boton.style.opacity='.6'; boton.innerHTML = '<i class="ti ti-loader-2"></i> Generando… esto puede tardar hasta medio minuto';
+  boton.disabled = true; boton.style.opacity='.6';
+  const mensajesEspera = [
+    'Redactando el contexto del caso…',
+    'Diseñando las etapas y las preguntas…',
+    'Verificando que los cálculos numéricos sean correctos…',
+    'Casi listo, dando los últimos detalles…',
+  ];
+  let indiceMensaje = 0;
+  boton.innerHTML = `<i class="ti ti-loader-2" style="animation:girarIA 1s linear infinite;"></i> <span id="ia-mensaje-espera">${mensajesEspera[0]}</span>`;
+  if(!document.getElementById('ia-estilo-girar')){
+    const estilo = document.createElement('style');
+    estilo.id = 'ia-estilo-girar';
+    estilo.textContent = '@keyframes girarIA{to{transform:rotate(360deg)}}';
+    document.head.appendChild(estilo);
+  }
+  const intervaloMensajes = setInterval(() => {
+    indiceMensaje = (indiceMensaje + 1) % mensajesEspera.length;
+    const span = $('ia-mensaje-espera');
+    if(span) span.textContent = mensajesEspera[indiceMensaje];
+  }, 4000);
   msg.className='auth-msg'; msg.textContent='';
   try {
     const { data: sesion } = await sb.auth.getSession();
@@ -5936,6 +5968,7 @@ async function enviarGeneracionCasoIA(subjectId){
       headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({
         materia_id: subjectId,
+        tipo: $('ia-tipo').value,
         tema,
         dificultad: $('ia-dificultad').value,
         num_etapas: $('ia-etapas').value,
@@ -5949,6 +5982,7 @@ async function enviarGeneracionCasoIA(subjectId){
   } catch(e){
     msg.className='auth-msg show error'; msg.textContent = 'No se pudo generar: ' + (e.message||e);
   } finally {
+    clearInterval(intervaloMensajes);
     boton.disabled = false; boton.style.opacity='1'; boton.innerHTML = '<i class="ti ti-sparkles"></i> Generar caso';
   }
 }
@@ -5958,21 +5992,23 @@ async function cargarBorradoresCasosIA(subjectId){
   if(!cont) return;
   cont.innerHTML = '<div class="auth-hint">Cargando casos generados…</div>';
   try {
-    const { data, error } = await sb.from('academy_casos_ia').select('id,contenido,estado,error_generacion,parametros,creado_en').eq('materia_id', subjectId).order('creado_en',{ascending:false}).limit(10);
+    const { data, error } = await sb.from('academy_casos_ia').select('id,tipo,contenido,estado,error_generacion,parametros,creado_en').eq('materia_id', subjectId).order('creado_en',{ascending:false}).limit(10);
     if(error) throw error;
     if(!data?.length){ cont.innerHTML=''; return; }
-    cont.innerHTML = `<div class="card-title" style="margin-bottom:10px;"><i class="ti ti-list-check"></i> Casos generados recientemente</div>` + data.map(c => {
+    cont.innerHTML = `<div class="card-title" style="margin-bottom:10px;"><i class="ti ti-list-check"></i> Contenido generado recientemente</div>` + data.map(c => {
       const estadoColor = c.estado==='aprobado' ? 'var(--green)' : c.estado==='rechazado' ? 'var(--red)' : 'var(--amber)';
       const estadoTexto = c.estado==='aprobado' ? 'Aprobado y publicado' : c.estado==='rechazado' ? 'Descartado' : (c.error_generacion ? 'Falló la generación' : 'Borrador — pendiente de revisión');
+      const esGlosario = c.tipo==='glosario';
+      const titulo = esGlosario ? `Glosario: ${c.parametros?.tema || 'sin tema'}` : (c.contenido?.title || c.parametros?.tema || 'Caso sin título');
       return `<div class="card" style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
-          <div style="flex:1;"><b>${c.contenido?.title || c.parametros?.tema || 'Caso sin título'}</b>
+          <div style="flex:1;"><b>${esGlosario?'<i class=\"ti ti-abc\"></i> ':''}${titulo}</b>
             <div style="font-size:11px;color:${estadoColor};margin-top:3px;">● ${estadoTexto}</div>
             ${c.error_generacion ? `<div style="font-size:11.5px;color:var(--red);margin-top:6px;">${c.error_generacion}</div>` : ''}
           </div>
         </div>
         ${c.contenido && c.estado==='borrador' ? `
-          <div style="margin-top:10px;font-size:12px;color:var(--t2);">${c.contenido.stages?.length||0} etapas · Rol: ${c.contenido.role||'—'}</div>
+          <div style="margin-top:10px;font-size:12px;color:var(--t2);">${esGlosario ? c.contenido.length+' términos' : (c.contenido.stages?.length||0)+' etapas · Rol: '+(c.contenido.role||'—')}</div>
           <div style="display:flex;gap:8px;margin-top:10px;">
             <button class="btn btn-sm" onclick="aprobarCasoIA('${c.id}','${subjectId}')"><i class="ti ti-check"></i> Aprobar y publicar</button>
             <button class="btn btn-ghost btn-sm" onclick="verDetalleCasoIA('${c.id}')"><i class="ti ti-eye"></i> Ver contenido</button>
@@ -5986,10 +6022,18 @@ async function cargarBorradoresCasosIA(subjectId){
 }
 
 function verDetalleCasoIA(id){
-  sb.from('academy_casos_ia').select('contenido').eq('id',id).single().then(({data,error})=>{
+  sb.from('academy_casos_ia').select('tipo,contenido').eq('id',id).single().then(({data,error})=>{
     if(error || !data?.contenido){ toast('No se pudo cargar el contenido.'); return; }
-    const c = data.contenido;
     const cont = $('ia-resultado');
+    if(data.tipo === 'glosario'){
+      cont.innerHTML = `<div class="card">
+        <div class="card-title"><i class="ti ti-abc"></i> Términos generados</div>
+        ${data.contenido.map(t=>`<div style="margin-bottom:8px;padding:8px 10px;background:var(--c2);border-radius:var(--r);"><b style="font-size:12.5px;">${t.t}</b><div style="font-size:12px;color:var(--t2);margin-top:2px;">${t.d}</div></div>`).join('')}
+      </div>`;
+      cont.scrollIntoView({behavior:'smooth', block:'nearest'});
+      return;
+    }
+    const c = data.contenido;
     cont.innerHTML = `<div class="card">
       <div class="card-title"><i class="ti ti-file-text"></i> ${c.title}</div>
       <div style="font-size:12.5px;color:var(--t2);margin-bottom:10px;">${c.brief}</div>
@@ -6029,13 +6073,32 @@ async function rechazarCasoIA(id, subjectId){
 window.__casosIACargados = window.__casosIACargados || {};
 async function cargarCasosIAAprobados(subjectId){
   try {
-    const { data, error } = await sb.from('academy_casos_ia').select('id,contenido').eq('materia_id', subjectId).eq('estado','aprobado');
+    const { data, error } = await sb.from('academy_casos_ia').select('id,tipo,contenido').eq('materia_id', subjectId).eq('estado','aprobado');
     if(error || !data) return;
+
+    const casosAprobados = data.filter(c => c.tipo!=='glosario' && c.contenido);
     const base = SUBJECT_DATA[subjectId].cases.filter(c => !c.id?.startsWith('ia-'));
-    const casosIA = data.filter(c=>c.contenido).map(c => ({ ...c.contenido, id: 'ia-'+c.id }));
+    const casosIA = casosAprobados.map(c => ({ ...c.contenido, id: 'ia-'+c.id, expediente: c.contenido.expediente || ('IA-'+new Date().getFullYear()) }));
     SUBJECT_DATA[subjectId].cases = [...base, ...casosIA];
+
+    // Términos de glosario aprobados se unen al glosario oficial de la
+    // materia, sin duplicar un término que ya exista (comparando por
+    // nombre, sin distinguir mayúsculas/minúsculas).
+    const glosariosAprobados = data.filter(c => c.tipo==='glosario' && Array.isArray(c.contenido));
+    if(glosariosAprobados.length){
+      if(!SUBJECT_DATA[subjectId].studyMaterial) SUBJECT_DATA[subjectId].studyMaterial = { flashcards:[], glossary:[], quiz:[] };
+      const glosarioBase = (SUBJECT_DATA[subjectId].studyMaterial.glossary || []).filter(t => !t._deIA);
+      const nombresExistentes = new Set(glosarioBase.map(t => t.t.toLowerCase().trim()));
+      const terminosIA = [];
+      glosariosAprobados.forEach(g => g.contenido.forEach(t => {
+        const nombre = (t.t||'').toLowerCase().trim();
+        if(nombre && !nombresExistentes.has(nombre)){ nombresExistentes.add(nombre); terminosIA.push({ ...t, _deIA:true }); }
+      }));
+      SUBJECT_DATA[subjectId].studyMaterial.glossary = [...glosarioBase, ...terminosIA];
+    }
+
     window.__casosIACargados[subjectId] = true;
-  } catch(e){ /* silencioso — si falla, la materia simplemente muestra los casos escritos a mano */ }
+  } catch(e){ /* silencioso — si falla, la materia simplemente muestra el contenido escrito a mano */ }
 }
 function navLecturas(subjectId){
   showView('view-documentos-analizar');
