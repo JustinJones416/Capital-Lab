@@ -387,6 +387,7 @@ table.data tr:last-child td{border-bottom:none;}
 
     <!-- Veredicto -->
     <div class="verdict" id="verdict-box"></div>
+    <div class="card" id="tesis-ia-box" style="margin-top:14px;"></div>
 
     <!-- KPIs -->
     <div class="section-label">Indicadores clave</div>
@@ -961,6 +962,7 @@ function renderResults(){
   $('result-asset-name').textContent = (data.ticker||m.name)+' · '+m.name;
 
   renderVerdict(verdict, mcRes);
+  renderTesisIA(result, verdict, market, data);
   renderKPIs(result.kpis);
   renderRiskFactors(result.riskFactors, verdict.riskScore);
   renderMonteCarlo(mcRes, result.mc);
@@ -1010,6 +1012,82 @@ function simpleExplanation(v, mcRes){
   if(g==='B') return `Esta inversión tiene cosas buenas y cosas riesgosas. Puede salir bien, pero también puede perder valor. En unos ${fmt(mcRes.probLoss,0)} de cada 100 escenarios simulados terminarías perdiendo. Si inviertes, hazlo con una parte pequeña y mantente atento.`;
   if(g==='C') return `Aquí el riesgo pesa más que la posible ganancia. En muchos escenarios (${fmt(mcRes.probLoss,0)} de cada 100) terminarías perdiendo. Solo tendría sentido si tienes una razón muy concreta para creer que subirá.`;
   return `Los números dicen que el riesgo es demasiado alto frente a lo que podrías ganar. En la mayoría de escenarios simulados no compensa. Con esta información, lo más prudente es no invertir.`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TESIS DE INVERSIÓN CON IA — llama a una Edge Function de Supabase
+// que guarda la clave de Gemini del lado del servidor; el navegador
+// nunca la ve. Solo envía los indicadores YA CALCULADOS aquí mismo,
+// nunca datos personales ni nada fuera de lo estrictamente necesario.
+// ═══════════════════════════════════════════════════════════════════
+const TESIS_IA_SUPABASE_URL = 'https://banzfcsggkoshsoiadry.supabase.co';
+let tesisIACache = {};
+
+function renderTesisIA(result, verdict, market, data){
+  const clave = JSON.stringify({market, ticker:data.ticker, price:data.price, formulas:result.formulas.map(f=>f.valor)});
+  const box = $('tesis-ia-box');
+  if(tesisIACache[clave]){
+    box.innerHTML = tesisTextoHTML(tesisIACache[clave]);
+    return;
+  }
+  box.innerHTML = `
+    <div class="card-title" style="display:flex;align-items:center;gap:8px;"><i class="ti ti-sparkles" style="color:var(--gold, #e8b94a);"></i> Tesis de inversión redactada con IA</div>
+    <p style="font-size:12.5px;color:var(--t2);margin-bottom:12px;">Genera un párrafo profesional que integra los indicadores ya calculados arriba, incluyendo al menos un riesgo real, no solo argumentos a favor.</p>
+    <button class="btn" onclick="generarTesisIA()"><i class="ti ti-sparkles"></i> Generar tesis</button>
+    <div id="tesis-ia-msg" style="margin-top:8px;font-size:12px;"></div>
+  `;
+  box.dataset.claveTesis = clave;
+}
+
+function tesisTextoHTML(texto){
+  const parrafos = texto.split(/\n+/).filter(p=>p.trim());
+  return `
+    <div class="card-title" style="display:flex;align-items:center;gap:8px;"><i class="ti ti-sparkles" style="color:var(--gold, #e8b94a);"></i> Tesis de inversión redactada con IA</div>
+    ${parrafos.map(p=>`<p style="font-size:13px;color:var(--t2);line-height:1.65;margin-bottom:10px;">${p}</p>`).join('')}
+    <div style="font-size:10.5px;color:var(--t3);margin-top:6px;">Generada automáticamente a partir de los indicadores calculados arriba. Revísala antes de usarla como parte de un informe formal.</div>
+  `;
+}
+
+async function generarTesisIA(){
+  if(!lastResult) return;
+  const { data, result, verdict, market } = lastResult;
+  const boton = document.querySelector('#tesis-ia-box button.btn');
+  const msg = $('tesis-ia-msg');
+  boton.disabled = true; boton.style.opacity='.6';
+  const mensajesEspera = ['Redactando el argumento central…','Integrando los indicadores calculados…','Verificando coherencia con el veredicto…'];
+  let i=0;
+  boton.innerHTML = `<i class="ti ti-loader-2" style="animation:girarTesis 1s linear infinite;"></i> <span id="tesis-ia-mensaje">${mensajesEspera[0]}</span>`;
+  if(!document.getElementById('tesis-ia-estilo-girar')){
+    const st=document.createElement('style'); st.id='tesis-ia-estilo-girar';
+    st.textContent='@keyframes girarTesis{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
+  const intervalo = setInterval(()=>{ i=(i+1)%mensajesEspera.length; const s=$('tesis-ia-mensaje'); if(s) s.textContent=mensajesEspera[i]; }, 3500);
+
+  try {
+    const respuesta = await fetch(`${TESIS_IA_SUPABASE_URL}/functions/v1/generar-tesis-analytics`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        tipoActivo: market,
+        nombreActivo: data.ticker || MARKETS[market].name,
+        formulas: result.formulas.map(f=>({nombre:f.nombre, categoria:f.categoria, valor:f.valor, unidad:f.unidad, interpretacion:f.interpretacion})),
+        verdict: { grade:verdict.grade, title:verdict.title, riskScore:verdict.riskScore, attract:verdict.attract },
+      }),
+    });
+    const resultado = await respuesta.json();
+    if(!resultado.ok) throw new Error(resultado.error || 'Error desconocido.');
+    const box = $('tesis-ia-box');
+    const clave = box.dataset.claveTesis;
+    tesisIACache[clave] = resultado.tesis;
+    box.innerHTML = tesisTextoHTML(resultado.tesis);
+  } catch(e){
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'No se pudo generar: ' + (e.message||e);
+    boton.disabled=false; boton.style.opacity='1'; boton.innerHTML = '<i class="ti ti-sparkles"></i> Generar tesis';
+  } finally {
+    clearInterval(intervalo);
+  }
 }
 
 function drawRing(id, pct, color){
