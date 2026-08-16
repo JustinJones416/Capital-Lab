@@ -1021,6 +1021,12 @@ function simpleExplanation(v, mcRes){
 // nunca datos personales ni nada fuera de lo estrictamente necesario.
 // ═══════════════════════════════════════════════════════════════════
 const TESIS_IA_SUPABASE_URL = 'https://banzfcsggkoshsoiadry.supabase.co';
+// Esta es la clave pública ("anon"/"publishable") del proyecto, la
+// misma que usa CapitalLab Academy. No es secreta — está diseñada
+// para vivir en el navegador — y Supabase la exige en todo encabezado
+// "apikey" solo para enrutar la solicitud a la función correcta, sin
+// importar si la verificación de sesión está activada o no.
+const TESIS_IA_SUPABASE_ANON_KEY = 'sb_publishable_sg-FW58VGNi9KDOVqsf5Ig_B8aLxw0i';
 let tesisIACache = {};
 
 function renderTesisIA(result, verdict, market, data){
@@ -1067,7 +1073,11 @@ async function generarTesisIA(){
   try {
     const respuesta = await fetch(`${TESIS_IA_SUPABASE_URL}/functions/v1/generar-tesis-analytics`, {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{
+        'Content-Type':'application/json',
+        'apikey': TESIS_IA_SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${TESIS_IA_SUPABASE_ANON_KEY}`,
+      },
       body: JSON.stringify({
         tipoActivo: market,
         nombreActivo: data.ticker || MARKETS[market].name,
