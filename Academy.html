@@ -546,7 +546,6 @@ h1 > i.ti, h2 > i.ti, .card-title > i.ti, .eyebrow > i.ti{font-size:0.62em;verti
       <button class="nav-item" id="nav-calificaciones" onclick="navCalificaciones()"><i class="ti ti-report"></i> Calificaciones</button>
       <button class="nav-item" id="nav-tareas" onclick="navTareas()"><i class="ti ti-calendar-event"></i> Tareas y calendario</button>
       <button class="nav-item" id="nav-apuntes" onclick="navApuntes()"><i class="ti ti-notebook"></i> Mis apuntes</button>
-      <button class="nav-item" id="nav-cotizacion" onclick="abrirDatosYahoo()"><i class="ti ti-chart-line"></i> Cotización real</button>
       <button class="nav-item hidden" id="nav-metricas" onclick="navMetricas()"><i class="ti ti-chart-histogram"></i> Métricas del salón</button>
       <button class="nav-item" id="nav-documentos" onclick="navDocumentos()"><i class="ti ti-folder"></i> Documentos</button>
       <button class="nav-item" id="nav-glosario" onclick="navGlosarioGeneral()"><i class="ti ti-alphabet-latin"></i> Glosario general</button>
@@ -5894,83 +5893,6 @@ function actualizarFormularioIA(){
   const esGlosario = $('ia-tipo').value === 'glosario';
   $('ia-campos-caso').style.display = esGlosario ? 'none' : 'block';
   $('ia-tema').placeholder = esGlosario ? 'Ej: Términos relacionados con la cobertura de riesgo cambiario…' : 'Ej: Una empresa exportadora panameña enfrenta un problema de tipo de cambio con un cliente en Colombia…';
-}
-// ═══════════════════════════════════════════════════════════════════
-// COTIZACIÓN REAL — consulta datos verificados de mercado (precio,
-// variación del día, rango de 52 semanas, histórico) para cualquier
-// acción o par de divisas, a través de una Edge Function que protege
-// la solicitud del lado del servidor. Disponible para cualquier
-// usuario, docente o estudiante, no requiere permisos especiales.
-// ═══════════════════════════════════════════════════════════════
-function abrirDatosYahoo(){
-  const overlay = document.createElement('div');
-  overlay.className = 'export-modal-overlay';
-  overlay.id = 'yahoo-overlay';
-  overlay.innerHTML = `<div class="export-modal" style="max-width:520px;">
-    <button class="modal-close" onclick="$('yahoo-overlay').remove()"><i class="ti ti-x"></i></button>
-    <h2><i class="ti ti-chart-line" style="color:var(--teal);"></i> Cotización real de mercado</h2>
-    <p style="font-size:12.5px;color:var(--t2);margin-bottom:14px;">Consulta el precio real y reciente de una acción (ej: AAPL, MSFT, BLX) o un par de divisas (ej: EUR/USD, USD/PAB). Datos con al menos 15 minutos de retraso, como es estándar en cotizaciones gratuitas.</p>
-    <div style="display:flex;gap:8px;margin-bottom:14px;">
-      <input type="text" id="yahoo-simbolo" placeholder="Ej: AAPL o EUR/USD" style="flex:1;padding:10px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:14px;font-family:var(--font-mono);text-transform:uppercase;" onkeydown="if(event.key==='Enter')consultarYahoo();">
-      <button class="btn" onclick="consultarYahoo()"><i class="ti ti-search"></i> Consultar</button>
-    </div>
-    <div id="yahoo-resultado"></div>
-  </div>`;
-  document.body.appendChild(overlay);
-  $('yahoo-simbolo').focus();
-}
-async function consultarYahoo(){
-  const simbolo = $('yahoo-simbolo').value.trim();
-  const cont = $('yahoo-resultado');
-  if(!simbolo){ toast('Escriba un símbolo o par de divisas.'); return; }
-  cont.innerHTML = `<div style="text-align:center;padding:20px;color:var(--t3);"><i class="ti ti-loader-2" style="font-size:24px;animation:girarYahoo 1s linear infinite;"></i><div style="margin-top:8px;font-size:12.5px;">Consultando cotización real…</div></div>`;
-  if(!document.getElementById('yahoo-estilo-girar')){
-    const st=document.createElement('style'); st.id='yahoo-estilo-girar';
-    st.textContent='@keyframes girarYahoo{to{transform:rotate(360deg)}}';
-    document.head.appendChild(st);
-  }
-  try {
-    const respuesta = await fetch(`${SUPABASE_URL}/functions/v1/datos-yahoo-finance?symbol=${encodeURIComponent(simbolo)}`, {
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-    });
-    const d = await respuesta.json();
-    if(!d.ok) throw new Error(d.error || 'No se pudo consultar el símbolo.');
-    const subio = d.variacion >= 0;
-    const colorVar = subio ? 'var(--green)' : 'var(--red)';
-    cont.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
-        <div><b style="font-size:15px;">${d.nombre}</b><div style="font-size:11px;color:var(--t3);font-family:var(--font-mono);">${d.simbolo} · ${d.bolsa||''}</div></div>
-        <div style="text-align:right;"><div style="font-size:20px;font-weight:800;font-family:var(--font-mono);">${d.precioActual} <span style="font-size:12px;color:var(--t3);">${d.moneda}</span></div>
-        <div style="font-size:12.5px;color:${colorVar};font-family:var(--font-mono);">${subio?'▲':'▼'} ${Math.abs(d.variacion)} (${Math.abs(d.variacionPct)}%)</div></div>
-      </div>
-      ${dibujarSparklineYahoo(d.historico6Meses)}
-      <div class="docfacts" style="margin-top:14px;">
-        <div><div class="k">Máximo del día</div><div class="v">${d.maximoDia}</div></div>
-        <div><div class="k">Mínimo del día</div><div class="v">${d.minimoDia}</div></div>
-        <div><div class="k">Máximo 52 semanas</div><div class="v">${d.maximo52Semanas}</div></div>
-        <div><div class="k">Mínimo 52 semanas</div><div class="v">${d.minimo52Semanas}</div></div>
-        ${d.volumen ? `<div><div class="k">Volumen</div><div class="v">${Number(d.volumen).toLocaleString('es-PA')}</div></div>` : ''}
-      </div>
-      <div style="font-size:10.5px;color:var(--t3);margin-top:10px;">Consultado: ${new Date(d.fechaHoraCotizacion).toLocaleString('es-PA')}</div>
-    `;
-  } catch(e){
-    cont.innerHTML = `<div class="auth-msg show error">No se pudo consultar: ${e.message||e}</div>`;
-  }
-}
-function dibujarSparklineYahoo(historico){
-  if(!historico || historico.length<2) return '';
-  const valores = historico.map(p=>p.cierre);
-  const min = Math.min(...valores), max = Math.max(...valores);
-  const rango = max-min || 1;
-  const ancho=460, alto=70;
-  const puntos = valores.map((v,i) => `${(i/(valores.length-1))*ancho},${alto-((v-min)/rango)*alto}`).join(' ');
-  const subioEnPeriodo = valores[valores.length-1] >= valores[0];
-  return `<div style="background:var(--c2);border-radius:var(--r);padding:10px;">
-    <div style="font-size:10px;color:var(--t3);margin-bottom:4px;">Últimos 6 meses</div>
-    <svg viewBox="0 0 ${ancho} ${alto}" style="width:100%;height:${alto}px;overflow:visible;">
-      <polyline points="${puntos}" fill="none" stroke="${subioEnPeriodo?'#00d084':'#ff4757'}" stroke-width="2"/>
-    </svg>
-  </div>`;
 }
 function abrirGenerarCasoIA(subjectId){
   const s = SUBJECTS.find(x=>x.id===subjectId);

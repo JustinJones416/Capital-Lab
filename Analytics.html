@@ -616,12 +616,63 @@ function renderForm(){
     const unit = f.unit ? `<span class="u">${f.unit}</span>` : '';
     const inputType = f.type==='num' ? 'number' : 'text';
     const step = f.type==='num' ? ' step="any"' : '';
+    const botonTraer = f.k==='ticker' ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-traer-real" onclick="traerDatosRealesYahoo()" style="margin-top:6px;"><i class="ti ti-cloud-download"></i> Traer precio y volatilidad reales</button><div id="traer-real-msg" style="font-size:11.5px;margin-top:4px;"></div>` : '';
     return `<div class="field">
       <label>${f.label} ${reqMark}${hint}</label>
       <div class="unit"><input id="f-${f.k}" type="${inputType}"${step} placeholder="${f.placeholder||''}">${unit}</div>
       ${src}
+      ${botonTraer}
     </div>`;
   }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TRAER DATOS REALES — completa automáticamente el precio actual y,
+// cuando hay suficiente histórico, la volatilidad anualizada real,
+// a partir de una Edge Function que consulta Yahoo Finance del lado
+// del servidor. El estudiante sigue pudiendo editar cualquier campo
+// después, esto solo ahorra tener que buscar los datos a mano.
+// ═══════════════════════════════════════════════════════════════
+const YAHOO_SUPABASE_URL = 'https://banzfcsggkoshsoiadry.supabase.co';
+const YAHOO_SUPABASE_ANON_KEY = 'sb_publishable_sg-FW58VGNi9KDOVqsf5Ig_B8aLxw0i';
+async function traerDatosRealesYahoo(){
+  const ticker = $('f-ticker')?.value?.trim();
+  const msg = $('traer-real-msg');
+  const boton = $('btn-traer-real');
+  if(!ticker){ msg.style.color='var(--red, #ff4757)'; msg.textContent='Escribe primero el símbolo o par de divisas.'; return; }
+  boton.disabled = true; boton.style.opacity='.6';
+  msg.style.color='var(--t3)'; msg.textContent='Consultando cotización real…';
+  try {
+    const respuesta = await fetch(`${YAHOO_SUPABASE_URL}/functions/v1/datos-yahoo-finance?symbol=${encodeURIComponent(ticker)}`, {
+      headers: { 'apikey': YAHOO_SUPABASE_ANON_KEY, 'Authorization': `Bearer ${YAHOO_SUPABASE_ANON_KEY}` },
+    });
+    const d = await respuesta.json();
+    if(!d.ok) throw new Error(d.error || 'No se pudo consultar el símbolo.');
+
+    if($('f-price')) $('f-price').value = d.precioActual;
+
+    // Volatilidad anualizada real, calculada a partir de los retornos
+    // diarios del histórico de 6 meses — la fórmula estándar: desviación
+    // estándar de los retornos logarítmicos diarios × raíz de 252 (días
+    // de negociación en un año), expresada en porcentaje.
+    if($('f-volatility') && d.historico6Meses?.length > 10){
+      const cierres = d.historico6Meses.map(p=>p.cierre);
+      const retornos = [];
+      for(let i=1;i<cierres.length;i++) retornos.push(Math.log(cierres[i]/cierres[i-1]));
+      const media = retornos.reduce((a,b)=>a+b,0)/retornos.length;
+      const varianza = retornos.reduce((a,b)=>a+(b-media)**2,0)/(retornos.length-1);
+      const volAnualizada = Math.sqrt(varianza) * Math.sqrt(252) * 100;
+      $('f-volatility').value = volAnualizada.toFixed(1);
+    }
+
+    msg.style.color='var(--green, #00d084)';
+    msg.textContent = `Listo: ${d.nombre} a ${d.precioActual} ${d.moneda}${$('f-volatility')?', con volatilidad real calculada del histórico':''}. Puedes ajustar cualquier campo antes de analizar.`;
+  } catch(e){
+    msg.style.color='var(--red, #ff4757)';
+    msg.textContent = 'No se pudo traer: ' + (e.message||e);
+  } finally {
+    boton.disabled=false; boton.style.opacity='1';
+  }
 }
 
 function loadExample(){
