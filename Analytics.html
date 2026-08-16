@@ -633,8 +633,8 @@ function renderForm(){
 // del servidor. El estudiante sigue pudiendo editar cualquier campo
 // después, esto solo ahorra tener que buscar los datos a mano.
 // ═══════════════════════════════════════════════════════════════
-const YAHOO_SUPABASE_URL = 'https://banzfcsggkoshsoiadry.supabase.co';
-const YAHOO_SUPABASE_ANON_KEY = 'sb_publishable_sg-FW58VGNi9KDOVqsf5Ig_B8aLxw0i';
+const YAHOO_SUPABASE_URL = 'https://rlzwbsitjtmtynxiexlp.supabase.co';
+const YAHOO_SUPABASE_ANON_KEY = 'sb_publishable_Y7UdPZo5Gk8lrw2DDStsSw_XVIrh7-M';
 async function traerDatosRealesYahoo(){
   const ticker = $('f-ticker')?.value?.trim();
   const msg = $('traer-real-msg');
@@ -1071,13 +1071,13 @@ function simpleExplanation(v, mcRes){
 // nunca la ve. Solo envía los indicadores YA CALCULADOS aquí mismo,
 // nunca datos personales ni nada fuera de lo estrictamente necesario.
 // ═══════════════════════════════════════════════════════════════════
-const TESIS_IA_SUPABASE_URL = 'https://banzfcsggkoshsoiadry.supabase.co';
+const TESIS_IA_SUPABASE_URL = 'https://rlzwbsitjtmtynxiexlp.supabase.co';
 // Esta es la clave pública ("anon"/"publishable") del proyecto, la
 // misma que usa CapitalLab Academy. No es secreta — está diseñada
 // para vivir en el navegador — y Supabase la exige en todo encabezado
 // "apikey" solo para enrutar la solicitud a la función correcta, sin
 // importar si la verificación de sesión está activada o no.
-const TESIS_IA_SUPABASE_ANON_KEY = 'sb_publishable_sg-FW58VGNi9KDOVqsf5Ig_B8aLxw0i';
+const TESIS_IA_SUPABASE_ANON_KEY = 'sb_publishable_Y7UdPZo5Gk8lrw2DDStsSw_XVIrh7-M';
 let tesisIACache = {};
 
 function renderTesisIA(result, verdict, market, data){
