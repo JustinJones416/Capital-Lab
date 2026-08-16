@@ -1122,7 +1122,7 @@ async function generarTesisIA(){
   const intervalo = setInterval(()=>{ i=(i+1)%mensajesEspera.length; const s=$('tesis-ia-mensaje'); if(s) s.textContent=mensajesEspera[i]; }, 3500);
 
   try {
-    const respuesta = await fetch(`${TESIS_IA_SUPABASE_URL}/functions/v1/generar-tesis-analytics`, {
+    const respuesta = await fetch(`${TESIS_IA_SUPABASE_URL}/functions/v1/dynamic-worker`, {
       method:'POST',
       headers:{
         'Content-Type':'application/json',
