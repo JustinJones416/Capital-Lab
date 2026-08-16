@@ -643,7 +643,7 @@ async function traerDatosRealesYahoo(){
   boton.disabled = true; boton.style.opacity='.6';
   msg.style.color='var(--t3)'; msg.textContent='Consultando cotización real…';
   try {
-    const respuesta = await fetch(`${YAHOO_SUPABASE_URL}/functions/v1/datos-yahoo-finance?symbol=${encodeURIComponent(ticker)}`, {
+    const respuesta = await fetch(`${YAHOO_SUPABASE_URL}/functions/v1/quick-task?symbol=${encodeURIComponent(ticker)}`, {
       headers: { 'apikey': YAHOO_SUPABASE_ANON_KEY, 'Authorization': `Bearer ${YAHOO_SUPABASE_ANON_KEY}` },
     });
     const d = await respuesta.json();
