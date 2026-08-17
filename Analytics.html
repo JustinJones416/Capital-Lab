@@ -454,7 +454,7 @@ table.data tr:last-child td{border-bottom:none;}
 
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="goToMarket()"><i class="ti ti-refresh"></i> Analizar otro activo</button>
-      <button class="btn" onclick="window.print()"><i class="ti ti-printer"></i> Exportar / Imprimir</button>
+      <button class="btn" id="btn-reporte-profesional" onclick="generarReporteProfesional()"><i class="ti ti-file-report"></i> Reporte profesional (PDF)</button>
     </div>
   </section>
 
@@ -723,7 +723,8 @@ async function traerDatosRealesYahoo(){
     }
 
     msg.style.color='var(--green, #00d084)';
-    msg.textContent = `Listo: ${d.nombre} a ${d.precioActual} ${d.moneda}. ${camposLlenados} campos completados con datos reales, cada uno con su enlace de fuente debajo. Puedes ajustar cualquiera antes de analizar.`;
+    const notaTrimestre = d.fundamentales?.trimestreMasReciente ? ` Fundamentales del trimestre cerrado el ${d.fundamentales.trimestreMasReciente}.` : '';
+    msg.textContent = `Listo: ${d.nombre} a ${d.precioActual} ${d.moneda}. ${camposLlenados} campos completados con datos reales, cada uno con su enlace de fuente debajo.${notaTrimestre} Puedes ajustar cualquiera antes de analizar.`;
   } catch(e){
     msg.style.color='var(--red, #ff4757)';
     msg.textContent = 'No se pudo traer: ' + (e.message||e);
@@ -770,9 +771,21 @@ async function traerInflacionRealDivisa(){
     if(datoBase && $('f-inflationBase')) $('f-inflationBase').value = datoBase.value.toFixed(1);
     if(datoCotizada && $('f-inflationQuote')) $('f-inflationQuote').value = datoCotizada.value.toFixed(1);
 
+    // El año exacto del dato queda visible directo bajo el campo, no
+    // solo enterrado en el mensaje general — así se ve de inmediato,
+    // sin tener que leer un párrafo, de qué año es cada cifra.
+    const marcarAno = (idCampo, dato, nombrePais) => {
+      const campo = $(idCampo);
+      if(!campo || !dato) return;
+      const nota = campo.closest('.field')?.querySelector('.field-note');
+      if(nota) nota.innerHTML = `<i class="ti ti-building-bank" style="font-size:10px;"></i> Banco Mundial · ${nombrePais} · último dato oficial publicado: <b>${dato.date}</b>`;
+    };
+    marcarAno('f-inflationBase', datoBase, infoBase.nombre);
+    marcarAno('f-inflationQuote', datoCotizada, infoCotizada.nombre);
+
     if(datoBase || datoCotizada){
       msg.style.color='var(--green, #00d084)';
-      msg.textContent = `Listo: inflación de ${infoBase.nombre} (${datoBase?.date||'—'}) y ${infoCotizada.nombre} (${datoCotizada?.date||'—'}), según el Banco Mundial. Nota: los datos macro oficiales suelen tener 1-2 años de rezago, a diferencia de una cotización en vivo.`;
+      msg.textContent = `Listo: inflación de ${infoBase.nombre} (${datoBase?.date||'—'}) y ${infoCotizada.nombre} (${datoCotizada?.date||'—'}), el dato oficial más reciente que existe publicado en el Banco Mundial. Nota: el año más reciente varía por país según su propio calendario de publicación oficial, no todos publican el mismo año todavía — eso es normal en estadísticas macro, no un dato viejo por error.`;
     } else {
       msg.style.color='var(--red, #ff4757)';
       msg.textContent = 'El Banco Mundial no devolvió datos para este par en este momento. Puede estar limitando solicitudes temporalmente — intenta de nuevo en unos segundos, o ingresa el dato manualmente.';
@@ -1213,6 +1226,87 @@ function tesisTextoHTML(texto){
     ${parrafos.map(p=>`<p style="font-size:13px;color:var(--t2);line-height:1.65;margin-bottom:10px;">${p}</p>`).join('')}
     <div style="font-size:10.5px;color:var(--t3);margin-top:6px;">Generada automáticamente a partir de los indicadores calculados arriba. Revísala antes de usarla como parte de un informe formal.</div>
   `;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REPORTE PROFESIONAL — arma un documento formal (Arial, estructura
+// limpia, sin nada crudo del navegador) con el activo, todos los
+// indicadores calculados y su interpretación, el veredicto, y la tesis
+// de IA si ya se generó. Se abre en una ventana nueva lista para
+// guardar como PDF, igual patrón que usan Academy y el Simulador.
+// ═══════════════════════════════════════════════════════════════════
+function generarReporteProfesional(){
+  if(!lastResult){ toast?.('Primero ejecuta un análisis.'); return; }
+  const { data, result, verdict, market } = lastResult;
+  const m = MARKETS[market];
+  const nombreActivo = data.ticker || m.name;
+  const fecha = new Date().toLocaleDateString('es-PA', { year:'numeric', month:'long', day:'numeric' });
+
+  const filasIndicadores = result.formulas.map(f => `
+    <tr>
+      <td style="font-weight:700;">${f.nombre}</td>
+      <td style="text-align:center;">${f.categoria}</td>
+      <td style="text-align:right;font-family:'Courier New',monospace;">${f.valor}${f.unidad?' '+f.unidad:''}</td>
+    </tr>
+    <tr><td colspan="3" style="font-size:11px;color:#555;padding-top:0;padding-bottom:10px;">${f.interpretacion}</td></tr>
+  `).join('');
+
+  // La tesis de IA solo se incluye si el usuario ya la generó en
+  // pantalla — el reporte nunca la genera de nuevo por su cuenta.
+  const tesisCacheada = Object.values(tesisIACache)[0];
+  const seccionTesis = tesisCacheada ? `
+    <h2>Tesis de inversión</h2>
+    ${tesisCacheada.split(/\n+/).filter(p=>p.trim()).map(p=>`<p>${p}</p>`).join('')}
+  ` : `
+    <h2>Tesis de inversión</h2>
+    <p style="color:#777;font-style:italic;">No se generó una tesis redactada para este análisis. Puede generarla desde la pantalla de resultados antes de exportar el reporte, si desea incluirla.</p>
+  `;
+
+  const cuerpo = `
+    <h1>Análisis de Inversión — ${nombreActivo}</h1>
+    <div class="sub">${m.name} · CapitalLab Analytics · ${fecha}</div>
+
+    <h2>Veredicto</h2>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+      <tr><td style="font-weight:700;padding:6px 0;">Calificación</td><td style="text-align:right;font-size:18px;font-weight:800;">${verdict.grade}</td></tr>
+      <tr><td style="font-weight:700;padding:6px 0;">${verdict.title}</td><td></td></tr>
+      <tr><td style="padding:6px 0;">Puntaje de riesgo</td><td style="text-align:right;">${verdict.riskScore?.toFixed?.(1) ?? verdict.riskScore}/100</td></tr>
+      <tr><td style="padding:6px 0;">Puntaje de atractivo</td><td style="text-align:right;">${verdict.attract?.toFixed?.(1) ?? verdict.attract}/100</td></tr>
+    </table>
+
+    <h2>Indicadores calculados</h2>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="background:#1a2b4a;color:#fff;"><th style="padding:8px;text-align:left;">Indicador</th><th style="padding:8px;">Categoría</th><th style="padding:8px;text-align:right;">Valor</th></tr></thead>
+      <tbody>${filasIndicadores}</tbody>
+    </table>
+
+    ${seccionTesis}
+
+    <div style="margin-top:30px;padding:14px;background:#f5f5f5;border-left:4px solid #999;font-size:11.5px;color:#555;">
+      <b>Aviso:</b> Este reporte es de carácter educativo y de apoyo al análisis. Los resultados se basan exclusivamente en los datos ingresados y en supuestos de modelos financieros estándar. No constituye asesoría de inversión ni garantiza resultados futuros.
+    </div>
+  `;
+
+  abrirVentanaImpresionAnalytics(`Análisis de Inversión — ${nombreActivo}`, cuerpo);
+}
+
+function abrirVentanaImpresionAnalytics(tituloDoc, cuerpoHtml){
+  const win = window.open('', '_blank', 'width=900,height=700');
+  win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${tituloDoc}</title>
+    <style>
+      body,div,td,th{font-family:Arial,Helvetica,sans-serif;color:#111;}
+      body{padding:32px;max-width:800px;margin:0 auto;line-height:1.6;}
+      h1{font-size:22px;margin-bottom:2px;color:#111;}
+      .sub{color:#555;font-size:12.5px;margin-bottom:24px;}
+      h2{font-size:16px;margin-top:26px;border-bottom:1px solid #ccc;padding-bottom:4px;color:#1a2b4a;}
+      p{font-size:13px;text-align:justify;margin-bottom:10px;}
+      table{font-size:12.5px;}
+      td,th{border-bottom:1px solid #ddd;}
+      @media print{ body{padding:0;} }
+    </style></head><body>${cuerpoHtml}
+    <script>window.onload=()=>{window.print();};<\/script>
+  </body></html>`);
+  win.document.close();
 }
 
 async function generarTesisIA(){
