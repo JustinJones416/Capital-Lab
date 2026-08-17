@@ -616,7 +616,7 @@ function renderForm(){
     const unit = f.unit ? `<span class="u">${f.unit}</span>` : '';
     const inputType = f.type==='num' ? 'number' : 'text';
     const step = f.type==='num' ? ' step="any"' : '';
-    const botonTraer = f.k==='ticker' ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-traer-real" onclick="traerDatosRealesYahoo()" style="margin-top:6px;"><i class="ti ti-cloud-download"></i> Traer precio y volatilidad reales</button><div id="traer-real-msg" style="font-size:11.5px;margin-top:4px;"></div>` : '';
+    const botonTraer = f.k==='ticker' ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-traer-real" onclick="traerDatosRealesYahoo()" style="margin-top:6px;"><i class="ti ti-cloud-download"></i> Traer todos los datos reales disponibles</button><div id="traer-real-msg" style="font-size:11.5px;margin-top:4px;"></div><div id="traer-real-link" style="margin-top:2px;"></div>` : '';
     return `<div class="field">
       <label>${f.label} ${reqMark}${hint}</label>
       <div class="unit"><input id="f-${f.k}" type="${inputType}"${step} placeholder="${f.placeholder||''}">${unit}</div>
@@ -641,7 +641,7 @@ async function traerDatosRealesYahoo(){
   const boton = $('btn-traer-real');
   if(!ticker){ msg.style.color='var(--red, #ff4757)'; msg.textContent='Escribe primero el símbolo o par de divisas.'; return; }
   boton.disabled = true; boton.style.opacity='.6';
-  msg.style.color='var(--t3)'; msg.textContent='Consultando cotización real…';
+  msg.style.color='var(--t3)'; msg.textContent='Consultando cotización y datos fundamentales reales…';
   try {
     const respuesta = await fetch(`${YAHOO_SUPABASE_URL}/functions/v1/quick-task?symbol=${encodeURIComponent(ticker)}`, {
       headers: { 'apikey': YAHOO_SUPABASE_ANON_KEY, 'Authorization': `Bearer ${YAHOO_SUPABASE_ANON_KEY}` },
@@ -665,8 +665,26 @@ async function traerDatosRealesYahoo(){
       $('f-volatility').value = volAnualizada.toFixed(1);
     }
 
+    // Datos fundamentales reales — solo existen para acciones, Yahoo
+    // no tiene EPS ni valor en libros de un par de divisas.
+    let camposLlenados = ($('f-price')?1:0) + ($('f-volatility')?1:0);
+    if(d.fundamentales){
+      const f = d.fundamentales;
+      const mapa = { 'f-eps':f.eps, 'f-bookValue':f.bookValue, 'f-dividend':f.dividend, 'f-beta':f.beta, 'f-shares':f.sharesOutstanding, 'f-debtEquity':f.debtEquity, 'f-roe':f.roe, 'f-epsGrowth':f.crecimientoUtilidades, 'f-expReturn':f.expReturn };
+      Object.entries(mapa).forEach(([id,val])=>{
+        if(val!=null && $(id)){ $(id).value = val; camposLlenados++; }
+      });
+    }
+
+    // Enlace directo a la ficha real en Yahoo Finance, para verificar
+    // o profundizar en cualquier dato que el formulario no cubra.
+    const contEnlace = $('traer-real-link');
+    if(d.urlYahooFinance){
+      if(contEnlace) contEnlace.innerHTML = `<a href="${d.urlYahooFinance}" target="_blank" rel="noopener" style="font-size:11.5px;"><i class="ti ti-external-link"></i> Ver ${d.simbolo} en Yahoo Finance ↗</a>`;
+    }
+
     msg.style.color='var(--green, #00d084)';
-    msg.textContent = `Listo: ${d.nombre} a ${d.precioActual} ${d.moneda}${$('f-volatility')?', con volatilidad real calculada del histórico':''}. Puedes ajustar cualquier campo antes de analizar.`;
+    msg.textContent = `Listo: ${d.nombre} a ${d.precioActual} ${d.moneda}. ${camposLlenados} campos completados con datos reales. Puedes ajustar cualquiera antes de analizar.`;
   } catch(e){
     msg.style.color='var(--red, #ff4757)';
     msg.textContent = 'No se pudo traer: ' + (e.message||e);
