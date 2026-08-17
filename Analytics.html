@@ -24,6 +24,7 @@
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{
   --bg:#0a0e17; --bg2:#0e1420; --c1:#131a26; --c2:#18212f; --c3:#1f2a3a; --c4:#2a3850; --c5:#374863;
@@ -294,6 +295,7 @@ table.data tr:last-child td{border-bottom:none;}
     </div>
   </div>
   <div class="topbar-tag hide-mobile"><span class="live"></span> Motor de análisis activo</div>
+  <button class="cl-tools-btn" id="btn-cuenta" onclick="abrirModalCuenta()" style="margin-left:8px;" title="Tu cuenta"><i class="ti ti-user-circle"></i> <span class="cl-tools-txt" id="txt-cuenta">Iniciar sesión</span></button>
 </div>
 
 <div class="nav-backdrop" id="nav-backdrop" onclick="closeSidebar()"></div>
@@ -552,6 +554,119 @@ const MARKETS = {
 
 // ───── Utilidades ─────
 const $ = id => document.getElementById(id);
+
+// ═══════════════════════════════════════════════════════════════════
+// CUENTA OPCIONAL — Analytics sigue funcionando por completo sin
+// iniciar sesión (todo se queda en este navegador, como siempre). Si
+// el usuario decide crear una cuenta, su historial se sincroniza en
+// la nube y lo puede ver desde cualquier dispositivo. Nunca se obliga
+// a nadie a iniciar sesión para usar la herramienta.
+// ═══════════════════════════════════════════════════════════════════
+const CL_SUPABASE_URL = 'https://rlzwbsitjtmtynxiexlp.supabase.co';
+const CL_SUPABASE_ANON_KEY = 'sb_publishable_Y7UdPZo5Gk8lrw2DDStsSw_XVIrh7-M';
+const clsb = supabase.createClient(CL_SUPABASE_URL, CL_SUPABASE_ANON_KEY);
+let clUsuario = null;
+
+async function iniciarSesionEstado(){
+  const { data:{ session } } = await clsb.auth.getSession();
+  clUsuario = session?.user || null;
+  actualizarBotonCuenta();
+  if(clUsuario) await migrarHistorialLocalSiAplica();
+  renderHistory();
+}
+function actualizarBotonCuenta(){
+  const txt = $('txt-cuenta');
+  if(!txt) return;
+  txt.textContent = clUsuario ? (clUsuario.email.split('@')[0]) : 'Iniciar sesión';
+}
+
+function abrirModalCuenta(){
+  if(clUsuario){ abrirModalCuentaConectada(); return; }
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.id = 'cuenta-overlay';
+  overlay.innerHTML = `<div class="export-modal" style="max-width:400px;">
+    <button class="modal-close" onclick="$('cuenta-overlay').remove()"><i class="ti ti-x"></i></button>
+    <div style="text-align:center;margin-bottom:18px;">
+      <i class="ti ti-user-circle" style="font-size:36px;color:var(--accent);"></i>
+      <h2 style="margin-top:8px;">Tu cuenta CapitalLab</h2>
+      <p style="font-size:12.5px;color:var(--t2);">Guarda tu historial y accede desde cualquier dispositivo. Es opcional — puedes seguir usando Analytics sin ninguna cuenta.</p>
+    </div>
+    <input type="email" id="cuenta-email" placeholder="Correo electrónico" style="width:100%;padding:11px 13px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:14px;margin-bottom:10px;">
+    <input type="password" id="cuenta-password" placeholder="Contraseña" style="width:100%;padding:11px 13px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:14px;margin-bottom:14px;">
+    <button class="btn" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="iniciarSesionCuenta()"><i class="ti ti-login"></i> Iniciar sesión</button>
+    <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:16px;" onclick="crearCuenta()"><i class="ti ti-user-plus"></i> Crear cuenta nueva</button>
+    <div id="cuenta-msg" style="font-size:12px;text-align:center;margin-bottom:14px;"></div>
+    <div style="border-top:1px solid var(--c3);padding-top:14px;text-align:center;">
+      <button class="btn btn-ghost btn-sm" onclick="$('cuenta-overlay').remove()"><i class="ti ti-arrow-right"></i> Continuar sin cuenta</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+function abrirModalCuentaConectada(){
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.id = 'cuenta-overlay';
+  overlay.innerHTML = `<div class="export-modal" style="max-width:380px;">
+    <button class="modal-close" onclick="$('cuenta-overlay').remove()"><i class="ti ti-x"></i></button>
+    <div style="text-align:center;margin-bottom:18px;">
+      <i class="ti ti-user-circle" style="font-size:36px;color:var(--accent);"></i>
+      <h2 style="margin-top:8px;">${clUsuario.email}</h2>
+      <p style="font-size:12px;color:var(--t2);">Tu historial se sincroniza automáticamente en la nube.</p>
+    </div>
+    <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="cerrarSesionCuenta()"><i class="ti ti-logout"></i> Cerrar sesión</button>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+async function iniciarSesionCuenta(){
+  const email = $('cuenta-email').value.trim(), password = $('cuenta-password').value;
+  const msg = $('cuenta-msg');
+  if(!email || !password){ msg.style.color='var(--red, #ff4757)'; msg.textContent='Completa correo y contraseña.'; return; }
+  msg.style.color='var(--t3)'; msg.textContent='Iniciando sesión…';
+  const { data, error } = await clsb.auth.signInWithPassword({ email, password });
+  if(error){ msg.style.color='var(--red, #ff4757)'; msg.textContent = error.message.includes('Invalid') ? 'Correo o contraseña incorrectos.' : error.message; return; }
+  clUsuario = data.user;
+  actualizarBotonCuenta();
+  await migrarHistorialLocalSiAplica();
+  renderHistory();
+  $('cuenta-overlay')?.remove();
+  toast('Sesión iniciada — tu historial ya está sincronizado.','ok');
+}
+async function crearCuenta(){
+  const email = $('cuenta-email').value.trim(), password = $('cuenta-password').value;
+  const msg = $('cuenta-msg');
+  if(!email || !password){ msg.style.color='var(--red, #ff4757)'; msg.textContent='Completa correo y contraseña.'; return; }
+  if(password.length<6){ msg.style.color='var(--red, #ff4757)'; msg.textContent='La contraseña debe tener al menos 6 caracteres.'; return; }
+  msg.style.color='var(--t3)'; msg.textContent='Creando cuenta…';
+  const { data, error } = await clsb.auth.signUp({ email, password });
+  if(error){ msg.style.color='var(--red, #ff4757)'; msg.textContent = error.message; return; }
+  clUsuario = data.user;
+  actualizarBotonCuenta();
+  await migrarHistorialLocalSiAplica();
+  renderHistory();
+  $('cuenta-overlay')?.remove();
+  toast('Cuenta creada — tu historial ya está sincronizado.','ok');
+}
+async function cerrarSesionCuenta(){
+  await clsb.auth.signOut();
+  clUsuario = null;
+  actualizarBotonCuenta();
+  renderHistory();
+  $('cuenta-overlay')?.remove();
+  toast('Sesión cerrada. Analytics sigue funcionando normalmente sin cuenta.');
+}
+// La primera vez que alguien con historial local inicia sesión, ese
+// historial se sube a la nube automáticamente, para no perder nada de
+// lo que ya tenía guardado en este navegador.
+async function migrarHistorialLocalSiAplica(){
+  const local = loadHistoryLocal();
+  if(!local.length) return;
+  try {
+    await Promise.all(local.map(entry => clsb.from('analytics_historial').insert({ user_id: clUsuario.id, entrada: entry })));
+    localStorage.removeItem(STORAGE_KEY);
+  } catch(e){ /* si falla la migración, el historial local no se borra, se reintenta la próxima vez */ }
+}
+
 function fmt(n, d=2){ if(n===null||n===undefined||isNaN(n)) return '—'; return Number(n).toLocaleString('es-PA',{minimumFractionDigits:d, maximumFractionDigits:d}); }
 function fmtMoney(n, d=2){ return '$'+fmt(n,d); }
 function fmtPct(n, d=2){ if(n===null||isNaN(n)) return '—'; return fmt(n,d)+'%'; }
@@ -1653,17 +1768,24 @@ function computeScenario(){
 // ───────────────────────────────────────────────
 // HISTORIAL (localStorage)
 // ───────────────────────────────────────────────
-function loadHistory(){
+function loadHistoryLocal(){
   try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; }
   catch(e){ return []; }
 }
-function saveHistory(list){
+function saveHistoryLocal(list){
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch(e){}
 }
+async function loadHistory(){
+  if(!clUsuario) return loadHistoryLocal();
+  try {
+    const { data, error } = await clsb.from('analytics_historial').select('id,entrada,creado_en').eq('user_id', clUsuario.id).order('creado_en',{ascending:false}).limit(30);
+    if(error) throw error;
+    return (data||[]).map(row => ({ ...row.entrada, id: row.id, _idNube: row.id }));
+  } catch(e){ return []; }
+}
 
-function saveCurrentAnalysis(){
+async function saveCurrentAnalysis(){
   if(!lastResult){ return; }
-  const list = loadHistory();
   const entry = {
     id: Date.now(),
     name: lastResult.data.ticker || MARKETS[lastResult.market].name,
@@ -1676,21 +1798,30 @@ function saveCurrentAnalysis(){
     probLoss: lastResult.mcRes.probLoss,
     date: new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
   };
-  // Evitar duplicados exactos por nombre+mercado: actualiza el más reciente con ese nombre
-  list.unshift(entry);
-  if(list.length>30) list.pop();
-  saveHistory(list);
-  toast('Análisis guardado en este dispositivo','ok');
+  if(clUsuario){
+    try {
+      const { error } = await clsb.from('analytics_historial').insert({ user_id: clUsuario.id, entrada: entry });
+      if(error) throw error;
+      toast('Análisis guardado y sincronizado en tu cuenta','ok');
+    } catch(e){ toast('No se pudo guardar en la nube: '+(e.message||e)); return; }
+  } else {
+    const list = loadHistoryLocal();
+    list.unshift(entry);
+    if(list.length>30) list.pop();
+    saveHistoryLocal(list);
+    toast('Análisis guardado en este dispositivo. Inicia sesión para sincronizarlo entre dispositivos.','ok');
+  }
+  await renderHistory();
 }
 
-function renderHistory(){
-  const list = loadHistory();
+async function renderHistory(){
+  const list = await loadHistory();
   const sec = $('history-section');
   if(!list.length){ sec.classList.add('hidden'); return; }
   sec.classList.remove('hidden');
   const gradeColor = g => g==='A'?'var(--green)':g==='B'?'var(--amber)':g==='C'?'var(--amber)':'var(--red)';
   $('history-grid').innerHTML = list.map(h=>`
-    <div class="hist-card" onclick="openHistory(${h.id})">
+    <div class="hist-card" onclick="openHistory('${h.id}')">
       <div class="hist-grade" style="background:${gradeColor(h.grade)}22;color:${gradeColor(h.grade)};">${h.grade}</div>
       <div class="hist-name">${h.name}</div>
       <div class="hist-market">${MARKETS[h.market]?MARKETS[h.market].name:h.market}</div>
@@ -1699,13 +1830,13 @@ function renderHistory(){
         <span>Riesgo <b>${fmt(h.riskScore,0)}</b></span>
       </div>
       <div class="hist-date">${h.date}</div>
-      <i class="ti ti-trash hist-del" onclick="event.stopPropagation();deleteHistory(${h.id})"></i>
+      <i class="ti ti-trash hist-del" onclick="event.stopPropagation();deleteHistory('${h.id}')"></i>
     </div>`).join('');
 }
 
-function openHistory(id){
-  const list = loadHistory();
-  const h = list.find(x=>x.id===id);
+async function openHistory(id){
+  const list = await loadHistory();
+  const h = list.find(x=>String(x.id)===String(id));
   if(!h) return;
   currentMarket = h.market;
   lastResult = analyzeWith(h.market, Object.assign({}, h.data));
@@ -1716,20 +1847,25 @@ function openHistory(id){
   setStep(3);
 }
 
-function deleteHistory(id){
-  let list = loadHistory();
-  list = list.filter(x=>x.id!==id);
-  saveHistory(list);
-  renderHistory();
+async function deleteHistory(id){
+  if(clUsuario){
+    try { await clsb.from('analytics_historial').delete().eq('id', id).eq('user_id', clUsuario.id); }
+    catch(e){ toast('No se pudo borrar: '+(e.message||e)); return; }
+  } else {
+    let list = loadHistoryLocal();
+    list = list.filter(x=>String(x.id)!==String(id));
+    saveHistoryLocal(list);
+  }
+  await renderHistory();
   toast('Análisis eliminado','');
 }
 
 // ───────────────────────────────────────────────
 // COMPARACIÓN DE ACTIVOS
 // ───────────────────────────────────────────────
-function openCompare(){
+async function openCompare(){
   // Guardar el actual si no está, y mostrar selector
-  const list = loadHistory();
+  const list = await loadHistory();
   if(!list.length){
     toast('Guarda al menos un análisis para poder comparar','err');
     saveCurrentAnalysis();
@@ -1740,18 +1876,18 @@ function openCompare(){
 }
 function goToResultsFromCompare(){ show('page-results'); setStep(3); }
 
-function renderComparePicker(){
-  const list = loadHistory();
+async function renderComparePicker(){
+  const list = await loadHistory();
   const current = lastResult;
   $('compare-info').innerHTML = `Comparando <b>${current.data.ticker||MARKETS[current.market].name}</b> (actual) con un análisis guardado. Elige el segundo:`;
   // Selector de candidatos
-  const picker = list.map(h=>`<button class="btn btn-ghost btn-sm" onclick="doCompare(${h.id})">${h.name} · ${MARKETS[h.market]?MARKETS[h.market].name:h.market} (${h.grade})</button>`).join('');
+  const picker = list.map(h=>`<button class="btn btn-ghost btn-sm" onclick="doCompare('${h.id}')">${h.name} · ${MARKETS[h.market]?MARKETS[h.market].name:h.market} (${h.grade})</button>`).join('');
   $('compare-grid').innerHTML = `<div style="grid-column:1/-1;"><div class="cmp-pick">${picker}</div></div>`;
 }
 
-function doCompare(id){
-  const list = loadHistory();
-  const h = list.find(x=>x.id===id);
+async function doCompare(id){
+  const list = await loadHistory();
+  const h = list.find(x=>String(x.id)===String(id));
   if(!h) return;
   const A = lastResult;
   const B = analyzeWith(h.market, Object.assign({}, h.data));
@@ -1811,7 +1947,7 @@ renderResults = function(){
 const _origGoToMarket = goToMarket;
 goToMarket = function(){ _origGoToMarket(); renderHistory(); };
 
-// Init historial al cargar
-renderHistory();
+// Init sesión e historial al cargar
+iniciarSesionEstado();
 
 </script></body></html>
