@@ -827,6 +827,15 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 .grade-criterio-row label{flex:1;font-size:12.5px;color:var(--t1);text-transform:none;letter-spacing:0;margin:0;}
 .grade-criterio-row input{width:70px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);padding:6px 8px;color:var(--t1);font-size:12.5px;text-align:center;}
 
+.cl-tools-menu{position:relative;flex-shrink:0;}
+.cl-tools-btn{display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:8px;border:1px solid var(--c4);background:transparent;color:var(--t2);font-size:11.5px;white-space:nowrap;cursor:pointer;font-family:inherit;}
+.cl-tools-btn:hover{border-color:var(--t2);color:var(--t1);}
+.cl-tools-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--c1);border:1px solid var(--c4);border-radius:10px;padding:6px;min-width:180px;box-shadow:0 12px 28px rgba(0,0,0,.45);z-index:9999;}
+.cl-tools-dropdown.open{display:block;}
+.cl-tools-dropdown .cl-tools-label{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3, var(--t2));padding:6px 10px 4px;}
+.cl-tools-dropdown a{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:var(--t1);text-decoration:none;font-size:12.5px;white-space:nowrap;}
+.cl-tools-dropdown a:hover{background:var(--c2, var(--c4));}
+@media(max-width:640px){.cl-tools-btn .cl-tools-txt{display:none;}.cl-tools-btn{padding:6px 8px;}.hide-mobile{display:none;}}
 </style>
 </head>
 <body>
@@ -971,8 +980,15 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   <button id="btn-modo-enfoque" class="btn-modo-enfoque" onclick="alternarModoEnfoque()" title="Modo enfoque — ocultar el menú lateral"><i class="ti ti-layout-sidebar-left-collapse" style="font-size:16px;"></i></button>
   <button id="cmdk-trigger" class="cmdk-trigger" onclick="abrirBuscadorUniversal()" title="Buscar (Ctrl+K)"><i class="ti ti-search"></i><span class="cmdk-trigger-txt">Buscar</span><span class="cmdk-trigger-kbd">Ctrl K</span></button>
   <div class="topbar-sep"></div>
-  <a href="Academy.html" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:8px;border:1px solid var(--c4,#333);color:var(--t2,#aaa);text-decoration:none;font-size:11.5px;white-space:nowrap;" title="Ir a CapitalLab Academy"><i class="ti ti-school"></i> Academy ↗</a>
-  <span style="font-size:11px;color:var(--t3);">Simulador de Mercados Financieros · Facultad de Economía UP</span>
+  <div class="cl-tools-menu">
+    <button class="cl-tools-btn" onclick="event.stopPropagation();this.nextElementSibling.classList.toggle('open')" title="Otras herramientas de CapitalLab"><i class="ti ti-apps"></i> <span class="cl-tools-txt">Herramientas</span></button>
+    <div class="cl-tools-dropdown">
+      <div class="cl-tools-label">CapitalLab</div>
+      <a href="Academy.html" target="_blank"><i class="ti ti-school"></i> Academy</a>
+      <a href="Analytics.html" target="_blank"><i class="ti ti-chart-line"></i> Analytics</a>
+    </div>
+  </div>
+  <span style="font-size:11px;color:var(--t3);" class="hide-mobile">Simulador de Mercados Financieros · Facultad de Economía UP</span>
   <div class="topbar-right">
     <div class="persist-btns">
       <div class="save-indicator" id="save-dot" title="Progreso guardado"><span>Guardado</span></div>
@@ -6938,6 +6954,7 @@ function cerrarExportMenuFuera(e){
   }
 }
 
+document.addEventListener('click', ()=>{ document.querySelectorAll('.cl-tools-dropdown.open').forEach(d=>d.classList.remove('open')); });
 function toggleMobileSidebar(){
   const sidebar  = document.querySelector('.sidebar');
   const overlay  = document.getElementById('sidebar-overlay');
