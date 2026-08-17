@@ -992,7 +992,6 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       <a href="Analytics.html" target="_blank"><i class="ti ti-chart-line"></i> Analytics</a>
     </div>
   </div>
-  <span style="font-size:11px;color:var(--t3);" class="hide-mobile">Simulador de Mercados Financieros · Facultad de Economía UP</span>
   <div class="topbar-right">
     <div class="persist-btns">
       <div class="save-indicator" id="save-dot" title="Progreso guardado"><span>Guardado</span></div>
@@ -1213,6 +1212,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
             <div class="profile-panel">
               <div class="pp-title">Perfil del emisor</div>
               <div class="pp-text" id="mkt-profile"></div>
+              <div id="mkt-yahoo-link" style="margin-top:8px;"></div>
               <div id="mkt-tesis-ia" style="margin-top:12px;"></div>
             </div>
             <div class="trade-panel">
@@ -7396,6 +7396,21 @@ const SIM_IA_URL = 'https://zppwrnznsnphxbcqsxsg.supabase.co';
 const SIM_IA_ANON_KEY = 'sb_publishable_QDlqCn_sV9kDtrSs4cvQzQ_8ji-2CcO';
 let tesisIASimuladorCache = {};
 
+// El enlace a Yahoo Finance solo se muestra para los tipos de activo
+// donde realmente existe una ficha real ahí — acciones, divisas, y
+// los pocos futuros con correspondencia confirmada. Bonos y
+// derivados no tienen equivalente real, así que no se les inventa uno.
+function renderEnlaceYahooFinance(asset){
+  const box = document.getElementById('mkt-yahoo-link');
+  if(!box) return;
+  let simboloYahoo = null;
+  if(asset.type==='accion' && asset.ticker && !asset.ticker.includes('.')) simboloYahoo = asset.ticker;
+  else if(asset.type==='divisa' && asset.ticker?.includes('/')) simboloYahoo = asset.ticker.replace('/','')+'=X';
+  else if(asset.type==='futuro' && FUTUROS_YAHOO_MAP[asset.ticker]) simboloYahoo = FUTUROS_YAHOO_MAP[asset.ticker];
+  box.innerHTML = simboloYahoo
+    ? `<a href="https://finance.yahoo.com/quote/${encodeURIComponent(simboloYahoo)}" target="_blank" rel="noopener" style="font-size:11.5px;color:var(--accent2, #4a9eff);"><i class="ti ti-external-link"></i> Ver ${asset.ticker} en Yahoo Finance ↗</a>`
+    : '';
+}
 function renderTesisIASimulador(asset){
   const box = document.getElementById('mkt-tesis-ia');
   if(!box) return;
@@ -7533,6 +7548,7 @@ function showAssetDetail(id,type){
   ].map(([l,v,c])=>`<div class="detail-kpi"><div class="dk-label">${l}</div><div class="dk-val mono ${c}">${v}</div></div>`).join('');
 
   document.getElementById('mkt-profile').innerHTML=buildProfile(asset);
+  renderEnlaceYahooFinance(asset);
   renderTesisIASimulador(asset);
 
   // trade panel
@@ -11577,14 +11593,37 @@ function addCandle(asset) {
 // ═══════════════════════════════════════════════════════════════════
 const SIM_YAHOO_URL = 'https://zppwrnznsnphxbcqsxsg.supabase.co';
 const SIM_YAHOO_ANON_KEY = 'sb_publishable_QDlqCn_sV9kDtrSs4cvQzQ_8ji-2CcO';
+// El nombre real de la función en Supabase — ajústelo aquí si el slug
+// que le asignó Supabase es distinto al que se está usando ahora.
+const SIM_YAHOO_FUNCION = 'datos-yahoo-finance';
+
+// Futuros: el simulador usa tickers estilo "CL1!" (notación de
+// TradingView), pero Yahoo Finance usa su propia notación ("CL=F").
+// Solo los futuros de esta lista tienen una correspondencia real y
+// confiable — el resto se queda con su precio simulado, sin forzar
+// una sincronización que no sería de fiar.
+const FUTUROS_YAHOO_MAP = { 'CL1!':'CL=F', 'GC1!':'GC=F', 'ES1!':'ES=F', 'ZW1!':'ZW=F', '6E1!':'6E=F' };
+
 async function sincronizarPreciosRealesSimulador(){
+  // Bonos y derivados (opciones, swaps, CDS, forwards) no tienen una
+  // fuente gratuita y confiable en Yahoo Finance — se quedan siempre
+  // con su precio simulado, sin ninguna sincronización real.
   const accionesConTicker = STOCKS.filter(a => a.ticker && !a.ticker.includes('.'));
-  if(!accionesConTicker.length) return;
+  const divisasConTicker = FOREX.filter(a => a.ticker && a.ticker.includes('/'));
+  const futurosConMapa = FUTURES.filter(a => FUTUROS_YAHOO_MAP[a.ticker]);
+  const todosLosActivos = [...accionesConTicker, ...divisasConTicker, ...futurosConMapa];
+  if(!todosLosActivos.length) return;
+
+  // El símbolo real que se le pide a Yahoo puede ser distinto del
+  // ticker interno del simulador (los futuros necesitan su propio
+  // símbolo de Yahoo) — este mapa hace la traducción en ambas direcciones.
+  const simboloAPedir = a => FUTUROS_YAHOO_MAP[a.ticker] || a.ticker;
+
   const controlador = new AbortController();
   const limiteTiempo = setTimeout(()=>controlador.abort(), 6000); // nunca espera más de 6 segundos
   try {
-    const lista = accionesConTicker.map(a=>a.ticker).join(',');
-    const respuesta = await fetch(`${SIM_YAHOO_URL}/functions/v1/quick-task?symbols=${encodeURIComponent(lista)}`, {
+    const lista = todosLosActivos.map(simboloAPedir).join(',');
+    const respuesta = await fetch(`${SIM_YAHOO_URL}/functions/v1/${SIM_YAHOO_FUNCION}?symbols=${encodeURIComponent(lista)}`, {
       headers: { 'apikey': SIM_YAHOO_ANON_KEY, 'Authorization': `Bearer ${SIM_YAHOO_ANON_KEY}` },
       signal: controlador.signal,
     });
@@ -11594,8 +11633,12 @@ async function sincronizarPreciosRealesSimulador(){
     if(!d.ok || !Array.isArray(d.cotizaciones) || !d.cotizaciones.length) return;
 
     let actualizados = 0;
+    // El servidor normaliza "EUR/USD" a "EURUSD=X" antes de responder
+    // — la comparación tiene que aplicar esa misma conversión, o una
+    // divisa nunca encontraría su propio activo correspondiente.
+    const normalizarParaComparar = s => (s||'').toUpperCase().replace(/=X$/,'').replace(/[\/\-!]/g,'');
     d.cotizaciones.forEach(c => {
-      const activo = accionesConTicker.find(a => a.ticker === c.simbolo);
+      const activo = todosLosActivos.find(a => normalizarParaComparar(simboloAPedir(a)) === normalizarParaComparar(c.simbolo));
       // Validación defensiva: un precio real absurdo (cero, negativo,
       // o una variación descabellada frente al precio base original)
       // se descarta, para no meter un dato corrupto a la simulación.
@@ -11607,6 +11650,7 @@ async function sincronizarPreciosRealesSimulador(){
       if(c.precioActual < activo.price * 0.1 || c.precioActual > activo.price * 10) return;
       activo.price = c.precioActual;
       if(activo.currentPrice !== undefined) activo.currentPrice = c.precioActual;
+      activo._urlYahoo = `https://finance.yahoo.com/quote/${encodeURIComponent(simboloAPedir(activo))}`;
       actualizados++;
     });
 
@@ -11615,6 +11659,7 @@ async function sincronizarPreciosRealesSimulador(){
       // interrumpir cualquier cosa que el estudiante esté haciendo.
       try { renderAssetList(); } catch(e){}
       try { renderWatchlist(); } catch(e){}
+      try { if(selectedAsset) showAssetDetail(selectedAsset.id, selectedAsset.type); } catch(e){}
       try { notify(`${actualizados} precio(s) recalibrados con la cotización real de mercado ✓`); } catch(e){}
     }
   } catch(e){
