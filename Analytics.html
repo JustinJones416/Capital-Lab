@@ -617,11 +617,13 @@ function renderForm(){
     const inputType = f.type==='num' ? 'number' : 'text';
     const step = f.type==='num' ? ' step="any"' : '';
     const botonTraer = f.k==='ticker' ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-traer-real" onclick="traerDatosRealesYahoo()" style="margin-top:6px;"><i class="ti ti-cloud-download"></i> Traer todos los datos reales disponibles</button><div id="traer-real-msg" style="font-size:11.5px;margin-top:4px;"></div><div id="traer-real-link" style="margin-top:2px;"></div>` : '';
+    const botonInflacion = f.k==='inflationBase' ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-inflacion-real" onclick="traerInflacionRealDivisa()" style="margin-top:6px;"><i class="ti ti-building-bank"></i> Traer inflación real (Banco Mundial)</button><div id="inflacion-real-msg" style="font-size:11.5px;margin-top:4px;"></div>` : '';
     return `<div class="field">
       <label>${f.label} ${reqMark}${hint}</label>
       <div class="unit"><input id="f-${f.k}" type="${inputType}"${step} placeholder="${f.placeholder||''}">${unit}</div>
       ${src}
       ${botonTraer}
+      ${botonInflacion}
     </div>`;
   }).join('');
 }
@@ -676,6 +678,25 @@ async function traerDatosRealesYahoo(){
       });
     }
 
+    // Enlace específico por campo — cada indicador apunta a la
+    // sub-página exacta de Yahoo Finance de donde salió ese dato en
+    // particular, no un enlace genérico repetido en todos.
+    const simboloReal = d.simbolo;
+    const urlBase = `https://finance.yahoo.com/quote/${encodeURIComponent(simboloReal)}`;
+    const enlacesPorCampo = {
+      'f-price': urlBase, 'f-eps': `${urlBase}/key-statistics`, 'f-bookValue': `${urlBase}/key-statistics`,
+      'f-dividend': urlBase, 'f-beta': `${urlBase}/key-statistics`, 'f-shares': `${urlBase}/key-statistics`,
+      'f-debtEquity': `${urlBase}/key-statistics`, 'f-roe': `${urlBase}/key-statistics`,
+      'f-epsGrowth': `${urlBase}/analysis`, 'f-expReturn': `${urlBase}/analysis`,
+      'f-volatility': `${urlBase}/history`,
+    };
+    Object.entries(enlacesPorCampo).forEach(([id, url])=>{
+      const campo = $(id);
+      if(!campo) return;
+      const nota = campo.closest('.field')?.querySelector('.field-note');
+      if(nota) nota.innerHTML = `<a href="${url}" target="_blank" rel="noopener"><i class="ti ti-external-link" style="font-size:10px;"></i> Ver fuente real en Yahoo Finance ↗</a>`;
+    });
+
     // Enlace directo a la ficha real en Yahoo Finance, para verificar
     // o profundizar en cualquier dato que el formulario no cubra.
     const contEnlace = $('traer-real-link');
@@ -684,10 +705,63 @@ async function traerDatosRealesYahoo(){
     }
 
     msg.style.color='var(--green, #00d084)';
-    msg.textContent = `Listo: ${d.nombre} a ${d.precioActual} ${d.moneda}. ${camposLlenados} campos completados con datos reales. Puedes ajustar cualquiera antes de analizar.`;
+    msg.textContent = `Listo: ${d.nombre} a ${d.precioActual} ${d.moneda}. ${camposLlenados} campos completados con datos reales, cada uno con su enlace de fuente debajo. Puedes ajustar cualquiera antes de analizar.`;
   } catch(e){
     msg.style.color='var(--red, #ff4757)';
     msg.textContent = 'No se pudo traer: ' + (e.message||e);
+  } finally {
+    boton.disabled=false; boton.style.opacity='1';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INFLACIÓN REAL PARA DIVISAS — a través del Banco Mundial (API
+// pública, sin necesidad de clave). Los datos macro oficiales tienen
+// un rezago normal de uno a dos años, a diferencia de una cotización
+// bursátil — se lo advierte al usuario en el propio mensaje.
+// ═══════════════════════════════════════════════════════════════════
+const CODIGOS_PAIS_DIVISA = {
+  USD:{code:'USA', nombre:'Estados Unidos'}, EUR:{code:'DEU', nombre:'Alemania (referencia zona euro)'},
+  GBP:{code:'GBR', nombre:'Reino Unido'}, JPY:{code:'JPN', nombre:'Japón'}, PAB:{code:'PAN', nombre:'Panamá'},
+  MXN:{code:'MEX', nombre:'México'}, COP:{code:'COL', nombre:'Colombia'}, CNY:{code:'CHN', nombre:'China'},
+  CAD:{code:'CAN', nombre:'Canadá'}, CHF:{code:'CHE', nombre:'Suiza'}, BRL:{code:'BRA', nombre:'Brasil'},
+  AUD:{code:'AUS', nombre:'Australia'}, CRC:{code:'CRI', nombre:'Costa Rica'},
+};
+async function traerInflacionRealDivisa(){
+  const par = $('f-ticker')?.value?.trim()?.toUpperCase().replace(/[^A-Z]/g,'');
+  const msg = $('inflacion-real-msg');
+  const boton = $('btn-inflacion-real');
+  if(!par || par.length!==6){ msg.style.color='var(--red, #ff4757)'; msg.textContent='Escribe primero el par completo, ej: EUR/USD.'; return; }
+  const base = par.slice(0,3), cotizada = par.slice(3,6);
+  const infoBase = CODIGOS_PAIS_DIVISA[base], infoCotizada = CODIGOS_PAIS_DIVISA[cotizada];
+  if(!infoBase || !infoCotizada){ msg.style.color='var(--red, #ff4757)'; msg.textContent=`No tengo el país mapeado para ${!infoBase?base:cotizada} todavía — ingrésalo manualmente.`; return; }
+  boton.disabled=true; boton.style.opacity='.6';
+  msg.style.color='var(--t3)'; msg.textContent='Consultando inflación oficial del Banco Mundial…';
+  try {
+    const consultar = async (codigoISO3) => {
+      const r = await fetch(`https://api.worldbank.org/v2/country/${codigoISO3}/indicator/FP.CPI.TOTL.ZG?format=json&per_page=1&mrnev=1`);
+      const d = await r.json();
+      return d?.[1]?.[0] || null;
+    };
+    // Secuencial, no en paralelo — el Banco Mundial limita solicitudes
+    // simultáneas rápidas y responde con errores si se le exige de más.
+    const datoBase = await consultar(infoBase.code);
+    await new Promise(res=>setTimeout(res, 400));
+    const datoCotizada = await consultar(infoCotizada.code);
+
+    if(datoBase && $('f-inflationBase')) $('f-inflationBase').value = datoBase.value.toFixed(1);
+    if(datoCotizada && $('f-inflationQuote')) $('f-inflationQuote').value = datoCotizada.value.toFixed(1);
+
+    if(datoBase || datoCotizada){
+      msg.style.color='var(--green, #00d084)';
+      msg.textContent = `Listo: inflación de ${infoBase.nombre} (${datoBase?.date||'—'}) y ${infoCotizada.nombre} (${datoCotizada?.date||'—'}), según el Banco Mundial. Nota: los datos macro oficiales suelen tener 1-2 años de rezago, a diferencia de una cotización en vivo.`;
+    } else {
+      msg.style.color='var(--red, #ff4757)';
+      msg.textContent = 'El Banco Mundial no devolvió datos para este par en este momento. Puede estar limitando solicitudes temporalmente — intenta de nuevo en unos segundos, o ingresa el dato manualmente.';
+    }
+  } catch(e){
+    msg.style.color='var(--red, #ff4757)';
+    msg.textContent = 'No se pudo consultar: ' + (e.message||e);
   } finally {
     boton.disabled=false; boton.style.opacity='1';
   }
