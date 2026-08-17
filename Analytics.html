@@ -21,6 +21,10 @@
 .cl-tools-dropdown a{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:var(--t1);text-decoration:none;font-size:12.5px;white-space:nowrap;}
 .cl-tools-dropdown a:hover{background:var(--c2, var(--c4));}
 @media(max-width:640px){.cl-tools-btn .cl-tools-txt{display:none;}.cl-tools-btn{padding:6px 8px;}.hide-mobile{display:none;}}
+.export-modal-overlay{position:fixed;inset:0;background:rgba(4,7,12,.75);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;}
+.export-modal{position:relative;background:var(--c1, #131a26);border:1px solid var(--c3, #1f2a3a);border-radius:16px;padding:28px 26px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;}
+.modal-close{position:absolute;top:14px;right:14px;background:transparent;border:none;color:var(--t3, #5f7491);font-size:18px;cursor:pointer;padding:4px;border-radius:6px;line-height:1;}
+.modal-close:hover{color:var(--t1, #eef3fb);background:var(--c2, #18212f);}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
