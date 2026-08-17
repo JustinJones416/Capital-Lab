@@ -343,6 +343,23 @@ table.data tr:last-child td{border-bottom:none;}
     <div class="section-label">Elige el tipo de activo a analizar</div>
     <div class="market-grid" id="market-grid"></div>
 
+    <div class="section-label" style="margin-top:26px;display:flex;align-items:center;justify-content:space-between;">
+      <span>Acciones populares</span>
+      <button class="btn btn-ghost btn-sm" onclick="cargarAccionesPopulares()" title="Actualizar cotizaciones"><i class="ti ti-refresh"></i></button>
+    </div>
+    <div id="acciones-populares-grid" class="popular-grid">
+      <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--t3);font-size:12.5px;"><i class="ti ti-loader-2" style="animation:girarPopulares 1s linear infinite;font-size:18px;"></i><br>Consultando cotizaciones en vivo…</div>
+    </div>
+    <style>@keyframes girarPopulares{to{transform:rotate(360deg)}}
+      .popular-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:10px;}
+      .popular-card{background:var(--c1);border:1px solid var(--c3);border-radius:var(--r2, 12px);padding:12px 14px;cursor:pointer;transition:all .15s;}
+      .popular-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+      .popular-card .pc-simbolo{font-weight:700;font-size:13px;font-family:var(--font-mono, monospace);}
+      .popular-card .pc-precio{font-size:15px;font-weight:800;margin-top:4px;}
+      .popular-card .pc-var{font-size:11.5px;margin-top:2px;font-family:var(--font-mono, monospace);}
+      @media(max-width:640px){.popular-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));}}
+    </style>
+
     <!-- Historial guardado -->
     <div id="history-section" class="hidden">
       <div class="section-label">Tus análisis guardados</div>
@@ -595,7 +612,42 @@ function syncSidebar(page){
   if(map[page]){ const b=$(map[page]); if(b) b.classList.add('active'); }
 }
 
-// ───── Render selección de mercado ─────
+// ───── Acciones populares (cotización real en vivo) ─────
+const ACCIONES_POPULARES = [
+  {simbolo:'AAPL', nombre:'Apple'}, {simbolo:'MSFT', nombre:'Microsoft'}, {simbolo:'GOOGL', nombre:'Alphabet'},
+  {simbolo:'AMZN', nombre:'Amazon'}, {simbolo:'NVDA', nombre:'NVIDIA'}, {simbolo:'TSLA', nombre:'Tesla'},
+  {simbolo:'META', nombre:'Meta'}, {simbolo:'JPM', nombre:'JPMorgan'},
+];
+async function cargarAccionesPopulares(){
+  const cont = $('acciones-populares-grid');
+  cont.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--t3);font-size:12.5px;"><i class="ti ti-loader-2" style="animation:girarPopulares 1s linear infinite;font-size:18px;"></i><br>Consultando cotizaciones en vivo…</div>`;
+  try {
+    const lista = ACCIONES_POPULARES.map(a=>a.simbolo).join(',');
+    const respuesta = await fetch(`${YAHOO_SUPABASE_URL}/functions/v1/quick-task?symbols=${lista}`, {
+      headers: { 'apikey': YAHOO_SUPABASE_ANON_KEY, 'Authorization': `Bearer ${YAHOO_SUPABASE_ANON_KEY}` },
+    });
+    const d = await respuesta.json();
+    if(!d.ok || !d.cotizaciones?.length) throw new Error('Sin datos disponibles en este momento.');
+    cont.innerHTML = d.cotizaciones.map(c => {
+      const subio = c.variacionPct >= 0;
+      const color = subio ? 'var(--green, #00d084)' : 'var(--red, #ff4757)';
+      return `<div class="popular-card" onclick="analizarAccionPopular('${c.simbolo}')">
+        <div class="pc-simbolo">${c.simbolo}</div>
+        <div class="pc-precio">${c.precioActual}</div>
+        <div class="pc-var" style="color:${color};">${subio?'▲':'▼'} ${Math.abs(c.variacionPct)}%</div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    cont.innerHTML = `<div style="grid-column:1/-1;padding:14px;font-size:12px;color:var(--red, #ff4757);">No se pudieron cargar las cotizaciones en vivo en este momento: ${e.message||e}. Puede intentar de nuevo con el botón de actualizar.</div>`;
+  }
+}
+function analizarAccionPopular(simbolo){
+  selectMarket('accion');
+  setTimeout(()=>{
+    if($('f-ticker')){ $('f-ticker').value = simbolo; traerDatosRealesYahoo(); }
+  }, 150);
+}
+
 function renderMarkets(){
   $('market-grid').innerHTML = Object.entries(MARKETS).map(([key,m])=>`
     <div class="market-card" onclick="selectMarket('${key}')">
@@ -1460,6 +1512,7 @@ function paintFormulas(list){
 
 // ───── Init ─────
 renderMarkets();
+cargarAccionesPopulares();
 
 // ══════════════════════════════════════════════════════════════
 // CAPA INTERACTIVA: controles en vivo, escenarios, historial, comparación
