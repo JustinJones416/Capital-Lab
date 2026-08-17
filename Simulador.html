@@ -836,6 +836,10 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 .cl-tools-dropdown a{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:var(--t1);text-decoration:none;font-size:12.5px;white-space:nowrap;}
 .cl-tools-dropdown a:hover{background:var(--c2, var(--c4));}
 @media(max-width:640px){.cl-tools-btn .cl-tools-txt{display:none;}.cl-tools-btn{padding:6px 8px;}.hide-mobile{display:none;}}
+.export-modal-overlay{position:fixed;inset:0;background:rgba(4,7,12,.75);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;}
+.export-modal{position:relative;background:var(--c1, #10141d);border:1px solid var(--c3, #1a2030);border-radius:16px;padding:28px 26px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;}
+.modal-close{position:absolute;top:14px;right:14px;background:transparent;border:none;color:var(--t3, #7a8ab0);font-size:18px;cursor:pointer;padding:4px;border-radius:6px;line-height:1;}
+.modal-close:hover{color:var(--t1, #e8edf8);background:var(--c2, #161b26);}
 </style>
 </head>
 <body>
@@ -1146,6 +1150,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
         <div class="mt-change" id="mkt-change">—</div>
         <div class="mt-badges" id="mkt-badges"></div>
         <button class="pbtn" onclick="abrirSelectorActivos()" style="height:30px;padding:0 12px;font-size:11px;flex-shrink:0;" title="Cambiar de activo"><i class="ti ti-replace"></i> Cambiar activo</button>
+        <button class="pbtn" onclick="abrirMejoresInversionesIA()" style="height:30px;padding:0 12px;font-size:11px;flex-shrink:0;" title="Mejores inversiones con IA"><i class="ti ti-trophy"></i> Mejores (IA)</button>
       </div>
       <div class="market-body">
         <!-- session control bar -->
@@ -1208,6 +1213,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
             <div class="profile-panel">
               <div class="pp-title">Perfil del emisor</div>
               <div class="pp-text" id="mkt-profile"></div>
+              <div id="mkt-tesis-ia" style="margin-top:12px;"></div>
             </div>
             <div class="trade-panel">
               <div class="tp-title"><i class="ti ti-arrows-exchange"></i> Ejecutar operación a precio de mercado</div>
@@ -1448,7 +1454,9 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
 <!-- ════════ LABORATORIO ════════ -->
 <div id="page-laboratorio" class="page">
-  <div class="page-header"><div class="page-title">Laboratorio CapitalLab</div><div class="page-sub">Capital asignado por el profesor · Gestión de portafolio en horizonte definido · Capital variable según decisiones</div></div>
+  <div class="page-header"><div class="page-title">Laboratorio CapitalLab</div><div class="page-sub">Capital asignado por el profesor · Gestión de portafolio en horizonte definido · Capital variable según decisiones</div>
+    <button class="btn btn-ghost btn-sm" onclick="abrirMejoresInversionesIA()" style="margin-top:8px;"><i class="ti ti-trophy"></i> Mejores inversiones (IA)</button>
+  </div>
 
   <!-- Config panel -->
   <div class="card" style="margin-bottom:16px;border-color:rgba(255,180,0,.3);">
@@ -7379,6 +7387,116 @@ function buildProfile(asset){
     ${extra}`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// ANÁLISIS CON IA — tesis de un activo específico, y ranking de las
+// mejores inversiones disponibles ahora mismo. La clave de Gemini
+// nunca toca el navegador; todo pasa por la Edge Function protegida.
+// ═══════════════════════════════════════════════════════════════════
+const SIM_IA_URL = 'https://zppwrnznsnphxbcqsxsg.supabase.co';
+const SIM_IA_ANON_KEY = 'sb_publishable_QDlqCn_sV9kDtrSs4cvQzQ_8ji-2CcO';
+let tesisIASimuladorCache = {};
+
+function renderTesisIASimulador(asset){
+  const box = document.getElementById('mkt-tesis-ia');
+  if(!box) return;
+  const clave = asset.id+asset.type;
+  if(tesisIASimuladorCache[clave]){
+    box.innerHTML = tesisSimuladorHTML(tesisIASimuladorCache[clave]);
+    return;
+  }
+  box.innerHTML = `
+    <button class="btn btn-ghost btn-sm" onclick="generarTesisIASimulador('${asset.id}','${asset.type}')"><i class="ti ti-sparkles"></i> Analizar con IA</button>
+    <div id="tesis-ia-sim-msg" style="font-size:11.5px;margin-top:6px;"></div>
+  `;
+}
+function tesisSimuladorHTML(texto){
+  const parrafos = texto.split(/\n+/).filter(p=>p.trim());
+  return `<div style="background:var(--bg2, #10141d);border:1px solid var(--c4, #242d42);border-radius:10px;padding:12px 14px;">
+    <div style="font-size:11px;color:var(--t3, #7a8ab0);margin-bottom:8px;display:flex;align-items:center;gap:5px;"><i class="ti ti-sparkles" style="color:var(--gold, #e8b94a);"></i> Análisis generado con IA</div>
+    ${parrafos.map(p=>`<p style="font-size:12.5px;color:var(--t2, #b8c4dc);line-height:1.6;margin-bottom:8px;">${p}</p>`).join('')}
+  </div>`;
+}
+async function generarTesisIASimulador(id, type){
+  const asset = allAssets().find(a=>a.id===id&&a.type===type);
+  if(!asset) return;
+  const boton = document.querySelector('#mkt-tesis-ia button.btn');
+  const msg = document.getElementById('tesis-ia-sim-msg');
+  boton.disabled = true; boton.style.opacity='.6';
+  boton.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Analizando…';
+  if(!document.getElementById('sim-ia-estilo-girar')){
+    const st=document.createElement('style'); st.id='sim-ia-estilo-girar';
+    st.textContent='@keyframes girarSimIA{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
+  try {
+    const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SIM_IA_ANON_KEY,'Authorization':`Bearer ${SIM_IA_ANON_KEY}`},
+      body: JSON.stringify({ modo:'tesis', activo:{ name:asset.name, ticker:asset.ticker, sector:asset.sector, country:asset.country, price:asset.currentPrice||asset.price, beta:asset.beta, sigma:asset.sigma, ret:asset.ret, rating:asset.rating, dividend:asset.dividend, profile:asset.profile } }),
+    });
+    const d = await respuesta.json();
+    if(!d.ok) throw new Error(d.error||'Error desconocido.');
+    tesisIASimuladorCache[asset.id+asset.type] = d.tesis;
+    document.getElementById('mkt-tesis-ia').innerHTML = tesisSimuladorHTML(d.tesis);
+  } catch(e){
+    boton.disabled=false; boton.style.opacity='1'; boton.innerHTML = '<i class="ti ti-sparkles"></i> Analizar con IA';
+    if(msg){ msg.style.color='var(--red)'; msg.textContent = 'No se pudo generar: '+(e.message||e); }
+  }
+}
+
+// ───── Mejores inversiones (IA) — panel para Mercado y Laboratorio ─────
+async function abrirMejoresInversionesIA(){
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.id = 'mejores-ia-overlay';
+  overlay.innerHTML = `<div class="export-modal" style="max-width:560px;">
+    <button class="modal-close" onclick="document.getElementById('mejores-ia-overlay').remove()"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-trophy" style="color:var(--gold, #e8b94a);"></i> Mejores inversiones ahora mismo</h2>
+    <p style="font-size:12.5px;color:var(--t2, #b8c4dc);margin-bottom:14px;">La IA analiza los activos disponibles en el mercado actual y recomienda tres opciones, con su razonamiento.</p>
+    <label style="font-size:12px;color:var(--t3, #7a8ab0);display:block;margin-bottom:5px;">Tu perfil de riesgo</label>
+    <select id="mejores-ia-perfil" style="width:100%;padding:10px 12px;background:var(--bg2, #10141d);border:1px solid var(--c4, #242d42);border-radius:8px;color:var(--t1, #e8edf8);font-size:13px;margin-bottom:14px;">
+      <option value="conservador">Conservador — priorizo estabilidad sobre retorno</option>
+      <option value="moderado" selected>Moderado — equilibrio entre riesgo y retorno</option>
+      <option value="agresivo">Agresivo — busco el mayor retorno posible</option>
+    </select>
+    <button class="btn" style="width:100%;justify-content:center;" onclick="generarMejoresInversionesIA()"><i class="ti ti-sparkles"></i> Generar recomendación</button>
+    <div id="mejores-ia-resultado" style="margin-top:16px;"></div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+async function generarMejoresInversionesIA(){
+  const perfil = document.getElementById('mejores-ia-perfil').value;
+  const cont = document.getElementById('mejores-ia-resultado');
+  const boton = document.querySelector('#mejores-ia-overlay button.btn');
+  boton.disabled = true; boton.style.opacity='.6';
+  boton.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Analizando el mercado…';
+  cont.innerHTML = '';
+  try {
+    // Solo acciones — son las que tienen suficientes datos fundamentales
+    // reales para que la recomendación tenga sustancia genuina.
+    const activos = STOCKS.map(a => ({ ticker:a.ticker, name:a.name, sector:a.sector, price:a.currentPrice||a.price, beta:a.beta, sigma:a.sigma, ret:a.ret, rating:a.rating }));
+    const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SIM_IA_ANON_KEY,'Authorization':`Bearer ${SIM_IA_ANON_KEY}`},
+      body: JSON.stringify({ modo:'mejores', activos, perfilRiesgo:perfil }),
+    });
+    const d = await respuesta.json();
+    if(!d.ok) throw new Error(d.error||'Error desconocido.');
+    cont.innerHTML = `
+      <p style="font-size:12.5px;color:var(--t2, #b8c4dc);margin-bottom:12px;line-height:1.6;">${d.resumen}</p>
+      ${d.recomendaciones.map((r,i) => `<div style="background:var(--bg2, #10141d);border:1px solid var(--c4, #242d42);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;" onclick="document.getElementById('mejores-ia-overlay').remove();const a=allAssets().find(x=>x.ticker==='${r.ticker}');if(a)showAssetDetail(a.id,a.type);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;"><span style="background:var(--gold, #e8b94a);color:#000;font-weight:800;font-size:11px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;">${i+1}</span><b style="font-family:var(--font-mono, monospace);">${r.ticker}</b></div>
+        <div style="font-size:12px;color:var(--t2, #b8c4dc);line-height:1.55;">${r.razon}</div>
+      </div>`).join('')}
+      <div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:8px;">Generado con IA a partir de los datos del mercado actual. Toca cualquier opción para ver su detalle completo.</div>
+    `;
+  } catch(e){
+    cont.innerHTML = `<div style="color:var(--red);font-size:12.5px;">No se pudo generar la recomendación: ${e.message||e}</div>`;
+  } finally {
+    boton.disabled=false; boton.style.opacity='1'; boton.innerHTML = '<i class="ti ti-sparkles"></i> Generar recomendación';
+  }
+}
+
 function showAssetDetail(id,type){
   const asset=allAssets().find(a=>a.id===id&&a.type===type);
   if(!asset)return;
@@ -7415,6 +7533,7 @@ function showAssetDetail(id,type){
   ].map(([l,v,c])=>`<div class="detail-kpi"><div class="dk-label">${l}</div><div class="dk-val mono ${c}">${v}</div></div>`).join('');
 
   document.getElementById('mkt-profile').innerHTML=buildProfile(asset);
+  renderTesisIASimulador(asset);
 
   // trade panel
   updateTradeCalc();
@@ -11448,6 +11567,65 @@ function addCandle(asset) {
 // NYSE-style: 4-hour session, prices tick every 5 seconds (TICK_MS) via GBM
 // Capital (cash) is never altered by price movements — only portfolio MtM changes
 
+// ═══════════════════════════════════════════════════════════════════
+// SINCRONIZACIÓN CON PRECIOS REALES — recalibra el precio BASE del que
+// arranca la simulación (nunca toca el motor de simulación en sí, que
+// sigue corriendo igual que siempre). Es enteramente opcional: si
+// Yahoo Finance no responde, tarda demasiado, o da cualquier error,
+// esta función simplemente no hace nada — el simulador sigue
+// funcionando exactamente igual, con sus precios base normales.
+// ═══════════════════════════════════════════════════════════════════
+const SIM_YAHOO_URL = 'https://zppwrnznsnphxbcqsxsg.supabase.co';
+const SIM_YAHOO_ANON_KEY = 'sb_publishable_QDlqCn_sV9kDtrSs4cvQzQ_8ji-2CcO';
+async function sincronizarPreciosRealesSimulador(){
+  const accionesConTicker = STOCKS.filter(a => a.ticker && !a.ticker.includes('.'));
+  if(!accionesConTicker.length) return;
+  const controlador = new AbortController();
+  const limiteTiempo = setTimeout(()=>controlador.abort(), 6000); // nunca espera más de 6 segundos
+  try {
+    const lista = accionesConTicker.map(a=>a.ticker).join(',');
+    const respuesta = await fetch(`${SIM_YAHOO_URL}/functions/v1/quick-task?symbols=${encodeURIComponent(lista)}`, {
+      headers: { 'apikey': SIM_YAHOO_ANON_KEY, 'Authorization': `Bearer ${SIM_YAHOO_ANON_KEY}` },
+      signal: controlador.signal,
+    });
+    clearTimeout(limiteTiempo);
+    if(!respuesta.ok) return; // sin romper nada, simplemente no se actualiza
+    const d = await respuesta.json();
+    if(!d.ok || !Array.isArray(d.cotizaciones) || !d.cotizaciones.length) return;
+
+    let actualizados = 0;
+    d.cotizaciones.forEach(c => {
+      const activo = accionesConTicker.find(a => a.ticker === c.simbolo);
+      // Validación defensiva: un precio real absurdo (cero, negativo,
+      // o una variación descabellada frente al precio base original)
+      // se descarta, para no meter un dato corrupto a la simulación.
+      if(!activo || !c.precioActual || c.precioActual <= 0) return;
+      // Un precio real razonable no debería ser menos de la décima
+      // parte ni más de diez veces el precio base actual — fuera de
+      // ese rango, es casi seguro un error de datos, no un movimiento
+      // real de mercado, y se descarta para no corromper la simulación.
+      if(c.precioActual < activo.price * 0.1 || c.precioActual > activo.price * 10) return;
+      activo.price = c.precioActual;
+      if(activo.currentPrice !== undefined) activo.currentPrice = c.precioActual;
+      actualizados++;
+    });
+
+    if(actualizados > 0){
+      // Solo se refresca lo que ya está visible, sin recargar nada ni
+      // interrumpir cualquier cosa que el estudiante esté haciendo.
+      try { renderAssetList(); } catch(e){}
+      try { renderWatchlist(); } catch(e){}
+      try { notify(`${actualizados} precio(s) recalibrados con la cotización real de mercado ✓`); } catch(e){}
+    }
+  } catch(e){
+    clearTimeout(limiteTiempo);
+    // Cualquier error (tiempo agotado, sin red, Yahoo caído, límite de
+    // solicitudes) se descarta en silencio — el simulador continúa
+    // funcionando con sus precios base normales, sin ninguna
+    // interrupción ni mensaje de error visible para el estudiante.
+  }
+}
+
 function tickPrices() {
   if (!marketSession.open) return;
 
@@ -13797,6 +13975,13 @@ function initApp() {
   try { actualizarRachaActividad(); } catch(e){}
   try { iniciarEscuchaEncuestas(); } catch(e){}
   try { cargarMisSeguidos().then(()=>{ if(misSeguidos.size) iniciarEscuchaOperacionesSeguidos(); }); } catch(e){}
+  // La sincronización con precios reales es puramente aditiva: se
+  // intenta DESPUÉS de que el simulador ya está completamente
+  // funcional con sus precios base, nunca antes ni en su lugar. Si
+  // falla por cualquier motivo (Yahoo Finance caído, límite de
+  // solicitudes, sin conexión), el simulador sigue exactamente igual
+  // que siempre — nadie que lo esté usando lo nota.
+  try { sincronizarPreciosRealesSimulador(); } catch(e){}
 }
 </script>
 </body>
