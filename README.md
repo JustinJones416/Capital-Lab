@@ -1,190 +1,163 @@
-# CapitalLab 📈
-### Plataforma Interactiva de Gestión y Análisis de Mercados Financieros
+# CapitalLab 🎓📈
 
-> Simulador web educativo de mercados financieros desarrollado como proyecto de servicio social para la **Facultad de Economía / Licenciatura en Finanzas y Banca** de la **Universidad de Panamá**, 2026.
+**Ecosistema educativo de finanzas y mercados de capitales**, desarrollado para la **Facultad de Economía / Licenciatura en Finanzas y Banca** de la **Universidad de Panamá**, 2026.
+
+CapitalLab está formado por tres herramientas independientes que trabajan juntas: un simulador de mercados donde se **practica** con dinero virtual, una plataforma académica donde se **aprende** con casos y guías, y una mesa de análisis donde se **decide** con rigor sobre inversiones reales.
+
+| Herramienta | Para qué sirve | Archivo |
+|---|---|---|
+| 🕹️ **Simulador** | Practicar la compra y venta de activos con dinero virtual, en un mercado que se mueve solo | `Simulador.html` |
+| 🎓 **Academy** | Aprender con casos extensos, resúmenes, glosarios y un modo libro, materia por materia | `Academy.html` |
+| 📊 **Analytics** | Analizar un activo real (acción o divisa) y recibir una recomendación de inversión fundamentada | `Analytics.html` |
+
+Las tres se pueden abrir desde el menú **"Herramientas"** de la barra superior de cualquiera de ellas, sin salir de la sesión activa.
 
 ---
 
-## Tabla de Contenidos
+## Tabla de contenidos
 
-- [¿De qué se trata el proyecto?](#de-qué-se-trata-el-proyecto)
-- [Qué puedes hacer en el simulador](#qué-puedes-hacer-en-el-simulador)
-- [Mercados y activos](#mercados-y-activos)
-- [Cómo usar el simulador](#cómo-usar-el-simulador)
-- [Modo Profesor](#modo-profesor)
-- [Cómo instalar y abrir el archivo](#cómo-instalar-y-abrir-el-archivo)
-- [Preguntas frecuentes](#preguntas-frecuentes)
-- [Equipo](#equipo)
+- [Simulador](#-simulador)
+- [Academy](#-academy)
+- [Analytics](#-analytics)
+- [Inteligencia artificial en CapitalLab](#inteligencia-artificial-en-capitallab)
+- [Arquitectura técnica](#arquitectura-técnica)
+- [Instalación y despliegue](#instalación-y-despliegue)
+- [Estructura del repositorio](#estructura-del-repositorio)
+- [Aviso importante](#aviso-importante)
 - [Contexto académico](#contexto-académico)
 
 ---
 
-## ¿De qué se trata el proyecto?
+## 🕹️ Simulador
 
-**CapitalLab** es un simulador de mercados financieros que funciona completamente en el navegador. Permite a los estudiantes practicar la compra y venta de instrumentos financieros con **dinero virtual**, en un entorno que imita el comportamiento real de los mercados, sin ningún riesgo económico.
+Simulador de mercados financieros con dinero virtual, pensado para practicar decisiones de inversión sin riesgo real.
 
-El objetivo es cerrar la brecha entre la teoría del aula y la práctica: en lugar de solo leer sobre rentabilidad, riesgo, diversificación o apalancamiento, el estudiante los **experimenta** gestionando su propia cartera. Puede ganar, perder, equivocarse y aprender de las consecuencias, todo en un espacio seguro.
+**Mercados disponibles:** acciones, bonos soberanos y corporativos, divisas, futuros, y derivados (opciones, swaps, CDS, forwards).
 
-El simulador arranca con un capital virtual de **$50,000** y abre una "sesión de mercado" durante la cual los precios se mueven en tiempo real. El estudiante decide qué comprar, cuándo vender y cómo equilibrar su cartera. Al final puede revisar sus resultados, sus métricas de riesgo y su evolución.
+**Cómo se mueven los precios:** un motor de simulación estocástico de un factor (estilo CAPM) genera el movimiento de cada activo en vivo, cada 5 segundos, correlacionando todos los activos entre sí según su beta y su tipo. Incluye eventos de mercado ocasionales (caídas y repuntes) con sesgo realista hacia caídas más frecuentes y pronunciadas.
 
----
+**Sincronización con precios reales:** al iniciar sesión, el simulador recalibra el precio de partida de acciones, divisas, y algunos futuros con la cotización real del mercado (vía Yahoo Finance), y desde ahí el motor de simulación toma el control por completo — el riesgo y la volatilidad que se enseñan en clase nunca se pierden, solo el punto de partida es más realista. Si la fuente de datos reales no está disponible por cualquier motivo, el simulador sigue funcionando con normalidad con sus precios base, sin ninguna interrupción visible.
 
-## Qué puedes hacer en el simulador
+**Modos de uso:**
+- **Mercado** — trading libre en tiempo real, con noticias del mercado, comparación contra el índice sintético CL-30, y un mercado entre estudiantes (P2P) para negociar directamente entre compañeros.
+- **Laboratorio** — sesiones con capital asignado por el profesor, horizonte y meta definidos, pensadas para evaluar una estrategia específica.
 
-| Funcionalidad | Detalle |
-|---|---|
-| **Sesión de mercado en vivo** | Sesión de 4 horas simuladas; los precios se actualizan cada 5 segundos |
-| **Comprar y vender** | Operaciones a precio de mercado con costos reales (comisión 0.15% y spread por tipo de activo) |
-| **Órdenes avanzadas** | Órdenes límite de compra, límite de venta / take-profit y stop-loss |
-| **Apalancamiento y margen** | Puedes operar con margen (hasta −$25,000); si el patrimonio cae demasiado, hay liquidación automática (llamada de margen) |
-| **Ingresos pasivos** | Recibes dividendos (acciones) y cupones (bonos) automáticamente durante la sesión |
-| **Centro de noticias** | Noticias por categoría de activo y generales que afectan los precios, al estilo de un portal financiero |
-| **Análisis por activo** | Perfil completo de cada instrumento: estados financieros, indicadores de riesgo, proyección y datos macro |
-| **Mi cartera** | Valoración en vivo, gráficos de evolución y distribución, P&L, y hasta 3 estrategias guardadas para comparar |
-| **Laboratorio** | Ejercicio guiado donde el docente asigna capital, horizonte y meta; incluye simulación Monte Carlo de miles de escenarios |
-| **Resultados** | Evaluación general, tabla por posición, métricas de riesgo (Sharpe, VaR, Beta) e índice de mercado CL-30 |
-| **Exportar** | Tu libro de operaciones a CSV (Excel), un respaldo de tu progreso en JSON, y reportes en PDF |
-| **Funciona en el celular** | Diseño adaptado a pantallas móviles, con menú lateral |
-| **Tu progreso se guarda solo** | El simulador recuerda tu sesión en el propio dispositivo; ningún dato sale del navegador |
+**Con inteligencia artificial:**
+- **Analizar con IA** — en el detalle de cualquier activo, genera una tesis de inversión redactada, integrando su perfil de riesgo, calificación crediticia, y contexto real.
+- **Mejores inversiones (IA)** — analiza el mercado completo según el perfil de riesgo declarado por el estudiante (conservador, moderado, agresivo) y recomienda tres opciones con su razonamiento.
+
+**Otras funciones:** modo enfoque, rachas de actividad, encuestas en vivo del profesor, seguimiento de otros estudiantes, reportes exportables en PDF y PowerPoint, y guardado automático de progreso.
 
 ---
 
-## Mercados y activos
+## 🎓 Academy
 
-La versión completa cubre **5 mercados** con 150 activos (30 por categoría):
+Plataforma de estudio por materia, con catorce materias de la Licenciatura en Finanzas y Banca — Mercado Bancario, Mercados Financieros, Negociación y Evaluación Crediticia, Análisis Económico de Estados Financieros, Derivados Financieros, Macroeconomía, y más.
 
-| Mercado | Descripción |
-|---|---|
-| **Acciones** | Renta variable con beta, dividendos, volatilidad y estados financieros (resultados, balance y flujo de efectivo) |
-| **Bonos** | Soberanos y corporativos con cupón, rendimiento al vencimiento (YTM), duración y convexidad |
-| **Divisas** | Pares Forex con indicadores macroeconómicos (PIB, inflación, tasas de banco central) |
-| **Futuros** | Energía, metales, índices, granos y criptoactivos, con precio spot, base y estado de la curva |
-| **Derivados** | Opciones y estructurados con griegas (delta, gamma, theta, vega), strike y volatilidad implícita |
+**Cada materia incluye:**
+- **Casos extensos** — situaciones reales de varias etapas (hasta 10), con documentos completos para analizar (no solo datos ya resumidos), preguntas de opción múltiple, numéricas, de selección múltiple, de ordenar por prioridad, y casos con ramificación donde la decisión del estudiante cambia el camino del caso.
+- **Medidor de consecuencias** — algunas decisiones dentro de un caso suben o bajan un indicador visible (confianza del comité, credibilidad del informe, etc.), reforzando que las decisiones tienen peso real.
+- **Sistema de pista en dos niveles** — antes de revelar una fórmula completa, se ofrece primero una pista conceptual que exige recordar o deducir la relación entre los datos, sin salir nunca del caso.
+- **Resumen, glosario, tarjetas de repaso y quiz** por materia.
+- **Modo libro** — una narrativa guiada capítulo por capítulo para repasar los conceptos centrales de la materia.
+- **Lecturas para profundizar** — material de lectura libre, más denso que el resumen, para quien quiera ir más allá de lo necesario para resolver los casos.
+- **Cotización real de mercado** — consulta el precio, variación, rango de 52 semanas e histórico real de cualquier acción o par de divisas, sin salir de la plataforma.
 
----
-
-## Cómo usar el simulador
-
-Una vez que abres el archivo (ver [Cómo instalar y abrir el archivo](#cómo-instalar-y-abrir-el-archivo)), sigue estos pasos:
-
-1. **Abre el mercado.** En la página *Mercado*, pulsa **"Abrir mercado"**. Comienza la sesión y los precios empiezan a moverse cada 5 segundos.
-
-2. **Elige un activo.** Usa el *Watchlist* (panel lateral izquierdo) para buscar y seleccionar un activo. Puedes filtrar por tipo (Acciones, Bonos, FX, Futuros, Derivados) y ordenar por mayores alzas o bajas.
-
-3. **Analiza antes de invertir.** En la página *Análisis* revisa el perfil del activo: su riesgo, rentabilidad esperada, estados financieros (acciones), rendimiento y duración (bonos), datos macro (divisas), etc.
-
-4. **Compra.** En el panel de operación del activo, ingresa la cantidad y pulsa **Comprar**. Verás el costo estimado (incluye comisión y spread). Si quieres, puedes colocar una **orden límite** o un **stop-loss** en vez de comprar al instante.
-
-5. **Gestiona tu cartera.** En *Mi Cartera* ves tus posiciones, su valor en vivo, tu ganancia o pérdida, y gráficos de cómo evoluciona tu patrimonio. Puedes guardar hasta 3 estrategias distintas para compararlas.
-
-6. **Sigue las noticias.** El *Centro de Noticias* muestra eventos que mueven los precios. Reaccionar a tiempo es parte del ejercicio.
-
-7. **Cierra y revisa.** Cuando termines, pulsa **"Cerrar mercado"** y ve a *Resultados* para evaluar tu desempeño: retorno, Sharpe, VaR y posición frente al índice CL-30.
-
-8. **Exporta tu progreso.** Puedes descargar tu libro de operaciones (CSV), un respaldo (JSON) o un reporte (PDF). Si tu profesor usa el Modo Profesor, usa el botón **"Para profesor"** (ver abajo).
-
-> **Consejo:** tu progreso se guarda automáticamente en el navegador. Si cierras y vuelves a abrir el archivo en el mismo dispositivo y navegador, tu sesión seguirá ahí.
+**Herramientas del docente:** creación de grupos, calificaciones, mensajería con estudiantes, casos personalizados, y **generación de casos y glosarios con inteligencia artificial** — el docente pide un caso sobre un tema específico, la IA lo genera siguiendo exactamente la estructura pedagógica de la materia, y queda como borrador hasta que el docente lo revisa y aprueba explícitamente. Nunca se publica nada sin esa aprobación.
 
 ---
 
-## Modo Profesor
+## 📊 Analytics
 
-CapitalLab incluye un **Modo Profesor** para que el docente evalúe el desempeño de sus estudiantes.
+Mesa de análisis de inversión: se ingresan (o se traen automáticamente) los datos de un activo real, y la herramienta calcula las métricas financieras relevantes, simula miles de escenarios con Monte Carlo, mide el riesgo, y entrega una recomendación fundamentada.
 
-**Para el estudiante:**
-1. Al terminar su sesión, pulsa el botón **"Para profesor"** en la barra superior.
-2. Ingresa su **nombre**, su **sección o materia** (por ejemplo, "Mercado Financiero") y, opcionalmente, su **grupo**.
-3. Se descarga un archivo `.json` que el estudiante entrega al docente.
+**Mercados analizables:** acciones y divisas.
 
-**Para el profesor:**
-1. Abre el simulador y entra a la página **Modo Profesor**.
-2. Pulsa **"Importar estudiante(s)"** y selecciona los archivos `.json` de sus estudiantes (puede importar varios a la vez).
-3. Ve una **tabla de clasificación** con el desempeño de cada estudiante, incluyendo su sección y grupo.
-4. Puede **filtrar por sección** para revisar una materia a la vez, y activar **"Agrupar por grupo"** para ver rankings separados por grupo.
-5. Al hacer clic en un estudiante, abre su **progreso detallado**: curva de patrimonio, composición de cartera y libro de operaciones.
-6. Puede **exportar** el ranking completo o el análisis individual a **CSV o PDF** para calificar.
+**Datos reales, con fuente verificable en cada campo:**
+- **Acciones populares** — ocho acciones reconocidas con cotización real en vivo, visibles al entrar, con un clic directo al análisis completo.
+- **Traer todos los datos reales disponibles** — con solo el símbolo, completa automáticamente precio, EPS, valor en libros, dividendo, beta, acciones en circulación, deuda/patrimonio, ROE, crecimiento de utilidades, y rentabilidad esperada, cada uno con un enlace directo a la página exacta de Yahoo Finance de donde salió ese dato específico.
+- **Comparables automáticos** — al traer los datos de una acción, se muestran de inmediato 2–3 empresas reales del mismo sector con su P/E y ROE, para que la valoración tenga contexto relativo, no solo un número aislado.
+- **Inflación real por país** (para divisas) — vía la API pública del Banco Mundial, con la fecha exacta del dato oficial más reciente disponible (los datos macro oficiales tienen normalmente 1–2 años de rezago, a diferencia de una cotización bursátil, y se le avisa al usuario).
 
-> El Modo Profesor es independiente de la sesión del estudiante: importar estudiantes no afecta la cartera ni el progreso propio del docente.
+**Con inteligencia artificial:** un botón genera una tesis de inversión redactada en 3–4 párrafos, integrando los indicadores ya calculados, reconociendo al menos un riesgo real (no solo argumentos a favor), y coherente con la calificación cuantitativa del modelo.
 
----
+**Reporte profesional (PDF):** exporta un documento formal con el veredicto, la tabla completa de indicadores con su interpretación, y la tesis de IA si ya se generó — listo para entregar o archivar.
 
-## Cómo instalar y abrir el archivo
-
-CapitalLab es un **único archivo HTML** que se abre directamente en cualquier navegador. **No necesita instalación, ni internet, ni programas adicionales.** Puedes usarlo aunque no tengas acceso al sitio web.
-
-### Opción 1 — Abrir con doble clic (la más sencilla)
-
-1. Guarda el archivo `CapitalLab.html` en tu computadora (por ejemplo, en el Escritorio o en Descargas).
-2. Haz **doble clic** sobre el archivo.
-3. Se abrirá en tu navegador predeterminado (Chrome, Edge, Firefox o Safari). ¡Listo para usar!
-
-### Opción 2 — Abrir desde el navegador
-
-1. Abre tu navegador (Chrome, Firefox, Edge o Safari).
-2. Pulsa `Ctrl + O` (en Windows/Linux) o `Cmd + O` (en Mac).
-3. Busca y selecciona el archivo `CapitalLab.html`.
-4. El simulador se abrirá en una pestaña nueva.
-
-### Opción 3 — Arrastrar al navegador
-
-1. Abre una ventana nueva del navegador.
-2. **Arrastra** el archivo `CapitalLab.html` desde su carpeta hasta la pestaña del navegador y suéltalo.
-
-### En el celular o tablet
-
-1. Guarda el archivo `CapitalLab.html` en el dispositivo (por ejemplo, en la app *Archivos*).
-2. Ábrelo con el navegador (Chrome en Android, Safari en iPhone/iPad). Algunos dispositivos requieren abrirlo desde un gestor de archivos y elegir "Abrir con" → navegador.
-
-> **Importante:** guarda siempre una copia del archivo `CapitalLab.html` en tu computadora o en un respaldo (USB, Google Drive). Mientras tengas el archivo, podrás usar el simulador en cualquier momento, con o sin internet.
+**Cuenta opcional:** Analytics funciona por completo sin necesidad de iniciar sesión — todo se guarda en el navegador. Quien decide crear una cuenta obtiene sincronización de su historial de análisis y sus activos seguidos entre dispositivos, con recuperación de contraseña incluida. El historial local ya existente se migra automáticamente a la nube en el momento de crear la cuenta, sin perder nada.
 
 ---
 
-## Preguntas frecuentes
+## Inteligencia artificial en CapitalLab
 
-**¿Necesito conexión a internet?**
-No para la lógica del simulador. La conexión solo mejora la apariencia (tipografías e iconos se cargan de internet); sin red, el simulador funciona igual, solo con un estilo visual más simple. Los gráficos requieren conexión la primera vez.
+Las tres herramientas usan **Gemini 3.6 Flash** (Google AI) para sus funciones de inteligencia artificial, siempre bajo el mismo principio de seguridad:
 
-**¿Se pierde mi progreso si cierro el archivo?**
-No, mientras uses el mismo navegador y dispositivo: el progreso se guarda automáticamente. Si quieres llevarlo a otro dispositivo, usa "Exportar" para descargar un respaldo y luego "Importar".
+> **La clave de la API nunca toca el navegador.** Cada función de IA corre en una Edge Function de Supabase, del lado del servidor. El navegador solo envía los datos ya calculados o el pedido específico; la clave vive únicamente como secreto de servidor, nunca en el código fuente ni visible para quien inspeccione la página.
 
-**¿Funciona en cualquier navegador?**
-Sí: Chrome, Firefox, Edge y Safari en sus versiones actuales, tanto en computadora como en móvil.
-
-**¿Puedo perder dinero real?**
-No. Todo el capital es virtual y con fines educativos.
-
-**¿Los datos financieros son reales?**
-Son datos representativos con fines educativos, basados en cifras aproximadas de empresas y mercados reales. No deben usarse para decisiones de inversión reales.
+| Función | Dónde vive | Qué hace |
+|---|---|---|
+| `generar-caso-ia` | Proyecto de Academy | Genera casos y glosarios completos para una materia, a pedido del docente |
+| `generar-tesis-analytics` | Proyecto de Analytics | Redacta la tesis de inversión de un activo analizado |
+| `generar-analisis-simulador` | Proyecto del Simulador | Redacta tesis de un activo, y recomienda las mejores inversiones del mercado actual |
+| `datos-yahoo-finance` | Proyectos de Academy, Analytics y Simulador | Trae cotizaciones y datos fundamentales reales de Yahoo Finance |
 
 ---
 
-## Equipo
+## Arquitectura técnica
 
-Proyecto desarrollado por estudiantes de la **Licenciatura en Finanzas y Banca**, Universidad de Panamá, como proyecto de servicio social 2026.
+- **Frontend:** HTML, CSS y JavaScript sin frameworks ni build tools — cada herramienta es un único archivo autocontenido, con las fuentes empaquetadas directamente (sin depender de servicios externos que puedan bloquearse).
+- **Backend:** [Supabase](https://supabase.com) — autenticación, base de datos Postgres con seguridad a nivel de fila (RLS), y Edge Functions (Deno) para toda lógica que necesite proteger una clave.
+- **Datos de mercado:** Yahoo Finance (endpoint público de cotizaciones y de datos fundamentales), consultados siempre del lado del servidor.
+- **Datos macroeconómicos:** API pública del Banco Mundial, sin necesidad de clave.
+- **Inteligencia artificial:** Gemini 3.6 Flash, vía Google AI Studio.
 
-| Integrante |
-|---|
-| Justin Jones |
-| Dustin Jones |
-| Emanuel Iturriaga |
-
----
-
-## Contexto Académico
-
-| Campo | Valor |
-|---|---|
-| **Institución** | Universidad de Panamá |
-| **Facultad** | Facultad de Economía |
-| **Programa** | Licenciatura en Finanzas y Banca |
-| **Tipo de proyecto** | Proyecto de desarrollo tecnológico (servicio social) |
-| **Año** | 2026 |
-
-CapitalLab fue diseñado para complementar materias de análisis financiero y mercados de capitales. Permite a los estudiantes experimentar en la práctica los conceptos de rentabilidad, riesgo, diversificación, costos de transacción, apalancamiento, VaR, Sharpe y Beta que se estudian teóricamente en el aula.
+Cada una de las tres herramientas usa **su propio proyecto de Supabase**, independiente entre sí.
 
 ---
 
-<p align="center">
-  <strong>CapitalLab</strong> · Universidad de Panamá · Facultad de Economía · 2026<br>
-  Proyecto de servicio social — uso educativo gratuito
-</p>
+## Instalación y despliegue
+
+### Frontend
+
+Suba los archivos `.html` a GitHub Pages (o cualquier hosting estático). No requieren ningún paso de compilación — se abren directamente.
+
+### Backend (Edge Functions)
+
+Para cada proyecto de Supabase que corresponda:
+
+1. Cree la función con el código del archivo `.ts` correspondiente, usando el nombre exacto que quiera que tenga (Supabase le asigna un nombre genérico si no lo especifica al momento de crearla — verifíquelo en la URL real de la función antes de darla por lista).
+2. Configure el secreto `GEMINI_API_KEY` con su clave de Google AI Studio (solo en los proyectos que usan IA).
+3. Desactive **"Verify JWT"** en las funciones que no requieren sesión de usuario (`datos-yahoo-finance`, `generar-tesis-analytics`, `generar-analisis-simulador`). Manténgalo activo en `generar-caso-ia`, que sí valida que quien llama sea un docente autenticado.
+4. Corra las migraciones SQL correspondientes en el **SQL Editor** de cada proyecto.
+
+---
+
+## Estructura del repositorio
+
+```
+CapitalLab/
+├── index.html              → redirige automáticamente al Simulador
+├── Simulador.html
+├── Academy.html
+├── Analytics.html
+└── supabase/
+    ├── academy/
+    │   ├── migraciones .sql
+    │   └── functions/generar-caso-ia/, datos-yahoo-finance/
+    ├── analytics/
+    │   ├── migraciones .sql
+    │   └── functions/generar-tesis-analytics/, datos-yahoo-finance/
+    └── simulador/
+        └── functions/generar-analisis-simulador/, datos-yahoo-finance/
+```
+
+---
+
+## Aviso importante
+
+CapitalLab es una herramienta **educativa**. Los precios, análisis, recomendaciones y tesis de inversión generadas (incluidas las asistidas por inteligencia artificial) tienen fines de aprendizaje y no constituyen asesoría financiera profesional ni garantizan resultados reales.
+
+---
+
+## Contexto académico
+
+Desarrollado por **Justin Jones**, estudiante de la Licenciatura en Finanzas y Banca, Facultad de Economía, Universidad de Panamá, como proyecto de servicio social y desarrollo tecnológico aplicado a la enseñanza de las finanzas.
