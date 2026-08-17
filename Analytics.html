@@ -942,7 +942,7 @@ function renderForm(){
     const unit = f.unit ? `<span class="u">${f.unit}</span>` : '';
     const inputType = f.type==='num' ? 'number' : 'text';
     const step = f.type==='num' ? ' step="any"' : '';
-    const botonTraer = f.k==='ticker' ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-traer-real" onclick="traerDatosRealesYahoo()" style="margin-top:6px;"><i class="ti ti-cloud-download"></i> Traer todos los datos reales disponibles</button><div id="traer-real-msg" style="font-size:11.5px;margin-top:4px;"></div><div id="traer-real-link" style="margin-top:2px;"></div>` : '';
+    const botonTraer = f.k==='ticker' ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-traer-real" onclick="traerDatosRealesYahoo()" style="margin-top:6px;"><i class="ti ti-cloud-download"></i> Traer todos los datos reales disponibles</button><div id="traer-real-msg" style="font-size:11.5px;margin-top:4px;"></div><div id="traer-real-link" style="margin-top:2px;"></div><div id="comparables-box" style="margin-top:10px;"></div>` : '';
     const botonInflacion = f.k==='inflationBase' ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-inflacion-real" onclick="traerInflacionRealDivisa()" style="margin-top:6px;"><i class="ti ti-building-bank"></i> Traer inflación real (Banco Mundial)</button><div id="inflacion-real-msg" style="font-size:11.5px;margin-top:4px;"></div>` : '';
     return `<div class="field">
       <label>${f.label} ${reqMark}${hint}</label>
@@ -1028,6 +1028,29 @@ async function traerDatosRealesYahoo(){
     const contEnlace = $('traer-real-link');
     if(d.urlYahooFinance){
       if(contEnlace) contEnlace.innerHTML = `<a href="${d.urlYahooFinance}" target="_blank" rel="noopener" style="font-size:11.5px;"><i class="ti ti-external-link"></i> Ver ${d.simbolo} en Yahoo Finance ↗</a>`;
+    }
+
+    // Comparables reales del mismo sector — contexto de valoración
+    // relativa, no solo el múltiplo aislado del activo principal.
+    const boxComparables = $('comparables-box');
+    if(boxComparables){
+      if(d.comparables?.length){
+        const peActual = d.fundamentales?.eps ? Number((d.precioActual / d.fundamentales.eps).toFixed(1)) : null;
+        const filas = [{simbolo:d.simbolo+' (este)', pe:peActual, roe:d.fundamentales?.roe, principal:true}, ...d.comparables].map(c => `
+          <tr style="${c.principal?'font-weight:700;background:var(--c2);':''}">
+            <td style="padding:5px 8px;">${c.simbolo}</td>
+            <td style="padding:5px 8px;text-align:right;font-family:var(--font-mono, monospace);">${c.pe ?? '—'}</td>
+            <td style="padding:5px 8px;text-align:right;font-family:var(--font-mono, monospace);">${c.roe!=null?c.roe+'%':'—'}</td>
+          </tr>`).join('');
+        boxComparables.innerHTML = `
+          <div style="font-size:11px;color:var(--t3);margin-bottom:5px;"><i class="ti ti-scale"></i> Comparables reales del sector</div>
+          <table style="width:100%;font-size:12px;border-collapse:collapse;background:var(--c2);border-radius:8px;overflow:hidden;">
+            <thead><tr style="background:var(--c3);"><th style="padding:5px 8px;text-align:left;">Empresa</th><th style="padding:5px 8px;text-align:right;">P/E</th><th style="padding:5px 8px;text-align:right;">ROE</th></tr></thead>
+            <tbody>${filas}</tbody>
+          </table>`;
+      } else {
+        boxComparables.innerHTML = '';
+      }
     }
 
     msg.style.color='var(--green, #00d084)';
