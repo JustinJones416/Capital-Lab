@@ -7404,12 +7404,28 @@ function renderEnlaceYahooFinance(asset){
   const box = document.getElementById('mkt-yahoo-link');
   if(!box) return;
   let simboloYahoo = null;
-  if(asset.type==='accion' && asset.ticker && !asset.ticker.includes('.')) simboloYahoo = asset.ticker;
+  if(asset.type==='accion' && asset.ticker) simboloYahoo = asset.ticker.replace('.', '-');
   else if(asset.type==='divisa' && asset.ticker?.includes('/')) simboloYahoo = asset.ticker.replace('/','')+'=X';
   else if(asset.type==='futuro' && FUTUROS_YAHOO_MAP[asset.ticker]) simboloYahoo = FUTUROS_YAHOO_MAP[asset.ticker];
-  box.innerHTML = simboloYahoo
+  const enlace = simboloYahoo
     ? `<a href="https://finance.yahoo.com/quote/${encodeURIComponent(simboloYahoo)}" target="_blank" rel="noopener" style="font-size:11.5px;color:var(--accent2, #4a9eff);"><i class="ti ti-external-link"></i> Ver ${asset.ticker} en Yahoo Finance ↗</a>`
     : '';
+  // Marca de última actualización real, específica de este activo —
+  // distinta del indicador general, porque cada activo se sincroniza
+  // en el mismo momento, pero conviene que quede claro cuál precio
+  // exacto es el que arrancó de un dato real de mercado. Los bonos
+  // nunca reciben esta sincronización (no existe una fuente gratuita
+  // confiable para ellos), así que se les avisa distinto, sin dar a
+  // entender que podrían tener un dato real en algún momento.
+  let marcaActualizacion;
+  if(asset.type==='bono'){
+    marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Precio calculado por el modelo del simulador — los bonos no tienen una fuente gratuita de precio real en tiempo real disponible</div>`;
+  } else if(window.__ultimaSincronizacionReal){
+    marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Precio real confirmado a las ${window.__ultimaSincronizacionReal.toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'})} · hasta 15 min de rezago frente a bolsa, desde ahí la simulación toma el control</div>`;
+  } else {
+    marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Precio base del simulador — la sincronización con el mercado real no estuvo disponible en esta sesión</div>`;
+  }
+  box.innerHTML = enlace + marcaActualizacion;
 }
 function renderTesisIASimulador(asset){
   const box = document.getElementById('mkt-tesis-ia');
@@ -7487,9 +7503,13 @@ async function generarMejoresInversionesIA(){
   boton.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Analizando el mercado…';
   cont.innerHTML = '';
   try {
-    // Solo acciones — son las que tienen suficientes datos fundamentales
-    // reales para que la recomendación tenga sustancia genuina.
-    const activos = STOCKS.map(a => ({ ticker:a.ticker, name:a.name, sector:a.sector, price:a.currentPrice||a.price, beta:a.beta, sigma:a.sigma, ret:a.ret, rating:a.rating }));
+    // Los tres mercados reales de este simulador — antes solo se
+    // consideraban acciones, dejando fuera bonos y divisas, que sí
+    // tienen datos suficientes para una recomendación con sustancia.
+    const activosAccion = STOCKS.map(a => ({ tipo:'accion', ticker:a.ticker, name:a.name, sector:a.sector, price:a.currentPrice||a.price, beta:a.beta, sigma:a.sigma, ret:a.ret, rating:a.rating }));
+    const activosBono = BONDS.map(a => ({ tipo:'bono', ticker:a.ticker, name:a.name, sector:a.country, price:a.currentPrice||a.price, coupon:a.coupon, maturity:a.maturity, ytm:a.ytm, duration:a.duration, sigma:a.sigma, ret:a.ret, rating:a.rating }));
+    const activosDivisa = FOREX.map(a => ({ tipo:'divisa', ticker:a.ticker, name:a.name, sector:'Divisas', price:a.currentPrice||a.price, sigma:a.sigma, ret:a.ret }));
+    const activos = [...activosAccion, ...activosBono, ...activosDivisa];
     const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
       method:'POST',
       headers:{'Content-Type':'application/json','apikey':SIM_IA_ANON_KEY,'Authorization':`Bearer ${SIM_IA_ANON_KEY}`},
@@ -11608,16 +11628,17 @@ async function sincronizarPreciosRealesSimulador(){
   // Bonos y derivados (opciones, swaps, CDS, forwards) no tienen una
   // fuente gratuita y confiable en Yahoo Finance — se quedan siempre
   // con su precio simulado, sin ninguna sincronización real.
-  const accionesConTicker = STOCKS.filter(a => a.ticker && !a.ticker.includes('.'));
+  const accionesConTicker = STOCKS.filter(a => a.ticker);
   const divisasConTicker = FOREX.filter(a => a.ticker && a.ticker.includes('/'));
   const futurosConMapa = FUTURES.filter(a => FUTUROS_YAHOO_MAP[a.ticker]);
   const todosLosActivos = [...accionesConTicker, ...divisasConTicker, ...futurosConMapa];
   if(!todosLosActivos.length) return;
 
   // El símbolo real que se le pide a Yahoo puede ser distinto del
-  // ticker interno del simulador (los futuros necesitan su propio
-  // símbolo de Yahoo) — este mapa hace la traducción en ambas direcciones.
-  const simboloAPedir = a => FUTUROS_YAHOO_MAP[a.ticker] || a.ticker;
+  // ticker interno del simulador — los futuros necesitan su propio
+  // símbolo, y algunas acciones usan un guion en vez de un punto
+  // (Berkshire Hathaway clase B es "BRK-B" en Yahoo, no "BRK.B").
+  const simboloAPedir = a => FUTUROS_YAHOO_MAP[a.ticker] || a.ticker.replace('.', '-');
 
   const controlador = new AbortController();
   const limiteTiempo = setTimeout(()=>controlador.abort(), 6000); // nunca espera más de 6 segundos
@@ -11651,15 +11672,25 @@ async function sincronizarPreciosRealesSimulador(){
       activo.price = c.precioActual;
       if(activo.currentPrice !== undefined) activo.currentPrice = c.precioActual;
       activo._urlYahoo = `https://finance.yahoo.com/quote/${encodeURIComponent(simboloAPedir(activo))}`;
+      // El gráfico de velas ya se había generado con el precio base
+      // viejo, antes de que llegara este dato real — si no se borra
+      // aquí, el gráfico queda desalineado con el precio real nuevo,
+      // mostrando un salto que no corresponde a ningún movimiento
+      // real. Al borrarlo, initCandles lo vuelve a generar ya
+      // anclado al precio real correcto.
+      delete candleHistory[activo.id];
       actualizados++;
     });
 
     if(actualizados > 0){
+      window.__ultimaSincronizacionReal = new Date();
       // Solo se refresca lo que ya está visible, sin recargar nada ni
       // interrumpir cualquier cosa que el estudiante esté haciendo.
+      try { allAssets().forEach(a => { if(!candleHistory[a.id]) initCandles(a); }); } catch(e){}
       try { renderAssetList(); } catch(e){}
       try { renderWatchlist(); } catch(e){}
       try { if(selectedAsset) showAssetDetail(selectedAsset.id, selectedAsset.type); } catch(e){}
+      try { actualizarIndicadorSincronizacion(actualizados); } catch(e){}
       try { notify(`${actualizados} precio(s) recalibrados con la cotización real de mercado ✓`); } catch(e){}
     }
   } catch(e){
@@ -11669,6 +11700,30 @@ async function sincronizarPreciosRealesSimulador(){
     // funcionando con sus precios base normales, sin ninguna
     // interrupción ni mensaje de error visible para el estudiante.
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INDICADOR DE DATOS EN TIEMPO REAL — transparencia para el
+// estudiante: saber con certeza si lo que está viendo arrancó de un
+// precio real de mercado, o si el simulador está en su modo base
+// normal porque la fuente real no estaba disponible en ese momento.
+// ═══════════════════════════════════════════════════════════════════
+function actualizarIndicadorSincronizacion(cantidadActualizados){
+  let badge = document.getElementById('badge-datos-reales');
+  if(!badge){
+    badge = document.createElement('div');
+    badge.id = 'badge-datos-reales';
+    badge.style.cssText = 'position:fixed;bottom:16px;right:16px;background:var(--c1,#10141d);border:1px solid var(--green,#1e8e5a);border-radius:20px;padding:7px 14px;font-size:11.5px;color:var(--t2,#b8c4dc);z-index:400;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(0,0,0,.3);cursor:help;';
+    document.body.appendChild(badge);
+  }
+  const hora = new Date().toLocaleTimeString('es-PA', {hour:'2-digit', minute:'2-digit'});
+  // Honestidad con el estudiante: el dato es real, pero no instantáneo.
+  // Yahoo Finance, como cualquier fuente gratuita de NASDAQ y NYSE,
+  // entrega la cotización con un rezago estándar de hasta 15 minutos
+  // frente al precio exacto de bolsa en ese segundo — la misma norma
+  // que aplica a cualquier servicio de datos bursátiles sin costo.
+  badge.title = 'Como toda fuente gratuita de NASDAQ y NYSE, este dato puede tener hasta 15 minutos de rezago frente al precio exacto de bolsa en este segundo. Sigue siendo un precio real de mercado, no simulado.';
+  badge.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:#1e8e5a;flex-shrink:0;"></span> Datos reales de mercado · ${cantidadActualizados} activos · ${hora} <span style="opacity:.65;">(hasta 15 min de rezago)</span>`;
 }
 
 function tickPrices() {
