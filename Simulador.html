@@ -7460,10 +7460,22 @@ async function generarTesisIASimulador(id, type){
     document.head.appendChild(st);
   }
   try {
+    // Cada tipo de activo manda sus propios campos reales — un bono
+    // no tiene beta ni dividendo, tiene cupón, TIR y vencimiento; una
+    // divisa no tiene ninguno de esos. Mandar el campo correcto según
+    // el tipo evita que la IA reciba datos vacíos sin sentido.
+    let datosActivo;
+    if(asset.type==='bono'){
+      datosActivo = { tipo:'bono', name:asset.name, ticker:asset.ticker, sector:asset.country, price:asset.currentPrice||asset.price, coupon:asset.coupon, maturity:asset.maturity, ytm:asset.ytm, duration:asset.duration, sigma:asset.sigma, ret:asset.ret, rating:asset.rating, profile:asset.profile };
+    } else if(asset.type==='divisa'){
+      datosActivo = { tipo:'divisa', name:asset.name, ticker:asset.ticker, price:asset.currentPrice||asset.price, sigma:asset.sigma, ret:asset.ret, profile:asset.profile };
+    } else {
+      datosActivo = { tipo:'accion', name:asset.name, ticker:asset.ticker, sector:asset.sector, country:asset.country, price:asset.currentPrice||asset.price, beta:asset.beta, sigma:asset.sigma, ret:asset.ret, rating:asset.rating, dividend:asset.dividend, profile:asset.profile };
+    }
     const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
       method:'POST',
       headers:{'Content-Type':'application/json','apikey':SIM_IA_ANON_KEY,'Authorization':`Bearer ${SIM_IA_ANON_KEY}`},
-      body: JSON.stringify({ modo:'tesis', activo:{ name:asset.name, ticker:asset.ticker, sector:asset.sector, country:asset.country, price:asset.currentPrice||asset.price, beta:asset.beta, sigma:asset.sigma, ret:asset.ret, rating:asset.rating, dividend:asset.dividend, profile:asset.profile } }),
+      body: JSON.stringify({ modo:'tesis', activo:datosActivo }),
     });
     const d = await respuesta.json();
     if(!d.ok) throw new Error(d.error||'Error desconocido.');
@@ -7477,6 +7489,14 @@ async function generarTesisIASimulador(id, type){
 
 // ───── Mejores inversiones (IA) — panel para Mercado y Laboratorio ─────
 async function abrirMejoresInversionesIA(){
+  // Si hay una sesión de Laboratorio activa, la recomendación debe
+  // considerar su meta real (horizonte y rentabilidad objetivo que
+  // asignó el profesor), no dar la misma sugerencia genérica que en
+  // Mercado libre, donde no existe ninguna meta específica que cumplir.
+  const enLaboratorio = labConfig.started === true;
+  const contextoLab = enLaboratorio
+    ? `<div style="background:var(--bg2, #10141d);border:1px solid var(--gold, #e8b94a);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--t2, #b8c4dc);"><i class="ti ti-target" style="color:var(--gold, #e8b94a);"></i> Considerando tu meta del Laboratorio: <b>${labConfig.target}%</b> de rentabilidad en <b>${labConfig.horizon} meses</b></div>`
+    : '';
   const overlay = document.createElement('div');
   overlay.className = 'export-modal-overlay';
   overlay.id = 'mejores-ia-overlay';
@@ -7484,11 +7504,12 @@ async function abrirMejoresInversionesIA(){
     <button class="modal-close" onclick="document.getElementById('mejores-ia-overlay').remove()"><i class="ti ti-x"></i></button>
     <h2><i class="ti ti-trophy" style="color:var(--gold, #e8b94a);"></i> Mejores inversiones ahora mismo</h2>
     <p style="font-size:12.5px;color:var(--t2, #b8c4dc);margin-bottom:14px;">La IA analiza los activos disponibles en el mercado actual y recomienda tres opciones, con su razonamiento.</p>
+    ${contextoLab}
     <label style="font-size:12px;color:var(--t3, #7a8ab0);display:block;margin-bottom:5px;">Tu perfil de riesgo</label>
     <select id="mejores-ia-perfil" style="width:100%;padding:10px 12px;background:var(--bg2, #10141d);border:1px solid var(--c4, #242d42);border-radius:8px;color:var(--t1, #e8edf8);font-size:13px;margin-bottom:14px;">
-      <option value="conservador">Conservador — priorizo estabilidad sobre retorno</option>
-      <option value="moderado" selected>Moderado — equilibrio entre riesgo y retorno</option>
-      <option value="agresivo">Agresivo — busco el mayor retorno posible</option>
+      <option value="conservador">Conservador, prioriza estabilidad sobre retorno</option>
+      <option value="moderado" selected>Moderado, equilibrio entre riesgo y retorno</option>
+      <option value="agresivo">Agresivo, busca el mayor retorno posible</option>
     </select>
     <button class="btn" style="width:100%;justify-content:center;" onclick="generarMejoresInversionesIA()"><i class="ti ti-sparkles"></i> Generar recomendación</button>
     <div id="mejores-ia-resultado" style="margin-top:16px;"></div>
@@ -7513,7 +7534,7 @@ async function generarMejoresInversionesIA(){
     const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
       method:'POST',
       headers:{'Content-Type':'application/json','apikey':SIM_IA_ANON_KEY,'Authorization':`Bearer ${SIM_IA_ANON_KEY}`},
-      body: JSON.stringify({ modo:'mejores', activos, perfilRiesgo:perfil }),
+      body: JSON.stringify({ modo:'mejores', activos, perfilRiesgo:perfil, metaLaboratorio: labConfig.started ? { horizonte:labConfig.horizon, objetivoPct:labConfig.target } : null }),
     });
     const d = await respuesta.json();
     if(!d.ok) throw new Error(d.error||'Error desconocido.');
