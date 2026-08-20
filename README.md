@@ -114,23 +114,6 @@ Cada una de las tres herramientas usa **su propio proyecto de Supabase**, indepe
 
 ---
 
-## Instalación y despliegue
-
-### Frontend
-
-Suba los archivos `.html` a GitHub Pages (o cualquier hosting estático). No requieren ningún paso de compilación — se abren directamente.
-
-### Backend (Edge Functions)
-
-Para cada proyecto de Supabase que corresponda:
-
-1. Cree la función con el código del archivo `.ts` correspondiente, usando el nombre exacto que quiera que tenga (Supabase le asigna un nombre genérico si no lo especifica al momento de crearla — verifíquelo en la URL real de la función antes de darla por lista).
-2. Configure el secreto `GEMINI_API_KEY` con su clave de Google AI Studio (solo en los proyectos que usan IA).
-3. Desactive **"Verify JWT"** en las funciones que no requieren sesión de usuario (`datos-yahoo-finance`, `generar-tesis-analytics`, `generar-analisis-simulador`). Manténgalo activo en `generar-caso-ia`, que sí valida que quien llama sea un docente autenticado.
-4. Corra las migraciones SQL correspondientes en el **SQL Editor** de cada proyecto.
-
----
-
 ## Estructura del repositorio
 
 ```
@@ -155,9 +138,3 @@ CapitalLab/
 ## Aviso importante
 
 CapitalLab es una herramienta **educativa**. Los precios, análisis, recomendaciones y tesis de inversión generadas (incluidas las asistidas por inteligencia artificial) tienen fines de aprendizaje y no constituyen asesoría financiera profesional ni garantizan resultados reales.
-
----
-
-## Contexto académico
-
-Desarrollado por **Justin Jones**, estudiante de la Licenciatura en Finanzas y Banca, Facultad de Economía, Universidad de Panamá, como proyecto de servicio social y desarrollo tecnológico aplicado a la enseñanza de las finanzas.
