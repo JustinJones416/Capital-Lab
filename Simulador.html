@@ -3703,6 +3703,65 @@ function renderInformeAcademicoHTML(d, esLocal){
   `;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// REFLEXIÓN SOBRE RESTRICCIONES INCUMPLIDAS — cierra el ciclo del
+// Laboratorio con restricciones: no solo muestra el dato de qué se
+// incumplió, sino que la IA hace la pregunta concreta de qué
+// decisión cambiaría, citando el porcentaje real de esa cartera
+// específica, nunca una pregunta genérica.
+// ═══════════════════════════════════════════════════════════════════
+async function generarReflexionRestriccionesIA(){
+  const boton = document.getElementById('btn-reflexion-lab');
+  const cont = document.getElementById('reflexion-restricciones-resultado');
+  boton.disabled = true; boton.style.opacity = '.6';
+  boton.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Pensando…';
+  if(!document.getElementById('sim-ia-estilo-girar')){
+    const st=document.createElement('style'); st.id='sim-ia-estilo-girar';
+    st.textContent='@keyframes girarSimIA{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
+  const contexto = {
+    restricciones: window.__ultimasRestriccionesLab || [],
+    alocacion: window.__ultimaAlocacionLab || {},
+    metaAlcanzada: window.__ultimoContextoLab?.metaAlcanzada,
+    retornoPct: window.__ultimoContextoLab?.retornoPct,
+  };
+  try {
+    const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SIM_IA_ANON_KEY,'Authorization':`Bearer ${SIM_IA_ANON_KEY}`},
+      body: JSON.stringify({ modo:'reflexion_restricciones', contexto }),
+    });
+    const d = await respuesta.json();
+    if(!d.ok) throw new Error(d.error||'Error desconocido.');
+    cont.innerHTML = renderReflexionRestriccionesHTML(d, false);
+  } catch(e){
+    cont.innerHTML = renderReflexionRestriccionesHTML(generarReflexionRestriccionesLocal(contexto), true);
+  } finally {
+    boton.style.display = 'none';
+  }
+}
+
+function renderReflexionRestriccionesHTML(d, esLocal){
+  const aviso = esLocal
+    ? `<div style="background:rgba(232,185,74,.1);border:1px solid var(--amber, #e8b94a);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:11px;color:var(--amber, #e8b94a);"><i class="ti ti-plug-connected-x"></i> La IA no está disponible ahora mismo, esta es una reflexión básica por reglas.</div>`
+    : '';
+  return `${aviso}
+    <div style="background:linear-gradient(135deg, var(--c2, #18212f), var(--c1, #131a26));border:1px solid var(--gold, #e8b94a);border-left-width:3px;border-radius:10px;padding:14px 16px;">
+      <div style="font-size:12.5px;color:var(--t2);margin-bottom:8px;">${d.diagnostico}</div>
+      <div style="font-family:Georgia,'Times New Roman',serif;font-size:14px;color:var(--t1);line-height:1.6;font-style:italic;">"${d.preguntaReflexiva}"</div>
+    </div>`;
+}
+
+function generarReflexionRestriccionesLocal(contexto){
+  const incumplida = (contexto.restricciones||[]).find(r=>!r.cumple);
+  if(!incumplida) return { diagnostico:'Todas las restricciones se cumplieron en esta sesión.', preguntaReflexiva:'¿Qué harías distinto para intentar un retorno todavía mayor sin arriesgar el cumplimiento de las reglas?' };
+  return {
+    diagnostico: `Tu cartera incumplió "${incumplida.nombre}": el límite era ${incumplida.limite} y tuviste ${incumplida.real}.`,
+    preguntaReflexiva: `Si tuvieras que ajustar tu asignación para cumplir con ${incumplida.nombre.toLowerCase()} (límite ${incumplida.limite}), ¿qué porcentaje reducirías, y hacia cuál otro tipo de activo lo moverías?`,
+  };
+}
+
 function generarInformeAcademicoLocal(actividad){
   const mayor = actividad.posiciones.reduce((a,b)=> (parseFloat(b.pesoPct)>parseFloat(a?.pesoPct||0) ? b : a), null);
   const tiposDistintos = new Set(actividad.posiciones.map(p=>p.type));
@@ -11046,6 +11105,7 @@ function simulateLab(){
     restricciones.push({ nombre:'Diversificación mínima', limite:`${labConfig.minDiversificacion} tipos`, real:`${tiposUsados} tipos`, cumple, exceso:0 });
   }
   window.__ultimasRestriccionesLab = restricciones;
+  window.__ultimaAlocacionLab = { Bonos:Math.round(pb*100), Acciones:Math.round(pa*100), Divisas:Math.round(pd*100), Futuros:Math.round(pf*100), Derivados:Math.round(pdv*100) };
   // Amplificación especulativa del laboratorio (1.5×–3× según perfil de agresividad).
   const ampFactor = document.getElementById('lab-perfil').value==='agresivo'?3.0:document.getElementById('lab-perfil').value==='moderado'?2.0:1.5;
   const sigAmp    = sigPort * ampFactor;
@@ -11103,6 +11163,7 @@ function simulateLab(){
   const capEff=Math.min(150,Math.max(0,(finalVal/init)*100));
   const riskEff=Math.max(0,100-(sigPort*2));
   const passed=achieved>=labConfig.target;
+  window.__ultimoContextoLab = { metaAlcanzada:passed, retornoPct:achieved.toFixed(1) };
   const calific=achieved>=labConfig.target*1.5?'Excelente':achieved>=labConfig.target?'Aprobado':achieved>=labConfig.target*.5?'Regular':'Por mejorar';
 
   const lbs=avgPath.map((_,i)=>i===0?'Inicio':'Mes '+i);
@@ -11175,6 +11236,11 @@ function simulateLab(){
           <span>${r.cumple?'✓':'✗'} <b>${r.nombre}</b>: límite ${r.limite}, tu cartera ${r.real}${!r.cumple && r.exceso>0 ? ` <span style="color:var(--red);">(${r.exceso.toFixed(0)}% por encima del permitido)</span>` : ''}</span>
         </div>
       `).join('')}
+    </div>` : ''}
+    ${(window.__ultimasRestriccionesLab||[]).some(r=>!r.cumple) ? `
+    <div style="margin-bottom:14px;">
+      <button class="btn btn-ghost btn-sm" onclick="generarReflexionRestriccionesIA()" id="btn-reflexion-lab"><i class="ti ti-bulb"></i> ¿Qué decisión cambiarías? (IA)</button>
+      <div id="reflexion-restricciones-resultado" style="margin-top:10px;"></div>
     </div>` : ''}
     <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
       <div class="kpi"><div class="kpi-label">Capital inicial</div><div class="kpi-val mono">$${fmt(init)}</div></div>
