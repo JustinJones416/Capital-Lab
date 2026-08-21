@@ -210,6 +210,10 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 /* Botón para volver a mostrar el panel una vez colapsado en escritorio/tablet — flotante, pegado al borde derecho */
 .btn-reabrir-noticias{position:absolute;top:50%;right:0;transform:translateY(-50%);background:var(--c2);border:1px solid var(--c4);border-right:none;border-radius:8px 0 0 8px;padding:10px 6px;cursor:pointer;color:var(--t2);z-index:50;display:none;align-items:center;}
 .btn-reabrir-noticias:hover{color:var(--accent2);background:var(--c3);}
+/* Glosario contextual — el ícono junto a cada término técnico, y el
+   recuadro con la explicación que aparece al tocarlo. */
+.icono-ayuda-termino:hover{color:var(--accent2) !important;}
+.popover-ayuda-termino{background:var(--c1);border:1px solid var(--accent2);border-radius:8px;padding:10px 12px;font-size:11.5px;line-height:1.5;color:var(--t1);box-shadow:0 8px 22px rgba(0,0,0,.4);z-index:2000;}
 .market-with-news.news-colapsada .btn-reabrir-noticias{display:flex;}
 
 @media(max-width:768px){
@@ -13477,6 +13481,74 @@ function renderNewsFeed(){
 // ═══════════════════════════════════════════════════════════════════
 const NEWS_PANEL_PREF_KEY = 'capitallab_news_panel_colapsada';
 
+// ═══════════════════════════════════════════════════════════════════
+// GLOSARIO CONTEXTUAL — un ícono de ayuda junto a cualquier término
+// técnico (Ratio Sharpe, Beta, VaR, TIR, etc.), que muestra su
+// explicación al tocar o pasar el cursor. Se aplica automáticamente
+// donde sea que aparezca el término en la interfaz, sin tener que
+// editar cada una de las más de veinte veces que se repiten estas
+// etiquetas a lo largo del simulador.
+// ═══════════════════════════════════════════════════════════════════
+const GLOSARIO_TERMINOS = {
+  'ratio sharpe': 'Mide cuánto retorno obtienes por cada unidad de riesgo que asumes. Se calcula como (retorno del activo − tasa libre de riesgo) / volatilidad. Un Sharpe por encima de 1 se considera bueno; por debajo de 0, el riesgo no se está viendo recompensado.',
+  'sharpe promedio': 'El promedio del Ratio Sharpe de todas tus posiciones, ponderado por cuánto capital tienes en cada una. Mide qué tan eficiente es tu cartera completa en convertir riesgo en retorno.',
+  'riesgo (σ)': 'La volatilidad anualizada (sigma, σ) mide cuánto se mueve el precio de un activo típicamente en un año. A mayor sigma, mayor incertidumbre sobre el resultado, para bien o para mal.',
+  'riesgo promedio σ': 'El promedio de la volatilidad (σ) de todas tus posiciones, ponderado por el capital invertido en cada una.',
+  'var 95% anual': 'El Valor en Riesgo (VaR): la pérdida máxima esperada en un año, con 95% de confianza. Un VaR de -20% significa que, en 19 de cada 20 años típicos, no perderías más del 20% del valor invertido.',
+  'beta (riesgo sistemático)': 'Mide cuánto se mueve un activo en relación al mercado general. Un beta de 1.5 significa que, si el mercado sube o baja 10%, el activo tiende a moverse 15% en la misma dirección.',
+  'beta': 'Mide cuánto se mueve un activo en relación al mercado general. Un beta mayor a 1 significa más volatilidad que el mercado; menor a 1, menos.',
+  'rendimiento (ytm)': 'El Rendimiento al Vencimiento (Yield to Maturity): el retorno anual total que obtendrías si compras el bono hoy y lo mantienes hasta que vence, incluyendo el cupón y la diferencia entre el precio de compra y el valor nominal.',
+  'riesgo país (embi)': 'El EMBI mide, en puntos base, cuánto más paga un país por endeudarse comparado con un bono del Tesoro de EE.UU. considerado libre de riesgo. A mayor EMBI, mayor percepción de riesgo de ese país.',
+  'riesgo país': 'Mide cuánto más paga un país por endeudarse comparado con un bono libre de riesgo, reflejando la confianza del mercado en su estabilidad económica y política.',
+  'margen inicial': 'El capital propio mínimo que debes aportar para abrir una posición apalancada. El resto lo cubre el apalancamiento (deuda), que amplifica tanto ganancias como pérdidas.',
+  'nocional': 'El valor total que representa un contrato de derivado, aunque el capital realmente invertido (la prima o el margen) sea mucho menor. Es la base sobre la que se calculan las ganancias y pérdidas.',
+  'tick mínimo': 'El movimiento de precio más pequeño posible en un contrato de futuro, definido por la bolsa donde se negocia.',
+  'calificación crediticia': 'Una nota (como AAA, BB, o CCC) que asignan agencias como S&P o Moody\'s, midiendo qué tan probable es que un emisor de deuda pague lo que debe. AAA es la más segura; entre más baja la letra, mayor el riesgo de impago.',
+  'calificación s&p': 'La nota de riesgo crediticio asignada por Standard & Poor\'s. AAA es la calificación más alta (menor riesgo de impago); las letras más bajas indican mayor riesgo.',
+  'calificación': 'Una nota que mide qué tan probable es que un emisor de deuda pague lo que debe. Entre más alta, más seguro se considera.',
+};
+
+function iniciarAyudaTerminos(){
+  if(window.__ayudaTerminosIniciada) return;
+  window.__ayudaTerminosIniciada = true;
+  document.body.addEventListener('click', (e) => {
+    const icono = e.target.closest('.icono-ayuda-termino');
+    document.querySelectorAll('.popover-ayuda-termino').forEach(p => p.remove());
+    if(!icono) return;
+    e.stopPropagation();
+    const explicacion = icono.dataset.explicacion;
+    const pop = document.createElement('div');
+    pop.className = 'popover-ayuda-termino';
+    pop.textContent = explicacion;
+    document.body.appendChild(pop);
+    const r = icono.getBoundingClientRect();
+    const anchoMax = 260;
+    let izquierda = Math.min(r.left, window.innerWidth - anchoMax - 12);
+    izquierda = Math.max(8, izquierda);
+    pop.style.cssText = `position:fixed;top:${r.bottom+6}px;left:${izquierda}px;max-width:${anchoMax}px;`;
+  });
+  // Cada nuevo render de la interfaz puede traer etiquetas nuevas sin
+  // ícono todavía — se revisa periódicamente, es barato (solo texto,
+  // sin recalcular nada financiero) y así nunca hace falta tocar cada
+  // punto donde se dibuja una etiqueta técnica en el simulador.
+  setInterval(aplicarAyudaTerminos, 4000);
+}
+
+function aplicarAyudaTerminos(){
+  document.querySelectorAll('.metric-label, .profile-key').forEach(el => {
+    if(el.dataset.ayudaAplicada) return;
+    const texto = el.textContent.trim().toLowerCase();
+    const explicacion = GLOSARIO_TERMINOS[texto];
+    if(!explicacion) { el.dataset.ayudaAplicada='1'; return; }
+    el.dataset.ayudaAplicada = '1';
+    const icono = document.createElement('i');
+    icono.className = 'ti ti-info-circle icono-ayuda-termino';
+    icono.dataset.explicacion = explicacion;
+    icono.style.cssText = 'font-size:11px;margin-left:4px;color:var(--t3);cursor:pointer;vertical-align:middle;';
+    el.appendChild(icono);
+  });
+}
+
 function alternarPanelNoticias(){
   const esMovil = window.innerWidth <= 768;
   const contenedor = document.getElementById('market-with-news');
@@ -13492,6 +13564,20 @@ function alternarPanelNoticias(){
   }
 }
 
+// Cierre forzado y completo del panel de noticias — limpia el estado
+// de móvil Y de escritorio a la vez, sin importar en cuál se quedó
+// atascado. Se usa cada vez que el ancho de la pantalla cambia, para
+// que un fondo oscuro nunca pueda quedar cubriendo la pantalla si el
+// dispositivo gira o la ventana cambia de tamaño mientras el panel
+// estaba abierto (eso era exactamente lo que se veía como una
+// "pantalla en negro" que bloqueaba el desplazamiento).
+function cerrarPanelNoticiasPorCompleto(){
+  const panel = document.getElementById('market-news-panel');
+  const overlay = document.getElementById('news-panel-overlay-movil');
+  if(panel) panel.classList.remove('news-movil-abierta');
+  if(overlay) overlay.classList.remove('activo');
+}
+
 function restaurarPreferenciaPanelNoticias(){
   if(window.innerWidth <= 768) return; // en móvil siempre arranca cerrado
   let colapsada = false;
@@ -13501,6 +13587,17 @@ function restaurarPreferenciaPanelNoticias(){
     if(contenedor) contenedor.classList.add('news-colapsada');
   }
 }
+
+// Si la ventana cambia de tamaño (girar el dispositivo, cambiar entre
+// modo tablet y escritorio, o cualquier redimensión), se cierra el
+// panel móvil por completo — así nunca queda un fondo oscuro atascado
+// bloqueando la pantalla, sin importar en qué momento se cruce el
+// punto de quiebre entre el modo móvil y el modo escritorio.
+let __resizeTimeoutPanelNoticias = null;
+window.addEventListener('resize', () => {
+  clearTimeout(__resizeTimeoutPanelNoticias);
+  __resizeTimeoutPanelNoticias = setTimeout(cerrarPanelNoticiasPorCompleto, 150);
+});
 
 
 function markNewsRead(id){
@@ -14600,6 +14697,7 @@ function initApp() {
   // solicitudes, sin conexión), el simulador sigue exactamente igual
   // que siempre — nadie que lo esté usando lo nota.
   try { restaurarPreferenciaPanelNoticias(); } catch(e){}
+  try { iniciarAyudaTerminos(); } catch(e){}
   try { sincronizarPreciosRealesSimulador(); } catch(e){}
 }
 </script>
