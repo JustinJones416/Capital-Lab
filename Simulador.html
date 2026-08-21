@@ -1085,6 +1085,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <button class="wl-nav-btn"        id="nav-analisis"      onclick="goPage('analisis')"><i class="ti ti-chart-bar"></i> Análisis</button>
     <button class="wl-nav-btn"        id="nav-personalizado" onclick="goPage('personalizado')"><i class="ti ti-adjustments-horizontal"></i> Personalizado</button>
     <button class="wl-nav-btn"        id="nav-cartera"       onclick="goPage('cartera')"><i class="ti ti-briefcase"></i> Mi Cartera</button>
+    <button class="wl-nav-btn"        id="nav-tesis"          onclick="goPage('tesis')"><i class="ti ti-notebook"></i> Mi Tesis de Inversión</button>
     <button class="wl-nav-btn"        id="nav-p2p"           onclick="goPage('p2p')"><i class="ti ti-users-group"></i> Mercado entre Estudiantes<span class="nav-chat-dot" id="dot-p2p" style="display:none;"></span></button>
     <button class="wl-nav-btn"        id="nav-chat"          onclick="goPage('chat')"><i class="ti ti-message-circle"></i> Chat de la Sesión<span class="nav-chat-dot" id="dot-chat" style="display:none;"></span></button>
     <button class="wl-nav-btn"        id="nav-laboratorio"   onclick="goPage('laboratorio')"><i class="ti ti-flask"></i> Laboratorio</button>
@@ -1450,6 +1451,35 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     <input type="text" id="tx-buscar" placeholder="Buscar por activo o tipo de operación…" oninput="filtrarHistorialTx(this.value)" style="width:100%;margin:10px 0;padding:8px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12.5px;">
     <div id="port-history"></div>
   </div>
+</div>
+
+<!-- ════════ MI TESIS DE INVERSIÓN ════════ -->
+<div id="page-tesis" class="page">
+  <div class="page-header"><div class="page-title">Mi Tesis de Inversión</div><div class="page-sub">Registra tus mejores opciones, y por qué las elegirías — tu propio razonamiento, no solo el de la IA</div></div>
+
+  <div id="tesis-import-aviso" style="display:none;margin-bottom:16px;"></div>
+
+  <div class="card" style="margin-bottom:18px;">
+    <div class="card-title"><i class="ti ti-plus"></i> Agregar una opción a tu tesis</div>
+    <div class="grid3" style="margin-bottom:10px;">
+      <div class="field">
+        <label>Activo</label>
+        <select id="tesis-form-activo" style="width:100%;padding:10px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:13px;"></select>
+      </div>
+      <div class="field" style="grid-column:span 2;">
+        <label>¿Por qué elegirías esta opción?</label>
+        <input type="text" id="tesis-form-razon" placeholder="Ej: Baja volatilidad y calificación AAA, buen ancla para el resto del portafolio…" style="width:100%;padding:10px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:13px;">
+      </div>
+    </div>
+    <button class="btn" onclick="agregarOpcionTesis()"><i class="ti ti-notebook"></i> Agregar a mi tesis</button>
+  </div>
+
+  <div class="section-label" style="margin-bottom:10px;">Tus opciones registradas</div>
+  <div id="tesis-lista-vacia" class="card" style="text-align:center;padding:30px;color:var(--t3);">
+    <i class="ti ti-notebook" style="font-size:32px;opacity:.4;"></i>
+    <div style="margin-top:8px;font-size:13px;">Todavía no has agregado ninguna opción a tu tesis de inversión.</div>
+  </div>
+  <div id="tesis-lista" style="display:grid;gap:10px;"></div>
 </div>
 
 <!-- ════════ LABORATORIO ════════ -->
@@ -2205,6 +2235,7 @@ function authGuestEnter(role){
   if(seccionGestionG) seccionGestionG.style.display = (role==='estudiante') ? 'none' : '';
   if(typeof initApp === 'function') initApp();
   renderInicioPage();
+  aplicarEnlaceDirectoCapitalLab();
   setTimeout(()=>{ if(typeof notify==='function') notify('Modo de prueba: el progreso no se sincroniza con ninguna cuenta.', 'success'); }, 900);
 }
 
@@ -2265,6 +2296,7 @@ async function authLoadProfileAndEnter(){
   if(typeof initApp === 'function') initApp();
   actualizarBadgeNotificaciones();
   renderInicioPage();
+  aplicarEnlaceDirectoCapitalLab();
 
   if(perfil._codigoRecienGenerado){
     setTimeout(()=>mostrarCodigoSesionPostLogin(perfil._codigoRecienGenerado), 700);
@@ -5578,6 +5610,24 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
 }
 
 async function authBoot(){
+  // ═══════════════════════════════════════════════════════════════
+  // ENLACE DIRECTO DESDE OTRA HERRAMIENTA DE CAPITALLAB — Academy o
+  // Analytics pueden mandar aquí un activo específico (y, desde
+  // Analytics, el resumen de una tesis ya generada con IA), para que
+  // el estudiante llegue directo al contexto correcto, sin tener que
+  // buscarlo de nuevo. Se guarda ahora, antes de iniciar sesión, y se
+  // aplica después de que la app arranque de verdad.
+  // ═══════════════════════════════════════════════════════════════
+  const paramsEnlace = new URLSearchParams(window.location.search);
+  if(paramsEnlace.get('ticker')){
+    window.__enlaceDirectoCapitalLab = {
+      ticker: paramsEnlace.get('ticker'),
+      tipo: paramsEnlace.get('tipo') || 'accion',
+      origen: paramsEnlace.get('origen') || null,
+      tesis: paramsEnlace.get('tesis') ? decodeURIComponent(paramsEnlace.get('tesis')) : null,
+    };
+  }
+
   // Si se entra desde un enlace o código QR compartido (?codigo=XXXXX), se
   // deja la pestaña de registro lista, en modo estudiante, con el código
   // ya escrito — así solo falta poner nombre, correo y contraseña.
@@ -7139,6 +7189,7 @@ function goPage(p){
   if(p==='logros') renderLogrosPage();
   if(p==='admin') renderAdminPage();
   if(p==='noticias')renderNewsCenter();
+  if(p==='tesis'){ renderFormularioTesis(); renderMiTesis(); }
   // Close mobile drawer on navigation
   if(window.innerWidth<=768)closeMobileSidebar();
 }
@@ -11729,6 +11780,126 @@ async function sincronizarPreciosRealesSimulador(){
 // precio real de mercado, o si el simulador está en su modo base
 // normal porque la fuente real no estaba disponible en ese momento.
 // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// MI TESIS DE INVERSIÓN — un espacio donde el estudiante registra sus
+// propias opciones y su razonamiento, ya sea escrito a mano o traído
+// directo desde Analytics tras generar una tesis con IA allá. Se
+// guarda en este navegador, igual que el resto del progreso sin cuenta
+// vinculada a un servidor externo — es una libreta personal, no una
+// operación real de compra.
+// ═══════════════════════════════════════════════════════════════════
+const TESIS_STORAGE_KEY = 'capitallab_mi_tesis_v1';
+
+function cargarMiTesis(){
+  try { const raw = localStorage.getItem(TESIS_STORAGE_KEY); return raw ? JSON.parse(raw) : []; }
+  catch(e){ return []; }
+}
+function guardarMiTesis(lista){
+  try { localStorage.setItem(TESIS_STORAGE_KEY, JSON.stringify(lista)); } catch(e){}
+}
+
+const TESIS_TIPO_LABEL = { accion:'Acción', bono:'Bono', divisa:'Divisa', futuro:'Futuro', derivado:'Derivado' };
+function renderFormularioTesis(){
+  const select = document.getElementById('tesis-form-activo');
+  if(!select) return;
+  const opciones = allAssets().map(a => `<option value="${a.id}|${a.type}">${a.ticker||a.name} · ${TESIS_TIPO_LABEL[a.type]||a.type}</option>`).join('');
+  select.innerHTML = opciones;
+}
+
+function agregarOpcionTesis(){
+  const select = document.getElementById('tesis-form-activo');
+  const razon = document.getElementById('tesis-form-razon').value.trim();
+  if(!select.value){ if(typeof notify==='function') notify('Elige un activo primero.', 'error'); return; }
+  if(!razon){ if(typeof notify==='function') notify('Escribe por qué elegirías esta opción.', 'error'); return; }
+  const [id, type] = select.value.split('|');
+  const asset = allAssets().find(a=>a.id===id && a.type===type);
+  if(!asset) return;
+  const lista = cargarMiTesis();
+  lista.unshift({
+    id: Date.now(),
+    ticker: asset.ticker || asset.name,
+    nombre: asset.name,
+    tipo: asset.type,
+    razon,
+    origen: 'manual',
+    fecha: new Date().toLocaleDateString('es-PA', {day:'2-digit', month:'short', year:'numeric'}),
+  });
+  guardarMiTesis(lista);
+  document.getElementById('tesis-form-razon').value = '';
+  renderMiTesis();
+  if(typeof notify==='function') notify('Agregado a tu tesis de inversión ✓', 'success');
+}
+
+function quitarOpcionTesis(id){
+  const lista = cargarMiTesis().filter(x => String(x.id) !== String(id));
+  guardarMiTesis(lista);
+  renderMiTesis();
+}
+
+function renderMiTesis(){
+  const lista = cargarMiTesis();
+  const cont = document.getElementById('tesis-lista');
+  const vacio = document.getElementById('tesis-lista-vacia');
+  if(!cont || !vacio) return;
+  if(!lista.length){ vacio.style.display='block'; cont.innerHTML=''; return; }
+  vacio.style.display='none';
+  const origenLabel = { analytics:'Traído de Analytics', academy:'Traído de Academy', manual:'Agregado a mano' };
+  const origenIcon = { analytics:'ti-chart-line', academy:'ti-school', manual:'ti-pencil' };
+  cont.innerHTML = lista.map(op => `
+    <div class="card" style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;">
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <b style="font-family:var(--font-mono);">${op.ticker}</b>
+          <span style="font-size:10px;color:var(--t3);background:var(--c2);padding:2px 8px;border-radius:10px;"><i class="ti ${origenIcon[op.origen]||'ti-pencil'}"></i> ${origenLabel[op.origen]||'Agregado a mano'}</span>
+        </div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.5;">${op.razon}</div>
+        <div style="font-size:10.5px;color:var(--t3);margin-top:6px;">${op.fecha}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="quitarOpcionTesis(${op.id})" title="Quitar"><i class="ti ti-trash"></i></button>
+    </div>
+  `).join('');
+}
+
+// ───── Enlace directo desde otra herramienta de CapitalLab ─────
+function aplicarEnlaceDirectoCapitalLab(){
+  const enlace = window.__enlaceDirectoCapitalLab;
+  if(!enlace) return;
+  const asset = allAssets().find(a => a.ticker === enlace.ticker && a.type === enlace.tipo)
+             || allAssets().find(a => a.ticker === enlace.ticker);
+  if(!asset){ window.__enlaceDirectoCapitalLab = null; return; }
+
+  if(enlace.tesis){
+    // Viene de Analytics con una tesis ya generada por IA — se
+    // registra automáticamente en Mi Tesis de Inversión, y se le
+    // avisa al estudiante de forma clara, sin que se pierda ese
+    // trabajo que ya hizo del otro lado.
+    const lista = cargarMiTesis();
+    const yaExiste = lista.some(x => x.ticker===asset.ticker && x.origen==='analytics' && x.razon===enlace.tesis);
+    if(!yaExiste){
+      lista.unshift({ id:Date.now(), ticker:asset.ticker||asset.name, nombre:asset.name, tipo:asset.type, razon:enlace.tesis, origen:'analytics', fecha:new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'short',year:'numeric'}) });
+      guardarMiTesis(lista);
+    }
+    goPage('tesis');
+    setTimeout(()=>{
+      const aviso = document.getElementById('tesis-import-aviso');
+      if(aviso){
+        aviso.style.display='block';
+        aviso.innerHTML = `<div class="card" style="border-color:var(--accent2);background:rgba(74,158,255,.08);"><i class="ti ti-chart-line" style="color:var(--accent2);"></i> Trajiste una tesis de <b>${asset.name}</b> desde Analytics, ya está guardada abajo. Puedes seguir agregando más opciones para comparar.</div>`;
+      }
+      renderMiTesis();
+    }, 200);
+  } else {
+    // Viene de Academy o de un enlace directo sin tesis — se lleva
+    // al estudiante directo al detalle de ese activo en el Mercado.
+    goPage('mercado');
+    setTimeout(()=>{ try { showAssetDetail(asset.id, asset.type); } catch(e){} }, 200);
+    if(enlace.origen==='academy' && typeof notify==='function'){
+      notify(`Llegaste desde Academy para practicar con ${asset.name} ✓`, 'success');
+    }
+  }
+  window.__enlaceDirectoCapitalLab = null;
+}
+
 function actualizarIndicadorSincronizacion(cantidadActualizados){
   let badge = document.getElementById('badge-datos-reales');
   if(!badge){

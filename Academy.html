@@ -7889,6 +7889,7 @@ function renderCase(){
         <div class="verdict-input">
           ${stage.verdictOptions.map(v=>`<div class="verdict-opt ${savedVerdict===v.v?'selected':''}" onclick="setVerdict('${v.v}')"><i class="ti ${savedVerdict===v.v?'ti-circle-check-filled':'ti-circle'}" style="color:${savedVerdict===v.v?'var(--ac)':'var(--t3)'}"></i><div><b>${v.label}</b><span>${v.desc}</span></div></div>`).join('')}
         </div>
+        ${c.tickerReal ? `<a href="Simulador.html?ticker=${encodeURIComponent(c.tickerReal)}&tipo=${c.tickerTipo||'accion'}&origen=academy" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="margin-top:12px;display:inline-flex;"><i class="ti ti-chart-candle"></i> Practicar este caso con datos reales en el Simulador</a>` : ''}
       </div>
       <div class="card" style="margin-bottom:16px;">
         <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:space-between;" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.ti-chevron-down,.ti-chevron-up').classList.toggle('ti-chevron-down');this.querySelector('.ti-chevron-down,.ti-chevron-up').classList.toggle('ti-chevron-up');">

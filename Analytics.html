@@ -1542,7 +1542,7 @@ function renderTesisIA(result, verdict, market, data){
   const clave = JSON.stringify({market, ticker:data.ticker, price:data.price, formulas:result.formulas.map(f=>f.valor)});
   const box = $('tesis-ia-box');
   if(tesisIACache[clave]){
-    box.innerHTML = tesisTextoHTML(tesisIACache[clave]);
+    box.innerHTML = tesisTextoHTML(tesisIACache[clave], data.ticker, market);
     return;
   }
   box.innerHTML = `
@@ -1554,12 +1554,27 @@ function renderTesisIA(result, verdict, market, data){
   box.dataset.claveTesis = clave;
 }
 
-function tesisTextoHTML(texto){
+function tesisTextoHTML(texto, ticker, market){
   const parrafos = texto.split(/\n+/).filter(p=>p.trim());
+  // Enlace directo al Simulador de CapitalLab — lleva el activo y un
+  // resumen de esta tesis, para que el estudiante no tenga que volver
+  // a explicar lo que ya pensó aquí. Solo se ofrece para acciones y
+  // divisas, los dos tipos que el Simulador también maneja con
+  // sincronización real; el mercado se traduce al tipo que el
+  // Simulador reconoce internamente.
+  const tipoSimulador = market === 'divisa' ? 'divisa' : 'accion';
+  const resumenCorto = texto.length > 220 ? texto.slice(0, 217) + '…' : texto;
+  const urlSimulador = ticker
+    ? `Simulador.html?ticker=${encodeURIComponent(ticker)}&tipo=${tipoSimulador}&origen=analytics&tesis=${encodeURIComponent(resumenCorto)}`
+    : null;
+  const botonSimulador = urlSimulador
+    ? `<a href="${urlSimulador}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="margin-top:10px;display:inline-flex;"><i class="ti ti-chart-candle"></i> Llevar esta tesis al Simulador</a>`
+    : '';
   return `
     <div class="card-title" style="display:flex;align-items:center;gap:8px;"><i class="ti ti-sparkles" style="color:var(--gold, #e8b94a);"></i> Tesis de inversión redactada con IA</div>
     ${parrafos.map(p=>`<p style="font-size:13px;color:var(--t2);line-height:1.65;margin-bottom:10px;">${p}</p>`).join('')}
     <div style="font-size:10.5px;color:var(--t3);margin-top:6px;">Generada automáticamente a partir de los indicadores calculados arriba. Revísala antes de usarla como parte de un informe formal.</div>
+    ${botonSimulador}
   `;
 }
 
@@ -1680,7 +1695,7 @@ async function generarTesisIA(){
     const box = $('tesis-ia-box');
     const clave = box.dataset.claveTesis;
     tesisIACache[clave] = resultado.tesis;
-    box.innerHTML = tesisTextoHTML(resultado.tesis);
+    box.innerHTML = tesisTextoHTML(resultado.tesis, data.ticker, market);
   } catch(e){
     msg.style.color = 'var(--red)';
     msg.textContent = 'No se pudo generar: ' + (e.message||e);
