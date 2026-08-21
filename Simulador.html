@@ -1369,6 +1369,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" onclick="saveCurrentPortfolio()"><i class="ti ti-device-floppy"></i> Guardar estrategia</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirAnalisisCarteraIA()"><i class="ti ti-brain"></i> Analizar mi cartera (IA)</button>
         <button class="btn btn-ghost btn-sm" onclick="togglePortfolioCompare()" id="compare-btn"><i class="ti ti-columns"></i> Comparar</button>
         <button class="btn btn-sm" onclick="abrirTarjetaCompartir()"><i class="ti ti-share"></i> Compartir</button>
         <button class="btn btn-sm" onclick="repetirUltimaOperacion()" id="btn-repetir-op" style="display:none;"><i class="ti ti-repeat"></i> Repetir última</button>
@@ -7567,6 +7568,54 @@ async function abrirMejoresInversionesIA(){
   </div>`;
   document.body.appendChild(overlay);
 }
+// ───── Analista de Cartera con IA — revisa las posiciones REALES ─────
+async function abrirAnalisisCarteraIA(){
+  if(!portfolio.length){ if(typeof notify==='function') notify('Tu cartera está vacía todavía, compra algo primero.', 'error'); return; }
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.id = 'cartera-ia-overlay';
+  overlay.innerHTML = `<div class="export-modal" style="max-width:560px;">
+    <button class="modal-close" onclick="document.getElementById('cartera-ia-overlay').remove()"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-brain" style="color:var(--gold, #e8b94a);"></i> Analista de Cartera con IA</h2>
+    <p style="font-size:12.5px;color:var(--t2, #b8c4dc);margin-bottom:14px;">La IA revisa tus posiciones reales de ahora mismo, no un ejemplo genérico, y te dice qué tan concentrada o diversificada está tu cartera.</p>
+    <div id="cartera-ia-resultado" style="text-align:center;padding:20px;color:var(--t3, #7a8ab0);">
+      <i class="ti ti-loader-2" style="font-size:24px;animation:girarSimIA 1s linear infinite;"></i>
+      <div style="margin-top:8px;font-size:12.5px;">Analizando tu cartera…</div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  if(!document.getElementById('sim-ia-estilo-girar')){
+    const st=document.createElement('style'); st.id='sim-ia-estilo-girar';
+    st.textContent='@keyframes girarSimIA{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
+  try {
+    const posiciones = portfolio.map(p => ({ name:p.name, ticker:p.ticker, type:p.type, qty:p.qty, invested:p.invested, buyPrice:p.buyPrice, currentPrice:p.currentPrice }));
+    const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SIM_IA_ANON_KEY,'Authorization':`Bearer ${SIM_IA_ANON_KEY}`},
+      body: JSON.stringify({ modo:'cartera', posiciones, perfilRiesgo: window.__perfilRiesgoDeclarado || 'moderado' }),
+    });
+    const d = await respuesta.json();
+    if(!d.ok) throw new Error(d.error||'Error desconocido.');
+
+    const iconoPorTipo = { concentracion:'ti-alert-triangle', riesgo:'ti-alert-triangle', diversificacion:'ti-info-circle', positivo:'ti-circle-check' };
+    const colorPorTipo = { concentracion:'var(--amber, #e8b94a)', riesgo:'var(--red, #ff4757)', diversificacion:'var(--accent2, #4a9eff)', positivo:'var(--green, #1e8e5a)' };
+    document.getElementById('cartera-ia-resultado').innerHTML = `
+      <div style="text-align:left;">
+        <p style="font-size:13.5px;color:var(--t1, #e8edf8);line-height:1.6;margin-bottom:14px;">${d.diagnostico}</p>
+        ${d.alertas.map(a => `<div style="display:flex;gap:10px;align-items:flex-start;background:var(--bg2, #10141d);border:1px solid var(--c4, #242d42);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+          <i class="ti ${iconoPorTipo[a.tipo]||'ti-info-circle'}" style="color:${colorPorTipo[a.tipo]||'var(--t2)'};font-size:16px;flex-shrink:0;margin-top:1px;"></i>
+          <span style="font-size:12.5px;color:var(--t2, #b8c4dc);line-height:1.5;">${a.mensaje}</span>
+        </div>`).join('')}
+        <div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:10px;">Generado con IA a partir de tus posiciones reales de ahora mismo. Revísalo con criterio propio.</div>
+      </div>
+    `;
+  } catch(e){
+    document.getElementById('cartera-ia-resultado').innerHTML = `<div style="color:var(--red, #ff4757);font-size:12.5px;text-align:left;">No se pudo generar el análisis: ${e.message||e}</div>`;
+  }
+}
+
 async function generarMejoresInversionesIA(){
   const perfil = document.getElementById('mejores-ia-perfil').value;
   const cont = document.getElementById('mejores-ia-resultado');
