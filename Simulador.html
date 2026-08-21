@@ -1533,6 +1533,12 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       </div>
       <div class="field"><label>Meta de rentabilidad (%)</label><input type="number" id="lab-target" value="8" oninput="updateLabConfig()"></div>
     </div>
+    <div class="card-title" style="font-size:12px;margin-top:14px;margin-bottom:8px;color:var(--t2);"><i class="ti ti-shield-lock" style="font-size:14px;"></i> Restricciones de la cartera (opcional)</div>
+    <div class="grid3">
+      <div class="field"><label>Riesgo máximo (σ %)</label><input type="number" id="lab-riesgo-max" placeholder="Sin límite" min="1" oninput="updateLabConfig()"></div>
+      <div class="field"><label>Máx. % por activo</label><input type="number" id="lab-max-por-activo" placeholder="Sin límite" min="5" max="100" oninput="updateLabConfig()"></div>
+      <div class="field"><label>Mín. tipos de mercado</label><input type="number" id="lab-min-diversificacion" placeholder="Sin mínimo" min="1" max="4" oninput="updateLabConfig()"></div>
+    </div>
     <div id="custom-lab-wrap" style="display:none;margin-bottom:12px;"><div class="field"><label>Meses (1–36)</label><input type="number" id="lab-custom-months" min="1" max="36" value="8" style="width:160px;" oninput="updateLabConfig()"></div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
       <div class="horizon-chip"><i class="ti ti-clock" style="font-size:12px;"></i> <b id="lab-horizon-show">6 meses</b></div>
@@ -3613,6 +3619,7 @@ async function abrirResumenParaPresentar(){
     <div id="rp-contenido"><div class="auth-hint">Preparando tu resumen…</div></div>
     <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
       <button class="btn btn-ghost" id="rp-cerrar" style="flex:1;min-width:100px;min-height:44px;">Cerrar</button>
+      <button class="btn btn-ghost" id="rp-informe" style="flex:1;min-width:140px;min-height:44px;border-color:var(--gold, #e8b94a);color:var(--gold, #e8b94a);"><i class="ti ti-brain"></i> Informe Académico (IA)</button>
       <button class="btn" id="rp-pdf" style="flex:1;min-width:100px;min-height:44px;"><i class="ti ti-file-type-pdf"></i> Exportar PDF</button>
       <button class="btn" id="rp-ppt" style="flex:1;min-width:100px;min-height:44px;background:rgba(212,102,0,.15);color:#e08000;"><i class="ti ti-presentation"></i> Exportar PPT</button>
     </div>
@@ -3625,6 +3632,91 @@ async function abrirResumenParaPresentar(){
   overlay.querySelector('#rp-contenido').innerHTML = renderResumenActividadesHTML(datos);
   overlay.querySelector('#rp-pdf').onclick = () => exportarResumenActividadesPDF(datos);
   overlay.querySelector('#rp-ppt').onclick = () => exportarResumenActividadesPPT(datos);
+  overlay.querySelector('#rp-informe').onclick = () => generarInformeAcademicoIA(datos, overlay);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INFORME ACADÉMICO CON IA — extiende el Resumen para presentar con
+// reflexión, errores detectados, y recomendaciones, basado siempre en
+// los datos reales de la sesión del estudiante. Nunca asigna una
+// calificación numérica, eso es exclusivo del profesor humano.
+// ═══════════════════════════════════════════════════════════════════
+async function generarInformeAcademicoIA(datos, overlay){
+  const cont = overlay.querySelector('#rp-contenido');
+  const botonInforme = overlay.querySelector('#rp-informe');
+  botonInforme.disabled = true; botonInforme.style.opacity = '.6';
+  botonInforme.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Generando…';
+  if(!document.getElementById('sim-ia-estilo-girar')){
+    const st=document.createElement('style'); st.id='sim-ia-estilo-girar';
+    st.textContent='@keyframes girarSimIA{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
+
+  const actividad = {
+    valorTotal: datos.valorTotal.toFixed(2),
+    retornoPct: datos.retornoPct.toFixed(1),
+    posiciones: datos.topPosiciones.map(p => ({ name:p.name, type:p.type, pesoPct: datos.valorTotal ? (((p.qty*(p.currentPrice||p.buyPrice))/datos.valorTotal)*100).toFixed(1) : 0, gananciaPct: p.buyPrice ? (((p.currentPrice-p.buyPrice)/p.buyPrice)*100).toFixed(1) : 0 })),
+    ordenes: datos.ordenes.map(o => ({ side:o.side, ticker:o.ticker, name:o.name, qty:o.qty })),
+    labSesiones: datos.labSesiones.map(l => ({ target:l.target, horizon:l.horizon, passed:l.passed })),
+    perfilDeclarado: window.__perfilRiesgoDeclarado || 'moderado',
+  };
+
+  try {
+    const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SIM_IA_ANON_KEY,'Authorization':`Bearer ${SIM_IA_ANON_KEY}`},
+      body: JSON.stringify({ modo:'informe_academico', actividad }),
+    });
+    const d = await respuesta.json();
+    if(!d.ok) throw new Error(d.error||'Error desconocido.');
+    cont.insertAdjacentHTML('beforeend', renderInformeAcademicoHTML(d, false));
+  } catch(e){
+    // Sin IA disponible — un informe básico por reglas fijas, con los
+    // mismos datos reales, para que el estudiante y el profesor nunca
+    // se queden sin nada que revisar.
+    cont.insertAdjacentHTML('beforeend', renderInformeAcademicoHTML(generarInformeAcademicoLocal(actividad), true));
+  } finally {
+    botonInforme.disabled = false; botonInforme.style.opacity='1'; botonInforme.innerHTML = '<i class="ti ti-brain"></i> Informe Académico (IA)';
+    botonInforme.style.display = 'none'; // ya se generó, no hace falta pedirlo de nuevo en esta misma vista
+  }
+}
+
+function renderInformeAcademicoHTML(d, esLocal){
+  const aviso = esLocal
+    ? `<div style="background:rgba(232,185,74,.1);border:1px solid var(--amber, #e8b94a);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:var(--amber, #e8b94a);"><i class="ti ti-plug-connected-x"></i> La IA no está disponible ahora mismo, este es un informe básico por reglas.</div>`
+    : '';
+  return `
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--c4);">
+      <div style="font-weight:700;font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:6px;"><i class="ti ti-brain" style="color:var(--gold, #e8b94a);"></i> Informe Académico</div>
+      ${aviso}
+      <div style="font-size:12.5px;color:var(--t2);margin-bottom:12px;"><b>Perfil observado:</b> ${d.perfilObservado}</div>
+      <div style="font-weight:600;font-size:12px;margin-bottom:5px;">Decisiones clave</div>
+      ${d.decisionesClave.map(x=>`<div style="font-size:12px;color:var(--t2);padding:4px 0 4px 14px;border-left:2px solid var(--accent2, #4a9eff);margin-bottom:4px;">${x}</div>`).join('')}
+      <div style="font-weight:600;font-size:12px;margin:12px 0 5px;">Riesgos o errores a revisar</div>
+      ${d.erroresPrincipales.map(x=>`<div style="font-size:12px;color:var(--t2);padding:4px 0 4px 14px;border-left:2px solid var(--red, #ff4757);margin-bottom:4px;">${x}</div>`).join('')}
+      <div style="font-weight:600;font-size:12px;margin:12px 0 5px;">Reflexión</div>
+      <p style="font-size:12.5px;color:var(--t2);line-height:1.6;">${d.reflexion}</p>
+      <div style="font-weight:600;font-size:12px;margin:12px 0 5px;">Recomendaciones para tu próxima sesión</div>
+      ${d.recomendaciones.map(x=>`<div style="font-size:12px;color:var(--t2);padding:4px 0 4px 14px;border-left:2px solid var(--green, #1e8e5a);margin-bottom:4px;">${x}</div>`).join('')}
+      <div style="font-size:10.5px;color:var(--t3);margin-top:12px;font-style:italic;">Este informe es una guía de reflexión, no una calificación. La evaluación formal corresponde a tu profesor.</div>
+    </div>
+  `;
+}
+
+function generarInformeAcademicoLocal(actividad){
+  const mayor = actividad.posiciones.reduce((a,b)=> (parseFloat(b.pesoPct)>parseFloat(a?.pesoPct||0) ? b : a), null);
+  const tiposDistintos = new Set(actividad.posiciones.map(p=>p.type));
+  const errores = [];
+  if(mayor && parseFloat(mayor.pesoPct) >= 40) errores.push(`${mayor.name} representa el ${mayor.pesoPct}% de tu cartera, una concentración alta en una sola posición.`);
+  if(tiposDistintos.size === 1 && actividad.posiciones.length) errores.push('Toda tu cartera está en un solo tipo de mercado, sin diversificar entre acciones, bonos, o divisas.');
+  if(!errores.length) errores.push('No se detectaron riesgos evidentes de concentración con las reglas básicas disponibles.');
+  return {
+    perfilObservado: `Con un retorno de ${actividad.retornoPct}% y ${actividad.posiciones.length} posiciones activas, tus decisiones reflejan un perfil ${Math.abs(actividad.retornoPct)>15?'más agresivo':'moderado'} en esta sesión.`,
+    decisionesClave: actividad.ordenes.slice(0,3).map(o => `${o.side==='buy'?'Compraste':'Vendiste'} ${o.qty} unidades de ${o.ticker||o.name}.`),
+    erroresPrincipales: errores,
+    reflexion: 'Este es un análisis básico por reglas fijas, no generado por IA. Revisa tus decisiones con tu profesor para una reflexión más completa.',
+    recomendaciones: ['Considera diversificar entre más tipos de mercado si tu cartera está concentrada en uno solo.', 'Compara tu retorno actual contra tu meta declarada al inicio de la sesión.'],
+  };
 }
 
 function renderResumenActividadesHTML(d){
@@ -7836,7 +7928,7 @@ function showAssetDetail(id,type){
     ['VaR 95% ('+hv.method+')',hv.pct.toFixed(1)+'%','r'],
     [asset.type==='accion'?'Beta (riesgo sist.)':asset.type==='bono'?'Cupón anual':'Volatilidad anual',
      asset.type==='accion'?(asset.beta||0).toFixed(2):asset.type==='bono'?(asset.coupon||0).toFixed(2)+'%':asset.sigma.toFixed(1)+'%',''],
-  ].map(([l,v,c])=>`<div class="detail-kpi"><div class="dk-label">${l}</div><div class="dk-val mono ${c}">${v}</div></div>`).join('');
+  ].map(([l,v,c])=>`<div class="detail-kpi"><div class="dk-label">${conAyuda(l)}</div><div class="dk-val mono ${c}">${v}</div></div>`).join('');
 
   document.getElementById('mkt-profile').innerHTML=buildProfile(asset);
   renderEnlaceYahooFinance(asset);
@@ -9945,14 +10037,14 @@ function renderAnalysis(id,type){
     ...(type==='bono'?[['Cupón',asset.coupon+'%','g'],['Calificación',asset.rating,'']]:[]),
     ...(type==='divisa'?[['Riesgo país',asset.rp+'%','r'],['Volatilidad',asset.sigma+'%','a']]:[]),
     ...(type==='futuro'||type==='derivado'?[['Sector',asset.sector,''],['País/Región',asset.country,'']]:[]),
-  ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);"><span style="color:var(--t2);">${l}</span><span class="mono ${c}">${v}</span></div>`).join('')}</div>`;
+  ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);"><span style="color:var(--t2);">${conAyuda(l)}</span><span class="mono ${c}">${v}</span></div>`).join('')}</div>`;
 
   document.getElementById('an-stats-table').innerHTML=[
     ['Retorno esperado',asset.ret.toFixed(1)+'%',type==='bono'?'>4%':'>8%',asset.ret>=(type==='bono'?4:8)?'<span class="badge badge-green">Favorable</span>':'<span class="badge badge-amber">Revisar</span>'],
     ['Volatilidad σ',asset.sigma.toFixed(1)+'%','<15%',asset.sigma<15?'<span class="badge badge-green">Controlada</span>':asset.sigma<30?'<span class="badge badge-amber">Moderada</span>':'<span class="badge badge-red">Alta</span>'],
     ['Ratio Sharpe',sh.toFixed(2),'>0.5',sh>0.5?'<span class="badge badge-green">Eficiente</span>':sh>0?'<span class="badge badge-amber">Aceptable</span>':'<span class="badge badge-red">Ineficiente</span>'],
     ['VaR 95% ('+anVaR.method+')',anVaR.pct.toFixed(1)+'%',anVaR.method.indexOf('sesión')>=0?'<5%':'<20%',anVaR.pct<(anVaR.method.indexOf('sesión')>=0?5:20)?'<span class="badge badge-green">Manejable</span>':'<span class="badge badge-red">Elevado</span>'],
-  ].map(r=>`<tr><td>${r[0]}</td><td class="mono">${r[1]}</td><td class="mono" style="color:var(--t3);">${r[2]}</td><td>${r[3]}</td></tr>`).join('');
+  ].map(r=>`<tr><td>${conAyuda(r[0])}</td><td class="mono">${r[1]}</td><td class="mono" style="color:var(--t3);">${r[2]}</td><td>${r[3]}</td></tr>`).join('');
 
   // ── Remove previous extra panels ──
   ['an-financials','an-gdp','an-specs','an-bond-doc','an-fut-mkt','an-deriv-greeks','an-cashflow'].forEach(id=>{const el=document.getElementById(id);if(el)el.remove();});
@@ -10144,7 +10236,7 @@ function renderAnalysis(id,type){
             ['Duración modificada',modDur+'',''],
             ['DV01 (valor bp)','$'+dv01,'r'],
             ['Calificación crediticia',asset.rating,asset.rating.startsWith('A')?'g':asset.rating.startsWith('B')?'a':'r'],
-          ].map(([l,v,c])=>`<div class="metric"><div class="metric-label">${l}</div><div class="metric-val ${c}" style="font-size:16px;">${v}</div></div>`).join('')}
+          ].map(([l,v,c])=>`<div class="metric"><div class="metric-label">${conAyuda(l)}</div><div class="metric-val ${c}" style="font-size:16px;">${v}</div></div>`).join('')}
         </div>
         <div class="grid2" style="gap:14px;">
           <div>
@@ -10199,7 +10291,7 @@ function renderAnalysis(id,type){
             ['Inflación anual',g.inflation+'%',g.inflation<4?'g':g.inflation<8?'a':'r'],
             ['Desempleo',g.unemployment+'%',g.unemployment<5?'g':g.unemployment<10?'a':'r'],
             ['Calificación S&P',g.rating,g.rating.startsWith('A')?'g':g.rating.startsWith('B')?'a':'r'],
-          ].map(([l,v,c])=>`<div class="metric"><div class="metric-label">${l}</div><div class="metric-val ${c}">${v}</div></div>`).join('')}
+          ].map(([l,v,c])=>`<div class="metric"><div class="metric-label">${conAyuda(l)}</div><div class="metric-val ${c}">${v}</div></div>`).join('')}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div>
@@ -10265,7 +10357,7 @@ function renderAnalysis(id,type){
             ['Estado de la curva',asset.curveState,asset.curveState==='Contango'?'a':'g'],
             ['Interés abierto',asset.openInterest.toLocaleString('es-PA')+' K',''],
             ['Vencimiento',asset.expiry||'Trimestral',''],
-          ].map(([l,v,c])=>`<div class="metric"><div class="metric-label">${l}</div><div class="metric-val ${c}" style="font-size:15px;">${v}</div></div>`).join('')}
+          ].map(([l,v,c])=>`<div class="metric"><div class="metric-label">${conAyuda(l)}</div><div class="metric-val ${c}" style="font-size:15px;">${v}</div></div>`).join('')}
         </div>
         <div class="info-box ${asset.curveState==='Contango'?'warn':'success'}" style="margin:0;">
           <b>${asset.curveState}:</b> ${asset.curveState==='Contango'
@@ -10295,7 +10387,7 @@ function renderAnalysis(id,type){
             ['Vega (ν)',asset.vega.toFixed(2),'','Sensibilidad a la volatilidad'],
             ['Volatilidad implícita',asset.impliedVol.toFixed(1)+'%','a','IV del contrato'],
             ['Precio de ejercicio','$'+fmt(asset.strike),'','Strike'],
-          ].map(([l,v,c,t])=>`<div class="metric" title="${t}"><div class="metric-label">${l}</div><div class="metric-val ${c}" style="font-size:15px;">${v}</div></div>`).join('')}
+          ].map(([l,v,c,t])=>`<div class="metric" title="${t}"><div class="metric-label">${conAyuda(l)}</div><div class="metric-val ${c}" style="font-size:15px;">${v}</div></div>`).join('')}
         </div>
         <div class="info-box" style="margin:0;">
           <b>Situación del contrato — ${estado}:</b> Un delta de <b>${asset.delta.toFixed(2)}</b> implica que el derivado se mueve aproximadamente <b>$${(asset.delta).toFixed(2)}</b> por cada $1 de movimiento del subyacente. El theta de <b>${asset.theta.toFixed(3)}</b> refleja la pérdida de valor temporal por día; la volatilidad implícita de <b>${asset.impliedVol.toFixed(1)}%</b> es el principal determinante de la prima.
@@ -10649,7 +10741,7 @@ function renderPortfolio(){
             ['VaR 95% (diversificado)','$'+fmt(var95),'r'],
             ['Posiciones ganadoras',winners.length+' / '+portfolio.length+' ('+winRate+'%)',winRate>=50?'g':'r'],
             ['Posiciones perdedoras',losers.length+' / '+portfolio.length,''],
-          ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);"><span style="color:var(--t2);">${l}</span><span class="mono ${c}" style="font-weight:500;">${v}</span></div>`).join('')}
+          ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);"><span style="color:var(--t2);">${conAyuda(l)}</span><span class="mono ${c}" style="font-weight:500;">${v}</span></div>`).join('')}
         </div>
         <div>
           <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Dictamen del analista</div>
@@ -10806,6 +10898,15 @@ function updateLabConfig(){
   labConfig.capital=Math.max(1000, +document.getElementById('lab-capital').value||50000);
   labConfig.horizon=getLabMonths();
   labConfig.target=+document.getElementById('lab-target').value||8;
+  // Restricciones opcionales del profesor — si el campo queda vacío,
+  // no hay límite en esa dimensión (undefined, no cero, para no
+  // confundir "sin límite" con "límite de cero por ciento").
+  const riesgoMax = document.getElementById('lab-riesgo-max')?.value;
+  const maxPorActivo = document.getElementById('lab-max-por-activo')?.value;
+  const minDiversificacion = document.getElementById('lab-min-diversificacion')?.value;
+  labConfig.riesgoMaximo = riesgoMax ? +riesgoMax : undefined;
+  labConfig.maxPorActivo = maxPorActivo ? +maxPorActivo : undefined;
+  labConfig.minDiversificacion = minDiversificacion ? +minDiversificacion : undefined;
   document.getElementById('lab-horizon-show').textContent=labConfig.horizon+' meses';
   document.getElementById('lab-target-show').textContent=labConfig.target+'%';
   document.getElementById('lab-capital-show').textContent=labConfig.capital.toLocaleString('es-PA');
@@ -10922,6 +11023,29 @@ function simulateLab(){
   const indepSig    = Math.sqrt(Math.pow(pb*sigB,2)+Math.pow(pa*sigA,2)+Math.pow(pd*sigD,2)+Math.pow(pf*sigF,2)+Math.pow(pdv*sigDV,2)); // caso ρ=0
   // Interpolación por correlación: σ² = ρ·(Σwσ)² + (1−ρ)·Σ(wσ)²
   const sigPort = Math.sqrt(RHO*Math.pow(weightedSig,2) + (1-RHO)*Math.pow(indepSig,2));
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // VERIFICACIÓN DE RESTRICCIONES — antes de gastar la simulación
+  // Monte Carlo completa, se compara la cartera propuesta contra las
+  // reglas reales que puso el profesor (si las puso). Cada violación
+  // se calcula con el número real, no una advertencia genérica.
+  // ═══════════════════════════════════════════════════════════════
+  const restricciones = [];
+  if(labConfig.riesgoMaximo){
+    const cumple = sigPort <= labConfig.riesgoMaximo;
+    restricciones.push({ nombre:'Riesgo máximo', limite:`${labConfig.riesgoMaximo}%`, real:`${sigPort.toFixed(1)}%`, cumple, exceso: cumple?0:(((sigPort-labConfig.riesgoMaximo)/labConfig.riesgoMaximo)*100) });
+  }
+  if(labConfig.maxPorActivo){
+    const mayorPct = Math.max(pb,pa,pd,pf,pdv)*100;
+    const cumple = mayorPct <= labConfig.maxPorActivo;
+    restricciones.push({ nombre:'Concentración máxima', limite:`${labConfig.maxPorActivo}%`, real:`${mayorPct.toFixed(0)}%`, cumple, exceso: cumple?0:(((mayorPct-labConfig.maxPorActivo)/labConfig.maxPorActivo)*100) });
+  }
+  if(labConfig.minDiversificacion){
+    const tiposUsados = [pb,pa,pd,pf,pdv].filter(p=>p>0).length;
+    const cumple = tiposUsados >= labConfig.minDiversificacion;
+    restricciones.push({ nombre:'Diversificación mínima', limite:`${labConfig.minDiversificacion} tipos`, real:`${tiposUsados} tipos`, cumple, exceso:0 });
+  }
+  window.__ultimasRestriccionesLab = restricciones;
   // Amplificación especulativa del laboratorio (1.5×–3× según perfil de agresividad).
   const ampFactor = document.getElementById('lab-perfil').value==='agresivo'?3.0:document.getElementById('lab-perfil').value==='moderado'?2.0:1.5;
   const sigAmp    = sigPort * ampFactor;
@@ -11043,6 +11167,15 @@ function simulateLab(){
       <div style="font-size:15px;font-weight:600;color:${passed?'var(--green)':achieved>0?'var(--amber)':'var(--red)'};margin-bottom:4px;">${passed?'✓ Meta alcanzada':'✗ Meta no alcanzada'} — <b>${calific}</b></div>
       <div style="font-size:12px;color:var(--t2);">Estrategia: <b style="color:var(--t1);">${strat}</b> · ${months} meses · ${document.getElementById('lab-perfil').value} · Portafolio: <b style="color:var(--accent2);">${pickedNames}</b></div>
     </div>
+    ${(window.__ultimasRestriccionesLab||[]).length ? `
+    <div style="margin-bottom:14px;">
+      <div style="font-weight:600;font-size:12.5px;margin-bottom:8px;"><i class="ti ti-shield-lock"></i> Cumplimiento de restricciones del profesor</div>
+      ${window.__ultimasRestriccionesLab.map(r => `
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:7px 10px;background:${r.cumple?'rgba(0,208,132,.08)':'rgba(255,71,87,.08)'};border-left:3px solid ${r.cumple?'var(--green)':'var(--red)'};border-radius:4px;margin-bottom:5px;">
+          <span>${r.cumple?'✓':'✗'} <b>${r.nombre}</b>: límite ${r.limite}, tu cartera ${r.real}${!r.cumple && r.exceso>0 ? ` <span style="color:var(--red);">(${r.exceso.toFixed(0)}% por encima del permitido)</span>` : ''}</span>
+        </div>
+      `).join('')}
+    </div>` : ''}
     <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
       <div class="kpi"><div class="kpi-label">Capital inicial</div><div class="kpi-val mono">$${fmt(init)}</div></div>
       <div class="kpi"><div class="kpi-label">Capital final</div><div class="kpi-val ${achieved>=0?'g':'r'}">$${fmt(finalVal)}</div></div>
@@ -11151,7 +11284,7 @@ function renderLabHistory(){
         ['Rentabilidad prom.', (avgRet>=0?'+':'')+avgRet.toFixed(2)+'%', avgRet>=0?'var(--green)':'var(--red)'],
       ].map(([l,v,c])=>`
         <div class="metric" style="border-color:rgba(0,196,255,.12);">
-          <div class="metric-label">${l}</div>
+          <div class="metric-label">${conAyuda(l)}</div>
           <div class="metric-val mono" style="color:${c};">${v}</div>
         </div>`).join('')}
     </div>
@@ -11323,7 +11456,7 @@ function renderResultsLab(){
                 ['Ops. en mercado',h.txCount,''],
               ].map(([l,v,c])=>`
                 <div style="background:var(--c3);border-radius:var(--r);padding:8px 10px;">
-                  <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">${l}</div>
+                  <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">${conAyuda(l)}</div>
                   <div class="mono ${c}" style="font-size:13px;font-weight:500;">${v}</div>
                 </div>`).join('')}
             </div>
@@ -11664,7 +11797,7 @@ function renderResults(){
             ['Alfa vs. tasa libre de riesgo',      retPct>=RF?'Generación de alfa':'Destrucción de valor', retPct>=RF?'g':'r'],
           ].map(([l,v,c])=>`
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);">
-              <span style="color:var(--t2);">${l}</span>
+              <span style="color:var(--t2);">${conAyuda(l)}</span>
               <span class="mono ${c}" style="font-weight:500;">${v}</span>
             </div>`).join('')}
         </div>
@@ -11683,7 +11816,7 @@ function renderResults(){
             ['Tasa de acierto (win rate)',         winners.length+' / '+portfolio.length+' ('+winRate.toFixed(0)+'%)', winRate>=50?'g':'r'],
           ].map(([l,v,c])=>`
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);">
-              <span style="color:var(--t2);">${l}</span>
+              <span style="color:var(--t2);">${conAyuda(l)}</span>
               <span class="mono ${c}" style="font-weight:500;">${v}</span>
             </div>`).join('')}
         </div>
@@ -12493,7 +12626,7 @@ function updateMarketToolbar(asset) {
       ['VaR 95% (' + hv.method + ')', hv.pct.toFixed(1) + '%', 'r'],
       [asset.type === 'accion' ? 'Beta (riesgo sist.)' : asset.type === 'bono' ? 'Cupón anual' : 'Volatilidad anual',
        asset.type === 'accion' ? (asset.beta||0).toFixed(2) : asset.type === 'bono' ? (asset.coupon||0).toFixed(2) + '%' : asset.sigma.toFixed(1) + '%', ''],
-    ].map(([l, v, c]) => `<div class="detail-kpi"><div class="dk-label">${l}</div><div class="dk-val mono ${c}">${v}</div></div>`).join('');
+    ].map(([l, v, c]) => `<div class="detail-kpi"><div class="dk-label">${conAyuda(l)}</div><div class="dk-val mono ${c}">${v}</div></div>`).join('');
     // Flash the live price KPI
     const liveKpi = kpis.children[1]?.querySelector('.dk-val');
     if (liveKpi) { liveKpi.classList.remove('price-flash-up','price-flash-dn'); void liveKpi.offsetWidth; liveKpi.classList.add(chg >= 0 ? 'price-flash-up' : 'price-flash-dn'); }
@@ -13508,6 +13641,19 @@ const GLOSARIO_TERMINOS = {
   'calificación': 'Una nota que mide qué tan probable es que un emisor de deuda pague lo que debe. Entre más alta, más seguro se considera.',
 };
 
+// Envuelve una etiqueta técnica con su ícono de ayuda directamente al
+// generarla — para los paneles de indicadores y tablas de resultados
+// que usan <span> y <td> con estilo en línea, en vez de las clases
+// .metric-label/.profile-key que sí cubre el escaneo automático de
+// aplicarAyudaTerminos(). Sin esto, "Ratio Sharpe" y otros términos no
+// aparecían con su explicación en los lugares donde más se consultan:
+// el panel de Indicadores clave y la tabla de resultados de un activo.
+function conAyuda(texto){
+  const explicacion = GLOSARIO_TERMINOS[texto.trim().toLowerCase()];
+  if(!explicacion) return texto;
+  return `${texto}<i class="ti ti-info-circle icono-ayuda-termino" data-explicacion="${explicacion.replace(/"/g,'&quot;')}" style="font-size:11px;margin-left:4px;color:var(--t3);cursor:pointer;vertical-align:middle;"></i>`;
+}
+
 function iniciarAyudaTerminos(){
   if(window.__ayudaTerminosIniciada) return;
   window.__ayudaTerminosIniciada = true;
@@ -14012,7 +14158,7 @@ function renderPortfolioCompare(){
         ['Operaciones ejecutadas',p.txCount||0,''],
       ].map(([l,v,c])=>`
         <div class="pcc-metric">
-          <span style="color:var(--t2);">${l}</span>
+          <span style="color:var(--t2);">${conAyuda(l)}</span>
           <span class="mono ${c}">${v}</span>
         </div>`).join('')}
     </div>`).join('');
@@ -14217,7 +14363,7 @@ function renderTeacher(){
     ['Retorno promedio', avg('retPct').toFixed(2)+'%', avg('retPct')>=0?'g':'r'],
     ['Sharpe promedio', avg('sharpe').toFixed(2), ''],
     ['Mejor desempeño', best?best.student:'—', 'g'],
-  ].map(([l,v,c])=>`<div class="prof-stat-card"><div class="prof-stat-lbl">${l}</div><div class="prof-stat-val ${c}">${v}</div></div>`).join('');
+  ].map(([l,v,c])=>`<div class="prof-stat-card"><div class="prof-stat-lbl">${conAyuda(l)}</div><div class="prof-stat-val ${c}">${v}</div></div>`).join('');
 
   // Tabla de clasificación
   const thead = document.querySelector('#prof-table thead');
@@ -14307,7 +14453,7 @@ function openStudentDetail(name){
     ['Operaciones', r.txCount, ''],
     ['Posiciones', r.posCount, ''],
     ['Capital efectivo', '$'+fmt(r.capital), ''],
-  ].map(([l,v,c])=>`<div class="metric"><div class="metric-label">${l}</div><div class="metric-val ${c}" style="font-size:16px;">${v}</div></div>`).join('');
+  ].map(([l,v,c])=>`<div class="metric"><div class="metric-label">${conAyuda(l)}</div><div class="metric-val ${c}" style="font-size:16px;">${v}</div></div>`).join('');
 
   let body = `<div class="prof-detail-kpis">${kpis}</div>`;
 
