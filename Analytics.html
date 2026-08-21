@@ -1572,8 +1572,14 @@ function tesisTextoHTML(texto, ticker, market){
     : '';
   return `
     <div class="card-title" style="display:flex;align-items:center;gap:8px;"><i class="ti ti-sparkles" style="color:var(--gold, #e8b94a);"></i> Tesis de inversión redactada con IA</div>
-    ${parrafos.map(p=>`<p style="font-size:13px;color:var(--t2);line-height:1.65;margin-bottom:10px;">${p}</p>`).join('')}
-    <div style="font-size:10.5px;color:var(--t3);margin-top:6px;">Generada automáticamente a partir de los indicadores calculados arriba. Revísala antes de usarla como parte de un informe formal.</div>
+    <div style="background:linear-gradient(135deg, var(--c2, #18212f), var(--c1, #131a26));border:1px solid var(--gold, #e8b94a);border-left-width:3px;border-radius:10px;padding:20px 22px;margin-top:6px;">
+      <div style="font-family:Georgia,'Times New Roman',serif;font-size:34px;color:var(--gold, #e8b94a);opacity:.4;line-height:.3;margin-bottom:8px;">&ldquo;</div>
+      ${parrafos.map((p,i)=>`<p style="font-family:Georgia,'Times New Roman',serif;font-size:14.5px;color:var(--t1, #eef3fb);line-height:1.75;margin-bottom:12px;letter-spacing:.1px;">${p}</p>`).join('')}
+      <div style="display:flex;align-items:center;gap:6px;margin-top:12px;padding-top:10px;border-top:1px solid var(--c4, #2a3850);">
+        <i class="ti ti-cpu" style="font-size:12px;color:var(--t3);"></i>
+        <span style="font-size:10.5px;color:var(--t3);font-style:italic;">Generada automáticamente a partir de los indicadores calculados arriba. Revísala antes de usarla como parte de un informe formal.</span>
+      </div>
+    </div>
     ${botonSimulador}
   `;
 }
@@ -1592,28 +1598,40 @@ function generarReporteProfesional(){
   const nombreActivo = data.ticker || m.name;
   const fecha = new Date().toLocaleDateString('es-PA', { year:'numeric', month:'long', day:'numeric' });
 
+  // Los campos reales que genera el motor de análisis son name, cat,
+  // value, valLabel, interp — no los nombres en español que se
+  // usaban antes, que nunca existieron en el objeto real y por eso
+  // la tabla completa salía en blanco ("undefined" en cada celda).
   const filasIndicadores = result.formulas.map(f => `
     <tr>
-      <td style="font-weight:700;">${f.nombre}</td>
-      <td style="text-align:center;">${f.categoria}</td>
-      <td style="text-align:right;font-family:'Courier New',monospace;">${f.valor}${f.unidad?' '+f.unidad:''}</td>
+      <td style="font-weight:700;">${f.name}</td>
+      <td style="text-align:center;">${f.cat}</td>
+      <td style="text-align:right;font-family:'Courier New',monospace;">${typeof f.value==='number' ? f.value.toFixed(2) : f.value}${f.valLabel?' '+f.valLabel:''}</td>
     </tr>
-    <tr><td colspan="3" style="font-size:11px;color:#555;padding-top:0;padding-bottom:10px;">${f.interpretacion}</td></tr>
+    <tr><td colspan="3" style="font-size:11px;color:#555;padding-top:0;padding-bottom:10px;">${f.interp||''}</td></tr>
   `).join('');
 
   // La tesis de IA solo se incluye si el usuario ya la generó en
   // pantalla — el reporte nunca la genera de nuevo por su cuenta.
+  // El diseño usa una tipografía serif para el cuerpo (como una
+  // carta de un analista real) y una cita de apertura destacada,
+  // en vez del mismo párrafo plano del resto del documento.
   const tesisCacheada = Object.values(tesisIACache)[0];
+  const parrafosTesis = tesisCacheada ? tesisCacheada.split(/\n+/).filter(p=>p.trim()) : [];
   const seccionTesis = tesisCacheada ? `
     <h2>Tesis de inversión</h2>
-    ${tesisCacheada.split(/\n+/).filter(p=>p.trim()).map(p=>`<p>${p}</p>`).join('')}
+    <div class="tesis-box">
+      <div class="tesis-marca"><i>“</i></div>
+      ${parrafosTesis.map((p,i)=>`<p class="${i===0?'tesis-primer-parrafo':''}">${p}</p>`).join('')}
+      <div class="tesis-firma">Generado por el motor de análisis de CapitalLab, con inteligencia artificial · Gemini</div>
+    </div>
   ` : `
     <h2>Tesis de inversión</h2>
     <p style="color:#777;font-style:italic;">No se generó una tesis redactada para este análisis. Puede generarla desde la pantalla de resultados antes de exportar el reporte, si desea incluirla.</p>
   `;
 
   const cuerpo = `
-    <h1>Análisis de Inversión — ${nombreActivo}</h1>
+    <h1>Análisis de Inversión &middot; ${nombreActivo}</h1>
     <div class="sub">${m.name} · CapitalLab Analytics · ${fecha}</div>
 
     <h2>Veredicto</h2>
@@ -1623,6 +1641,7 @@ function generarReporteProfesional(){
       <tr><td style="padding:6px 0;">Puntaje de riesgo</td><td style="text-align:right;">${verdict.riskScore?.toFixed?.(1) ?? verdict.riskScore}/100</td></tr>
       <tr><td style="padding:6px 0;">Puntaje de atractivo</td><td style="text-align:right;">${verdict.attract?.toFixed?.(1) ?? verdict.attract}/100</td></tr>
     </table>
+    <p style="font-size:12.5px;color:#444;margin-bottom:20px;">${verdict.desc||''}</p>
 
     <h2>Indicadores calculados</h2>
     <table style="width:100%;border-collapse:collapse;">
@@ -1652,6 +1671,14 @@ function abrirVentanaImpresionAnalytics(tituloDoc, cuerpoHtml){
       p{font-size:13px;text-align:justify;margin-bottom:10px;}
       table{font-size:12.5px;}
       td,th{border-bottom:1px solid #ddd;}
+      /* Tesis de inversión: tipografía serif como una carta de un
+         analista real, con una marca de cita y letra capital en el
+         primer párrafo, distinta del resto del reporte a propósito. */
+      .tesis-box{background:#fbfaf7;border:1px solid #e3ddd0;border-left:4px solid #b8860b;border-radius:4px;padding:24px 28px;margin-top:8px;position:relative;}
+      .tesis-box p{font-family:Georgia,'Times New Roman',serif;font-size:14px;line-height:1.75;color:#2a2a2a;text-align:justify;margin-bottom:12px;}
+      .tesis-marca{font-family:Georgia,serif;font-size:52px;color:#b8860b;opacity:.35;line-height:0.4;margin-bottom:6px;}
+      .tesis-primer-parrafo::first-letter{font-family:Georgia,serif;font-size:38px;font-weight:700;color:#1a2b4a;float:left;line-height:0.8;margin:4px 6px 0 0;}
+      .tesis-firma{font-family:Arial,sans-serif;font-size:10px;color:#999;text-align:right;margin-top:10px;font-style:italic;}
       @media print{ body{padding:0;} }
     </style></head><body>${cuerpoHtml}
     <script>window.onload=()=>{window.print();};<\/script>

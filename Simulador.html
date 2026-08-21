@@ -199,12 +199,32 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 @keyframes newsIn{from{opacity:0;transform:translateX(-6px);}to{opacity:1;transform:none;}}
 
 /* ── MARKET + NEWS LAYOUT ── */
-.market-with-news{display:grid;grid-template-columns:1fr 270px;height:100%;overflow:hidden;}
-.market-news-panel{border-left:1px solid var(--c4);background:var(--c1);display:flex;flex-direction:column;overflow:hidden;}
-.news-panel-header{padding:8px 12px;border-bottom:1px solid var(--c4);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--c2);}
-.news-panel-title{font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;}
-.news-count-badge{font-size:9px;padding:1px 7px;border-radius:10px;background:rgba(0,196,255,.15);color:var(--accent2);font-weight:700;}
-@media(max-width:768px){.market-with-news{grid-template-columns:1fr;}.market-news-panel{display:none;}}
+.market-with-news{display:grid;grid-template-columns:1fr 270px;height:100%;overflow:hidden;transition:grid-template-columns .25s ease;}
+.market-with-news.news-colapsada{grid-template-columns:1fr 0px;}
+.market-news-panel{border-left:1px solid var(--c4);background:var(--c1);display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.news-panel-header{padding:8px 12px;border-bottom:1px solid var(--c4);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--c2);gap:6px;}
+.news-panel-title{font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.news-count-badge{font-size:9px;padding:1px 7px;border-radius:10px;background:rgba(0,196,255,.15);color:var(--accent2);font-weight:700;flex-shrink:0;}
+.btn-ocultar-noticias{background:transparent;border:none;color:var(--t3);cursor:pointer;padding:3px 5px;border-radius:5px;flex-shrink:0;display:flex;align-items:center;}
+.btn-ocultar-noticias:hover{background:var(--c3);color:var(--t1);}
+/* Botón para volver a mostrar el panel una vez colapsado en escritorio/tablet — flotante, pegado al borde derecho */
+.btn-reabrir-noticias{position:absolute;top:50%;right:0;transform:translateY(-50%);background:var(--c2);border:1px solid var(--c4);border-right:none;border-radius:8px 0 0 8px;padding:10px 6px;cursor:pointer;color:var(--t2);z-index:50;display:none;align-items:center;}
+.btn-reabrir-noticias:hover{color:var(--accent2);background:var(--c3);}
+.market-with-news.news-colapsada .btn-reabrir-noticias{display:flex;}
+
+@media(max-width:768px){
+  /* En móvil, el panel deja de competir por espacio con el gráfico —
+     se convierte en un panel deslizante que se abre solo cuando el
+     estudiante lo pide, en vez de estar completamente inaccesible
+     como antes (que era la única opción: oculto siempre, sin forma
+     de verlo sin ir a la página completa de Noticias). */
+  .market-with-news{grid-template-columns:1fr;position:relative;}
+  .market-news-panel{position:fixed;top:0;right:0;bottom:0;width:min(85vw,340px);z-index:900;transform:translateX(100%);transition:transform .25s ease;box-shadow:-8px 0 24px rgba(0,0,0,.4);}
+  .market-news-panel.news-movil-abierta{transform:translateX(0);}
+  .btn-reabrir-noticias{display:flex !important;position:fixed;top:auto;bottom:90px;right:14px;transform:none;border-radius:50%;width:44px;height:44px;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.35);z-index:800;}
+  .news-panel-overlay-movil{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:890;}
+  .news-panel-overlay-movil.activo{display:block;}
+}
 .page{display:none;padding:20px 24px;max-width:1280px;margin:0 auto;}
 .page.active{display:block;animation:fadeIn .2s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -1139,7 +1159,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
 <!-- ════════ MERCADO ════════ -->
 <div id="page-mercado" class="page" style="padding:0;max-width:100%;">
-  <div class="market-with-news">
+  <div class="market-with-news" id="market-with-news">
   <div class="market-main" style="display:flex;flex-direction:column;height:calc(var(--vh,1vh)*100 - 128px);overflow:hidden;">
       <div class="market-toolbar" id="mkt-toolbar">
         <div>
@@ -1253,10 +1273,11 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     </div>
 
   <!-- ── NEWS PANEL ── -->
-  <div class="market-news-panel">
+  <div class="market-news-panel" id="market-news-panel">
     <div class="news-panel-header">
       <span class="news-panel-title"><i class="ti ti-broadcast" style="color:var(--accent2);font-size:12px;"></i> Noticias del Mercado</span>
       <span class="news-count-badge" id="news-unread-count" style="display:none;">0</span>
+      <button class="btn-ocultar-noticias" onclick="alternarPanelNoticias()" title="Ocultar panel de noticias"><i class="ti ti-x" style="font-size:14px;"></i></button>
     </div>
     <div class="news-feed" id="news-feed-list">
       <div class="news-empty">
@@ -1265,6 +1286,12 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
       </div>
     </div>
   </div>
+
+  <button class="btn-reabrir-noticias" id="btn-reabrir-noticias" onclick="alternarPanelNoticias()" title="Mostrar noticias del mercado">
+    <i class="ti ti-broadcast" style="font-size:16px;"></i>
+    <span class="news-count-badge" id="news-unread-count-flotante" style="display:none;position:absolute;top:-4px;right:-4px;">0</span>
+  </button>
+  <div class="news-panel-overlay-movil" id="news-panel-overlay-movil" onclick="alternarPanelNoticias()"></div>
 
   </div><!-- /market-with-news -->
 </div>
@@ -7499,6 +7526,23 @@ function tesisSimuladorHTML(texto){
     ${parrafos.map(p=>`<p style="font-size:12.5px;color:var(--t2, #b8c4dc);line-height:1.6;margin-bottom:8px;">${p}</p>`).join('')}
   </div>`;
 }
+function generarTesisLocal(asset){
+  // Umbrales simples y transparentes, sobre los datos reales del
+  // activo — sin el matiz de un análisis de IA, pero siempre cierto.
+  let calificacionRiesgo, explicacion;
+  if(asset.type==='bono'){
+    calificacionRiesgo = (asset.rating||'').startsWith('A') ? 'bajo' : 'moderado';
+    explicacion = `Cupón de ${asset.coupon}%, TIR de ${asset.ytm}%, calificación ${asset.rating}, duración ${asset.duration}. Un riesgo ${calificacionRiesgo} típico de un instrumento de renta fija con esta calificación.`;
+  } else if(asset.type==='divisa'){
+    calificacionRiesgo = asset.sigma < 10 ? 'bajo' : (asset.sigma < 20 ? 'moderado' : 'alto');
+    explicacion = `Volatilidad anualizada de ${asset.sigma}%, retorno esperado histórico de ${asset.ret}%. Riesgo ${calificacionRiesgo} para un par de divisas.`;
+  } else {
+    calificacionRiesgo = asset.beta < 0.9 ? 'bajo' : (asset.beta < 1.3 ? 'moderado' : 'alto');
+    explicacion = `Beta de ${asset.beta}, volatilidad de ${asset.sigma}%, calificación ${asset.rating}. Riesgo ${calificacionRiesgo} frente al mercado general, con un retorno esperado histórico de ${asset.ret}%.`;
+  }
+  return `${asset.name} muestra un perfil de riesgo ${calificacionRiesgo} según sus datos actuales. ${explicacion} Recuerda que este es un análisis básico por reglas fijas, no generado por IA, considera siempre el contexto completo antes de decidir.`;
+}
+
 async function generarTesisIASimulador(id, type){
   const asset = allAssets().find(a=>a.id===id&&a.type===type);
   if(!asset) return;
@@ -7534,8 +7578,16 @@ async function generarTesisIASimulador(id, type){
     tesisIASimuladorCache[asset.id+asset.type] = d.tesis;
     document.getElementById('mkt-tesis-ia').innerHTML = tesisSimuladorHTML(d.tesis);
   } catch(e){
-    boton.disabled=false; boton.style.opacity='1'; boton.innerHTML = '<i class="ti ti-sparkles"></i> Analizar con IA';
-    if(msg){ msg.style.color='var(--red)'; msg.textContent = 'No se pudo generar: '+(e.message||e); }
+    // La IA no respondió — se muestra un análisis básico por reglas,
+    // calculado con los datos reales del activo, para que el
+    // estudiante nunca se quede solo con un mensaje de error.
+    const tesisLocal = generarTesisLocal(asset);
+    document.getElementById('mkt-tesis-ia').innerHTML = `
+      <div style="background:rgba(232,185,74,.1);border:1px solid var(--amber, #e8b94a);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:11px;color:var(--amber, #e8b94a);"><i class="ti ti-plug-connected-x"></i> La IA no está disponible ahora mismo, este es un análisis básico por reglas.</div>
+      <div style="background:var(--bg2, #10141d);border:1px solid var(--c4, #242d42);border-radius:10px;padding:12px 14px;">
+        <p style="font-size:12.5px;color:var(--t2, #b8c4dc);line-height:1.6;margin:0;">${tesisLocal}</p>
+      </div>
+    `;
   }
 }
 
@@ -7569,6 +7621,46 @@ async function abrirMejoresInversionesIA(){
   document.body.appendChild(overlay);
 }
 // ───── Analista de Cartera con IA — revisa las posiciones REALES ─────
+// ═══════════════════════════════════════════════════════════════════
+// ANÁLISIS LOCAL, SIN IA — si Gemini falla por cualquier motivo (sin
+// conexión, límite de solicitudes, el servidor caído), el estudiante
+// nunca se queda solo con un mensaje de error. Estas funciones usan
+// la misma matemática real de la cartera, el mercado, o el activo,
+// pero arman el diagnóstico con reglas fijas en vez de redacción de
+// IA — menos elaborado, pero siempre disponible y siempre honesto
+// sobre los datos reales.
+// ═══════════════════════════════════════════════════════════════════
+function analizarCarteraLocal(posiciones){
+  const totalInvertido = posiciones.reduce((s,p)=>s+(p.invested||0), 0);
+  const valorActual = posiciones.reduce((s,p)=>s+((p.currentPrice||0)*(p.qty||0)), 0);
+  const conPeso = posiciones.map(p => ({ ...p, peso: totalInvertido ? ((p.invested||0)/totalInvertido)*100 : 0 }));
+  const mayor = conPeso.reduce((a,b) => (b.peso>a.peso ? b : a), conPeso[0]);
+  const tiposDistintos = new Set(posiciones.map(p=>p.type));
+  const gananciaTotal = totalInvertido ? ((valorActual-totalInvertido)/totalInvertido)*100 : 0;
+
+  const alertas = [];
+  if(mayor.peso >= 40){
+    alertas.push({ tipo:'concentracion', mensaje:`${mayor.name||mayor.ticker} representa el ${mayor.peso.toFixed(0)}% de tu capital invertido, una concentración alta en una sola posición.` });
+  }
+  if(tiposDistintos.size === 1){
+    const nombreTipo = TESIS_TIPO_LABEL[[...tiposDistintos][0]]?.toLowerCase() || 'un solo tipo de activo';
+    alertas.push({ tipo:'diversificacion', mensaje:`Toda tu cartera está en ${nombreTipo}, sin ninguna posición en otro mercado que ayude a repartir el riesgo.` });
+  } else {
+    alertas.push({ tipo:'positivo', mensaje:`Tu cartera combina ${tiposDistintos.size} tipos de mercado distintos, lo cual ayuda a repartir el riesgo entre ellos.` });
+  }
+  if(gananciaTotal < -10){
+    alertas.push({ tipo:'riesgo', mensaje:`Tu cartera está ${Math.abs(gananciaTotal).toFixed(1)}% por debajo de lo invertido en este momento.` });
+  } else if(gananciaTotal > 0){
+    alertas.push({ tipo:'positivo', mensaje:`Tu cartera está ${gananciaTotal.toFixed(1)}% por encima de lo invertido hasta ahora.` });
+  }
+
+  return {
+    diagnostico: `Capital invertido: US$${totalInvertido.toFixed(2)}. Valor actual: US$${valorActual.toFixed(2)} (${gananciaTotal>=0?'+':''}${gananciaTotal.toFixed(1)}%). Este es un análisis básico por reglas fijas, no generado por IA — los números son reales, pero sin el razonamiento adicional que la IA agrega cuando está disponible.`,
+    alertas,
+    esLocal: true,
+  };
+}
+
 async function abrirAnalisisCarteraIA(){
   if(!portfolio.length){ if(typeof notify==='function') notify('Tu cartera está vacía todavía, compra algo primero.', 'error'); return; }
   const overlay = document.createElement('div');
@@ -7598,22 +7690,61 @@ async function abrirAnalisisCarteraIA(){
     });
     const d = await respuesta.json();
     if(!d.ok) throw new Error(d.error||'Error desconocido.');
-
-    const iconoPorTipo = { concentracion:'ti-alert-triangle', riesgo:'ti-alert-triangle', diversificacion:'ti-info-circle', positivo:'ti-circle-check' };
-    const colorPorTipo = { concentracion:'var(--amber, #e8b94a)', riesgo:'var(--red, #ff4757)', diversificacion:'var(--accent2, #4a9eff)', positivo:'var(--green, #1e8e5a)' };
-    document.getElementById('cartera-ia-resultado').innerHTML = `
-      <div style="text-align:left;">
-        <p style="font-size:13.5px;color:var(--t1, #e8edf8);line-height:1.6;margin-bottom:14px;">${d.diagnostico}</p>
-        ${d.alertas.map(a => `<div style="display:flex;gap:10px;align-items:flex-start;background:var(--bg2, #10141d);border:1px solid var(--c4, #242d42);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
-          <i class="ti ${iconoPorTipo[a.tipo]||'ti-info-circle'}" style="color:${colorPorTipo[a.tipo]||'var(--t2)'};font-size:16px;flex-shrink:0;margin-top:1px;"></i>
-          <span style="font-size:12.5px;color:var(--t2, #b8c4dc);line-height:1.5;">${a.mensaje}</span>
-        </div>`).join('')}
-        <div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:10px;">Generado con IA a partir de tus posiciones reales de ahora mismo. Revísalo con criterio propio.</div>
-      </div>
-    `;
+    renderResultadoAnalisisCartera(d);
   } catch(e){
-    document.getElementById('cartera-ia-resultado').innerHTML = `<div style="color:var(--red, #ff4757);font-size:12.5px;text-align:left;">No se pudo generar el análisis: ${e.message||e}</div>`;
+    // La IA no respondió — en vez de dejar al estudiante solo con un
+    // mensaje de error, se calcula el mismo análisis con reglas fijas
+    // sobre los datos reales de su cartera, siempre disponible.
+    const posiciones = portfolio.map(p => ({ name:p.name, ticker:p.ticker, type:p.type, qty:p.qty, invested:p.invested, buyPrice:p.buyPrice, currentPrice:p.currentPrice }));
+    renderResultadoAnalisisCartera(analizarCarteraLocal(posiciones));
   }
+}
+
+function renderResultadoAnalisisCartera(d){
+  const iconoPorTipo = { concentracion:'ti-alert-triangle', riesgo:'ti-alert-triangle', diversificacion:'ti-info-circle', positivo:'ti-circle-check' };
+  const colorPorTipo = { concentracion:'var(--amber, #e8b94a)', riesgo:'var(--red, #ff4757)', diversificacion:'var(--accent2, #4a9eff)', positivo:'var(--green, #1e8e5a)' };
+  const avisoLocal = d.esLocal
+    ? `<div style="background:rgba(232,185,74,.1);border:1px solid var(--amber, #e8b94a);border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:11.5px;color:var(--amber, #e8b94a);"><i class="ti ti-plug-connected-x"></i> La IA no está disponible ahora mismo — este es un análisis básico por reglas, con tus datos reales.</div>`
+    : '';
+  document.getElementById('cartera-ia-resultado').innerHTML = `
+    <div style="text-align:left;">
+      ${avisoLocal}
+      <p style="font-size:13.5px;color:var(--t1, #e8edf8);line-height:1.6;margin-bottom:14px;">${d.diagnostico}</p>
+      ${d.alertas.map(a => `<div style="display:flex;gap:10px;align-items:flex-start;background:var(--bg2, #10141d);border:1px solid var(--c4, #242d42);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+        <i class="ti ${iconoPorTipo[a.tipo]||'ti-info-circle'}" style="color:${colorPorTipo[a.tipo]||'var(--t2)'};font-size:16px;flex-shrink:0;margin-top:1px;"></i>
+        <span style="font-size:12.5px;color:var(--t2, #b8c4dc);line-height:1.5;">${a.mensaje}</span>
+      </div>`).join('')}
+      ${!d.esLocal ? `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:10px;">Generado con IA a partir de tus posiciones reales de ahora mismo. Revísalo con criterio propio.</div>` : ''}
+    </div>
+  `;
+}
+
+function generarMejoresLocal(activos, perfilRiesgo){
+  // Sin IA, se ordena por un criterio simple y transparente según el
+  // perfil declarado: conservador prioriza menor volatilidad,
+  // agresivo prioriza mayor retorno esperado, moderado busca el
+  // mejor balance entre ambos — la misma lógica que seguiría
+  // cualquier regla de libro de texto, sin redacción de IA de por medio.
+  const conPuntaje = activos.map(a => {
+    const sigma = a.sigma ?? 15;
+    const ret = a.ret ?? a.ytm ?? 5;
+    let puntaje;
+    if(perfilRiesgo==='conservador') puntaje = -sigma;
+    else if(perfilRiesgo==='agresivo') puntaje = ret;
+    else puntaje = ret - (sigma*0.5); // moderado: balance simple retorno/riesgo
+    return { ...a, puntaje };
+  });
+  const top3 = conPuntaje.sort((a,b)=>b.puntaje-a.puntaje).slice(0,3);
+  const razonPorTipo = a => {
+    if(a.tipo==='bono') return `Cupón ${a.coupon}%, TIR ${a.ytm}%, calificación ${a.rating}.`;
+    if(a.tipo==='divisa') return `Volatilidad ${a.sigma}%, retorno esperado ${a.ret}%.`;
+    return `Beta ${a.beta}, volatilidad ${a.sigma}%, calificación ${a.rating}.`;
+  };
+  return {
+    resumen: `Análisis básico por reglas, no generado por IA: para un perfil ${perfilRiesgo}, se priorizaron los activos con mejor balance de retorno esperado frente a volatilidad real.`,
+    recomendaciones: top3.map(a => ({ ticker:a.ticker, razon:razonPorTipo(a) })),
+    esLocal: true,
+  };
 }
 
 async function generarMejoresInversionesIA(){
@@ -7623,14 +7754,16 @@ async function generarMejoresInversionesIA(){
   boton.disabled = true; boton.style.opacity='.6';
   boton.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Analizando el mercado…';
   cont.innerHTML = '';
+  // Los tres mercados reales de este simulador — antes solo se
+  // consideraban acciones, dejando fuera bonos y divisas, que sí
+  // tienen datos suficientes para una recomendación con sustancia.
+  // Se arma fuera del try para que también esté disponible en el
+  // fallback local si la IA no responde.
+  const activosAccion = STOCKS.map(a => ({ tipo:'accion', ticker:a.ticker, name:a.name, sector:a.sector, price:a.currentPrice||a.price, beta:a.beta, sigma:a.sigma, ret:a.ret, rating:a.rating }));
+  const activosBono = BONDS.map(a => ({ tipo:'bono', ticker:a.ticker, name:a.name, sector:a.country, price:a.currentPrice||a.price, coupon:a.coupon, maturity:a.maturity, ytm:a.ytm, duration:a.duration, sigma:a.sigma, ret:a.ret, rating:a.rating }));
+  const activosDivisa = FOREX.map(a => ({ tipo:'divisa', ticker:a.ticker, name:a.name, sector:'Divisas', price:a.currentPrice||a.price, sigma:a.sigma, ret:a.ret }));
+  const activos = [...activosAccion, ...activosBono, ...activosDivisa];
   try {
-    // Los tres mercados reales de este simulador — antes solo se
-    // consideraban acciones, dejando fuera bonos y divisas, que sí
-    // tienen datos suficientes para una recomendación con sustancia.
-    const activosAccion = STOCKS.map(a => ({ tipo:'accion', ticker:a.ticker, name:a.name, sector:a.sector, price:a.currentPrice||a.price, beta:a.beta, sigma:a.sigma, ret:a.ret, rating:a.rating }));
-    const activosBono = BONDS.map(a => ({ tipo:'bono', ticker:a.ticker, name:a.name, sector:a.country, price:a.currentPrice||a.price, coupon:a.coupon, maturity:a.maturity, ytm:a.ytm, duration:a.duration, sigma:a.sigma, ret:a.ret, rating:a.rating }));
-    const activosDivisa = FOREX.map(a => ({ tipo:'divisa', ticker:a.ticker, name:a.name, sector:'Divisas', price:a.currentPrice||a.price, sigma:a.sigma, ret:a.ret }));
-    const activos = [...activosAccion, ...activosBono, ...activosDivisa];
     const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
       method:'POST',
       headers:{'Content-Type':'application/json','apikey':SIM_IA_ANON_KEY,'Authorization':`Bearer ${SIM_IA_ANON_KEY}`},
@@ -7638,19 +7771,32 @@ async function generarMejoresInversionesIA(){
     });
     const d = await respuesta.json();
     if(!d.ok) throw new Error(d.error||'Error desconocido.');
-    cont.innerHTML = `
-      <p style="font-size:12.5px;color:var(--t2, #b8c4dc);margin-bottom:12px;line-height:1.6;">${d.resumen}</p>
-      ${d.recomendaciones.map((r,i) => `<div style="background:var(--bg2, #10141d);border:1px solid var(--c4, #242d42);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;" onclick="document.getElementById('mejores-ia-overlay').remove();const a=allAssets().find(x=>x.ticker==='${r.ticker}');if(a)showAssetDetail(a.id,a.type);">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;"><span style="background:var(--gold, #e8b94a);color:#000;font-weight:800;font-size:11px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;">${i+1}</span><b style="font-family:var(--font-mono, monospace);">${r.ticker}</b></div>
-        <div style="font-size:12px;color:var(--t2, #b8c4dc);line-height:1.55;">${r.razon}</div>
-      </div>`).join('')}
-      <div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:8px;">Generado con IA a partir de los datos del mercado actual. Toca cualquier opción para ver su detalle completo.</div>
-    `;
+    renderResultadoMejoresInversiones(d);
   } catch(e){
-    cont.innerHTML = `<div style="color:var(--red);font-size:12.5px;">No se pudo generar la recomendación: ${e.message||e}</div>`;
+    // La IA no respondió — se genera un ranking básico por reglas
+    // fijas, con los datos reales del mercado actual, para que el
+    // estudiante siempre reciba tres opciones concretas, nunca solo
+    // un mensaje de error.
+    renderResultadoMejoresInversiones(generarMejoresLocal(activos, perfil));
   } finally {
     boton.disabled=false; boton.style.opacity='1'; boton.innerHTML = '<i class="ti ti-sparkles"></i> Generar recomendación';
   }
+}
+
+function renderResultadoMejoresInversiones(d){
+  const cont = document.getElementById('mejores-ia-resultado');
+  const avisoLocal = d.esLocal
+    ? `<div style="background:rgba(232,185,74,.1);border:1px solid var(--amber, #e8b94a);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:var(--amber, #e8b94a);"><i class="ti ti-plug-connected-x"></i> La IA no está disponible ahora mismo — este es un ranking básico por reglas.</div>`
+    : '';
+  cont.innerHTML = `
+    ${avisoLocal}
+    <p style="font-size:12.5px;color:var(--t2, #b8c4dc);margin-bottom:12px;line-height:1.6;">${d.resumen}</p>
+    ${d.recomendaciones.map((r,i) => `<div style="background:var(--bg2, #10141d);border:1px solid var(--c4, #242d42);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;" onclick="document.getElementById('mejores-ia-overlay').remove();const a=allAssets().find(x=>x.ticker==='${r.ticker}');if(a)showAssetDetail(a.id,a.type);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;"><span style="background:var(--gold, #e8b94a);color:#000;font-weight:800;font-size:11px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;">${i+1}</span><b style="font-family:var(--font-mono, monospace);">${r.ticker}</b></div>
+      <div style="font-size:12px;color:var(--t2, #b8c4dc);line-height:1.55;">${r.razon}</div>
+    </div>`).join('')}
+    ${!d.esLocal ? `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:8px;">Generado con IA a partir de los datos del mercado actual. Toca cualquier opción para ver su detalle completo.</div>` : ''}
+  `;
 }
 
 function showAssetDetail(id,type){
@@ -12040,6 +12186,14 @@ function tickPrices() {
 
   renderTicker(prevPrices);
 
+  // Corresponsal de Mercado con IA — solo cuando ocurrió un evento
+  // real de todo el mercado en este tick (no en cada tick normal), y
+  // solo si ya pasó el enfriamiento mínimo desde la última vez, para
+  // no saturar la API con eventos que ocurren varias veces por minuto.
+  if(marketEvent !== 0){
+    try { dispararCorresponsalMercadoIA(marketEvent, prevPrices); } catch(e){}
+  }
+
   if (selectedAsset) {
     const updated = allAssets().find(a => a.id === selectedAsset.id && a.type === selectedAsset.type);
     if (updated) { selectedAsset = updated; updateMarketToolbar(updated); updateTradeCalc(); drawCandlestickChart(updated); }
@@ -13193,6 +13347,75 @@ const NEWS_TEMPLATES = {
   },
 };
 
+// ═══════════════════════════════════════════════════════════════════
+// CORRESPONSAL DE MERCADO CON IA — cuando ocurre un evento real que
+// mueve TODO el mercado a la vez (no un activo aislado), la IA
+// redacta una sola noticia coherente explicándolo, citando los
+// activos realmente más afectados con su número real. Nunca se
+// repite, y conecta el dato abstracto con una narrativa creíble.
+// Tiene enfriamiento propio, para no saturar la API si el mercado
+// tiene varios eventos seguidos en poco tiempo.
+// ═══════════════════════════════════════════════════════════════════
+window.__ultimoEventoMercadoIA = 0;
+const ENFRIAMIENTO_EVENTO_MERCADO_MS = 90000; // 90 segundos entre eventos con IA
+
+async function dispararCorresponsalMercadoIA(marketEvent, prevPrices){
+  const ahora = Date.now();
+  if(ahora - window.__ultimoEventoMercadoIA < ENFRIAMIENTO_EVENTO_MERCADO_MS) return;
+  window.__ultimoEventoMercadoIA = ahora;
+
+  const conMovimiento = allAssets()
+    .map(a => ({ name:a.name, ticker:a.ticker, type:a.type, movePct: prevPrices[a.id] ? ((a.currentPrice-prevPrices[a.id])/prevPrices[a.id])*100 : 0 }))
+    .filter(a => Number.isFinite(a.movePct) && a.movePct !== 0)
+    .sort((a,b) => Math.abs(b.movePct)-Math.abs(a.movePct))
+    .slice(0,3);
+  if(conMovimiento.length < 2) return; // muy pocos datos para una noticia con sustancia
+
+  const direccion = marketEvent < 0 ? 'caida' : 'repunte';
+  const magnitudPct = marketEvent*100;
+
+  try {
+    const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SIM_IA_ANON_KEY,'Authorization':`Bearer ${SIM_IA_ANON_KEY}`},
+      body: JSON.stringify({ modo:'evento_mercado', evento:{ direccion, magnitudPct, masAfectados:conMovimiento } }),
+    });
+    const d = await respuesta.json();
+    if(!d.ok) throw new Error(d.error||'Error desconocido.');
+    insertarNoticiaDestacada(d.titular, d.cuerpo, direccion, true);
+  } catch(e){
+    // Sin IA disponible — una noticia destacada básica, generada por
+    // reglas fijas, para que el evento real de mercado no pase
+    // desapercibido en el centro de noticias de todas formas.
+    const tituloLocal = direccion==='caida'
+      ? `Mercado registra caída generalizada de ${Math.abs(magnitudPct).toFixed(1)}%`
+      : `Mercado registra repunte generalizado de ${magnitudPct.toFixed(1)}%`;
+    const cuerpoLocal = `${conMovimiento.map(a=>`${a.name} (${a.movePct>=0?'+':''}${a.movePct.toFixed(2)}%)`).join(', ')} lideran el movimiento de este ${direccion==='caida'?'retroceso':'avance'} generalizado del mercado.`;
+    insertarNoticiaDestacada(tituloLocal, cuerpoLocal, direccion, false);
+  }
+}
+
+function insertarNoticiaDestacada(titular, cuerpo, direccion, esIA){
+  const item = {
+    id: Date.now()+Math.random(),
+    time: new Date().toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+    headline: titular,
+    body: cuerpo,
+    type: direccion==='caida' ? 'bear' : 'bull',
+    ticker: '—',
+    movePct: 0,
+    unread: true,
+    destacada: true,
+    generadaConIA: esIA,
+  };
+  newsFeed.unshift(item);
+  if(newsFeed.length>40) newsFeed.pop();
+  newsUnreadCount++;
+  try { renderNewsFeed(); } catch(e){}
+  try { renderNewsCenter(); } catch(e){}
+  try { notify(esIA ? 'Nueva noticia de mercado, redactada por IA ✓' : 'Nueva noticia de mercado', 'success'); } catch(e){}
+}
+
 function generateNewsItem(asset,movePct){
   const dir  = movePct>0?'bull':'bear';
   const pool = (NEWS_TEMPLATES[asset.type]||NEWS_TEMPLATES.accion)[dir]||[];
@@ -13219,11 +13442,13 @@ function generateNewsItem(asset,movePct){
 function renderNewsFeed(){
   const list=document.getElementById('news-feed-list');
   const badge=document.getElementById('news-unread-count');
+  const badgeFlotante=document.getElementById('news-unread-count-flotante');
   if(!list)return;
-  if(badge){
-    if(newsUnreadCount>0){badge.textContent=newsUnreadCount>99?'99+':newsUnreadCount;badge.style.display='inline-block';}
-    else badge.style.display='none';
-  }
+  [badge, badgeFlotante].forEach(b=>{
+    if(!b) return;
+    if(newsUnreadCount>0){b.textContent=newsUnreadCount>99?'99+':newsUnreadCount;b.style.display='inline-block';}
+    else b.style.display='none';
+  });
   if(newsFeed.length===0){
     list.innerHTML='<div class="news-empty"><i class="ti ti-broadcast" style="font-size:28px;display:block;margin-bottom:8px;opacity:.3;"></i>Abre una sesión de mercado para recibir noticias en tiempo real</div>';
     return;
@@ -13239,6 +13464,44 @@ function renderNewsFeed(){
       <div class="news-body">${item.body}</div>
     </div>`).join('');
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// INTERRUPTOR DEL PANEL DE NOTICIAS — pensado por separado para
+// escritorio/tablet (colapsa y recupera el espacio para el gráfico)
+// y para móvil (se abre como panel deslizante bajo demanda, en vez de
+// estar completamente inaccesible como antes, que solo se ocultaba
+// fijo por CSS sin ninguna forma de volver a verlo salvo yendo a la
+// página completa de Noticias). La preferencia de escritorio/tablet
+// se recuerda entre sesiones; en móvil siempre arranca cerrado, para
+// no sorprender con un panel abierto tapando la pantalla completa.
+// ═══════════════════════════════════════════════════════════════════
+const NEWS_PANEL_PREF_KEY = 'capitallab_news_panel_colapsada';
+
+function alternarPanelNoticias(){
+  const esMovil = window.innerWidth <= 768;
+  const contenedor = document.getElementById('market-with-news');
+  const panel = document.getElementById('market-news-panel');
+  const overlay = document.getElementById('news-panel-overlay-movil');
+
+  if(esMovil){
+    const abierta = panel.classList.toggle('news-movil-abierta');
+    if(overlay) overlay.classList.toggle('activo', abierta);
+  } else {
+    const colapsada = contenedor.classList.toggle('news-colapsada');
+    try { localStorage.setItem(NEWS_PANEL_PREF_KEY, colapsada ? '1' : '0'); } catch(e){}
+  }
+}
+
+function restaurarPreferenciaPanelNoticias(){
+  if(window.innerWidth <= 768) return; // en móvil siempre arranca cerrado
+  let colapsada = false;
+  try { colapsada = localStorage.getItem(NEWS_PANEL_PREF_KEY) === '1'; } catch(e){}
+  if(colapsada){
+    const contenedor = document.getElementById('market-with-news');
+    if(contenedor) contenedor.classList.add('news-colapsada');
+  }
+}
+
 
 function markNewsRead(id){
   const item=newsFeed.find(n=>n.id===id);
@@ -13284,6 +13547,20 @@ function renderNewsCenter(){
   el.innerHTML=items.map(item=>{
     const cat=newsCategoryOf(item);
     const typeLabel=item.type==='bull'?'Alcista':item.type==='bear'?'Bajista':'Neutral';
+    if(item.destacada){
+      // Noticia de un evento real de todo el mercado — se ve distinta
+      // a propósito, con un borde propio y la marca de IA si aplica,
+      // para que se note que es un evento genuino, no una más del feed.
+      return `<div class="news-art ${item.type}" style="border-left:4px solid ${item.type==='bull'?'#1e8e5a':'#ff4757'};background:linear-gradient(90deg, ${item.type==='bull'?'rgba(30,142,90,.08)':'rgba(255,71,87,.08)'}, transparent);">
+        <div class="news-art-meta">
+          <span class="news-art-tag ${item.type}"><i class="ti ti-broadcast" style="font-size:10px;"></i> Evento de mercado</span>
+          ${item.generadaConIA ? `<span style="font-size:9.5px;color:var(--gold, #e8b94a);display:inline-flex;align-items:center;gap:3px;"><i class="ti ti-sparkles" style="font-size:10px;"></i> Redactado por IA</span>` : ''}
+          <span class="news-art-time">${item.time}</span>
+        </div>
+        <div class="news-art-headline" style="font-size:14.5px;">${item.headline}</div>
+        <div class="news-art-body">${item.body}</div>
+      </div>`;
+    }
     return `<div class="news-art ${item.type}">
       <div class="news-art-meta">
         <span class="news-art-tag ${item.type}">${typeLabel}</span>
@@ -14322,6 +14599,7 @@ function initApp() {
   // falla por cualquier motivo (Yahoo Finance caído, límite de
   // solicitudes, sin conexión), el simulador sigue exactamente igual
   // que siempre — nadie que lo esté usando lo nota.
+  try { restaurarPreferenciaPanelNoticias(); } catch(e){}
   try { sincronizarPreciosRealesSimulador(); } catch(e){}
 }
 </script>
