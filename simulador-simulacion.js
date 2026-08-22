@@ -3328,6 +3328,7 @@ function ensureAnalysisBody(){
       <div class="card"><div class="card-title"><i class="ti ti-chart-line"></i> Proyección de precio (5 años)</div><div class="chart-box-lg"><canvas id="an-price-chart"></canvas></div></div>
       <div class="card"><div class="card-title"><i class="ti ti-target"></i> Riesgo vs Rentabilidad</div><div class="chart-box-lg"><canvas id="an-rv-chart"></canvas></div></div>
     </div>
+    <div class="card" id="an-calificacion-card" style="margin-bottom:14px;"></div>
     <div class="grid2" style="margin-bottom:14px;">
       <div class="card"><div class="card-title"><i class="ti ti-info-circle"></i> Perfil del emisor</div><div id="an-profile"></div></div>
       <div class="card"><div class="card-title"><i class="ti ti-gauge"></i> Indicadores clave</div><div id="an-indicators"></div></div>
@@ -3356,6 +3357,37 @@ function renderAnalysis(id,type){
   anRvChart=dc(anRvChart);
   const pts=allAssets().map(a=>({x:a.sigma,y:a.ret,label:a.ticker}));
   {const _c=document.getElementById('an-rv-chart');if(_c&&typeof Chart!=='undefined'){anRvChart=new Chart(_c,{type:'scatter',data:{datasets:[{data:pts,backgroundColor:allAssets().map(a=>a.id===id?'#ffb400':'rgba(0,196,255,.4)'),pointRadius:allAssets().map(a=>a.id===id?9:5)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const d=c.dataset.data[c.dataIndex];return d.label+': σ='+d.x.toFixed(1)+'% r='+d.y.toFixed(1)+'%';}}}},scales:{x:{title:{display:true,text:'Riesgo σ%',color:'#3d4d72'},ticks:{color:'#3d4d72',font:{size:10}},grid:{color:'rgba(255,255,255,.03)'}},y:{title:{display:true,text:'Retorno%',color:'#3d4d72'},ticks:{color:'#3d4d72',font:{size:10}},grid:{color:'rgba(255,255,255,.03)'}}}}});}}
+
+  // Calificación CapitalLab — sintetiza retorno y riesgo en una sola
+  // letra, siempre con las razones reales detrás, nunca solo el
+  // símbolo aislado sin explicación.
+  const calif = calificarActivoCapitalLab(asset);
+  if(calif){
+    document.getElementById('an-calificacion-card').innerHTML = `
+      <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+        <div style="text-align:center;flex-shrink:0;">
+          <div style="width:64px;height:64px;border-radius:50%;background:${calif.color}22;border:2px solid ${calif.color};display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:${calif.color};">${calif.letra}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:5px;">Calificación<br>CapitalLab</div>
+        </div>
+        <div style="flex:1;min-width:220px;">
+          <div style="font-size:15px;font-weight:700;color:${calif.color};margin-bottom:3px;">${calif.titulo}</div>
+          <div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:8px;">${calif.descripcion}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <div style="font-size:10.5px;font-weight:600;color:var(--green, #1e8e5a);margin-bottom:3px;">FORTALEZAS</div>
+              ${calif.fortalezas.map(f=>`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 10px;border-left:2px solid var(--green, #1e8e5a);margin-bottom:3px;">${f}</div>`).join('')}
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:600;color:var(--red, #ff4757);margin-bottom:3px;">RIESGOS</div>
+              ${calif.riesgos.map(r=>`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 10px;border-left:2px solid var(--red, #ff4757);margin-bottom:3px;">${r}</div>`).join('')}
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="abrirReferenciaCalificaciones()" style="margin-top:10px;"><i class="ti ti-help-circle"></i> ¿Qué significa cada nivel?</button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--t3);margin-top:10px;font-style:italic;">Esta calificación resume el comportamiento de las métricas disponibles y no constituye una recomendación financiera.</div>
+    `;
+  }
 
   document.getElementById('an-profile').innerHTML=buildProfile(asset);
   // VaR histórico real (mismo motor que el panel de Mercado); cae a paramétrico si faltan datos.

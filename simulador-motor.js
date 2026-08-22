@@ -1790,6 +1790,29 @@ let mentorHistorialChat = [];
 // trabajo — el único rastro es el correo que reciben los
 // administradores, y la lista que ellos pueden consultar aparte.
 // ═══════════════════════════════════════════════════════════════════
+function abrirReferenciaCalificaciones(){
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.style.display = 'flex';
+  overlay.innerHTML = `<div class="export-modal" style="max-width:520px;">
+    <button class="modal-close" onclick="this.closest('.export-modal-overlay').remove();"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-award" style="color:var(--gold, #e8b94a);"></i> Niveles de Calificación CapitalLab</h2>
+    <p style="font-size:12.5px;color:var(--t2, #b8c4dc);margin-bottom:14px;">Combina el retorno esperado y el riesgo real de cada activo (Ratio Sharpe) en una sola letra, para que estudiantes, inversionistas, y profesores puedan ver rápido qué tan favorable es su relación riesgo-retorno. Nunca se basa en una sola métrica aislada: un activo de alto retorno pero riesgo desproporcionado no sale "Excelente" solo por ser rentable.</p>
+    ${Object.entries(NIVELES_CALIFICACION_CAPITALLAB).map(([letra,n]) => `
+      <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--c4, #242d42);">
+        <div style="width:36px;height:36px;border-radius:50%;background:${n.color}22;border:2px solid ${n.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:${n.color};flex-shrink:0;">${letra}</div>
+        <div>
+          <div style="font-size:12.5px;font-weight:600;color:${n.color};">${n.titulo}</div>
+          <div style="font-size:11px;color:var(--t3);line-height:1.4;">${n.descripcion}</div>
+        </div>
+      </div>
+    `).join('')}
+    <div style="font-size:10.5px;color:var(--t3);margin-top:12px;font-style:italic;">Un activo con calificación crediticia por debajo de grado sólido (A o mejor) nunca alcanza A+ o A en esta escala, sin importar su Sharpe — el riesgo de impago es real y esta escala lo respeta. Esta calificación no constituye una recomendación financiera.</div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+}
+
 function abrirTicketSoporte(){
   document.getElementById('ticket-soporte-overlay').style.display = 'flex';
   document.getElementById('ticket-soporte-msg').textContent = '';
@@ -5048,6 +5071,61 @@ function computeSharpe(asset){
       excess = asset.ret - RF;
   }
   return excess / asset.sigma;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CALIFICACIÓN CAPITALLAB — distinta de la calificación crediticia
+// (AAA, BBB, etc., que mide riesgo de impago de deuda). Esta mide qué
+// tan bueno es el activo como inversión, combinando retorno y riesgo
+// en una sola letra (nunca solo el retorno aislado, que premiaría a
+// un activo de alto riesgo solo por ser rentable). Se basa en el
+// Ratio Sharpe real del activo (ya calculado en computeSharpe, el
+// mismo número que se muestra en el panel de Análisis), así que un
+// activo con alto retorno pero riesgo desproporcionado nunca sale
+// "Excelente" solo por su rentabilidad.
+// ═══════════════════════════════════════════════════════════════════
+const NIVELES_CALIFICACION_CAPITALLAB = {
+  'A+': { titulo:'Excelente', color:'#1e8e5a', descripcion:'Retorno alto con riesgo bien compensado. El Ratio Sharpe indica que cada unidad de riesgo asumida se traduce en un retorno claramente favorable.' },
+  'A':  { titulo:'Muy sólido', color:'#3aa66b', descripcion:'Buen balance entre retorno y riesgo. El activo compensa razonablemente bien el riesgo que representa.' },
+  'B':  { titulo:'Sólido', color:'#4a9eff', descripcion:'Balance aceptable. El retorno compensa el riesgo, aunque sin un margen amplio.' },
+  'C':  { titulo:'Neutral / Mixto', color:'#ffb400', descripcion:'El retorno apenas compensa el riesgo asumido, o hay señales mixtas que no permiten una lectura clara en una sola dirección.' },
+  'D':  { titulo:'Débil', color:'#ff8c42', descripcion:'El riesgo asumido no se ve suficientemente compensado por el retorno esperado.' },
+  'E':  { titulo:'Alto riesgo / Débil', color:'#ff4757', descripcion:'El retorno esperado no compensa el riesgo, o el activo muestra un retorno negativo con volatilidad relevante.' },
+};
+
+function calificarActivoCapitalLab(asset){
+  if(!asset) return null;
+  const sharpe = computeSharpe(asset);
+  let letra;
+  if(sharpe >= 1.2) letra = 'A+';
+  else if(sharpe >= 0.8) letra = 'A';
+  else if(sharpe >= 0.4) letra = 'B';
+  else if(sharpe >= 0) letra = 'C';
+  else if(sharpe >= -0.5) letra = 'D';
+  else letra = 'E';
+
+  // Un activo con calificación crediticia débil (deuda de alto
+  // riesgo de impago) no puede salir en el nivel más alto, aunque su
+  // Sharpe sea bueno — el riesgo de impago es un riesgo real que el
+  // Sharpe, calculado sobre volatilidad de precio, no captura.
+  const ratingCrediticio = (asset.rating||'').toUpperCase();
+  const creditoDebil = ratingCrediticio && !ratingCrediticio.startsWith('A') && ratingCrediticio!=='N/A' && ratingCrediticio!=='';
+  if(creditoDebil && (letra==='A+'||letra==='A')) letra = 'B';
+
+  const fortalezas = [];
+  const riesgos = [];
+  if(asset.ret > 8) fortalezas.push(`Retorno esperado de ${asset.ret.toFixed(1)}%, por encima del promedio de mercado.`);
+  if(sharpe > 0.8) fortalezas.push(`Ratio Sharpe de ${sharpe.toFixed(2)}, señal de que el riesgo asumido se compensa bien.`);
+  if(asset.sigma < 15) fortalezas.push(`Volatilidad anual de solo ${asset.sigma.toFixed(1)}%, relativamente estable.`);
+  if(ratingCrediticio.startsWith('A')) fortalezas.push(`Calificación crediticia sólida (${asset.rating}).`);
+  if(asset.sigma > 30) riesgos.push(`Volatilidad anual elevada, de ${asset.sigma.toFixed(1)}%.`);
+  if(sharpe < 0.3) riesgos.push(`Ratio Sharpe de ${sharpe.toFixed(2)}, el retorno apenas compensa (o no compensa) el riesgo asumido.`);
+  if(creditoDebil) riesgos.push(`Calificación crediticia ${asset.rating}, por debajo del grado más sólido.`);
+  if(asset.ret < 0) riesgos.push(`Retorno esperado negativo (${asset.ret.toFixed(1)}%).`);
+  if(!fortalezas.length) fortalezas.push('Sin fortalezas destacadas frente al resto del mercado con los datos disponibles.');
+  if(!riesgos.length) riesgos.push('Sin riesgos destacados frente al resto del mercado con los datos disponibles.');
+
+  return { letra, sharpe, ...NIVELES_CALIFICACION_CAPITALLAB[letra], fortalezas, riesgos };
 }
 
 // Métricas de cartera PONDERADAS por valor de mercado y con correlación de un factor.
