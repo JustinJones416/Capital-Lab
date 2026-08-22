@@ -981,9 +981,11 @@ function actualizarIndicadorSincronizacion(cantidadActualizados){
   if(!badge){
     badge = document.createElement('div');
     badge.id = 'badge-datos-reales';
-    badge.style.cssText = 'position:fixed;bottom:16px;right:16px;background:var(--c1,#10141d);border:1px solid var(--green,#1e8e5a);border-radius:20px;padding:7px 14px;font-size:11.5px;color:var(--t2,#b8c4dc);z-index:400;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(0,0,0,.3);cursor:help;';
+    badge.style.cssText = 'position:fixed;bottom:16px;right:16px;background:var(--c1,#10141d);border:1px solid var(--green,#1e8e5a);border-radius:20px;padding:7px 8px 7px 14px;font-size:11.5px;color:var(--t2,#b8c4dc);z-index:400;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(0,0,0,.3);cursor:help;transition:opacity .4s ease;';
     document.body.appendChild(badge);
   }
+  badge.style.opacity = '1';
+  badge.style.display = 'flex';
   const hora = new Date().toLocaleTimeString('es-PA', {hour:'2-digit', minute:'2-digit'});
   // Honestidad con el estudiante: el dato es real, pero no instantáneo.
   // Yahoo Finance, como cualquier fuente gratuita de NASDAQ y NYSE,
@@ -991,7 +993,19 @@ function actualizarIndicadorSincronizacion(cantidadActualizados){
   // frente al precio exacto de bolsa en ese segundo — la misma norma
   // que aplica a cualquier servicio de datos bursátiles sin costo.
   badge.title = 'Como toda fuente gratuita de NASDAQ y NYSE, este dato puede tener hasta 15 minutos de rezago frente al precio exacto de bolsa en este segundo. Sigue siendo un precio real de mercado, no simulado.';
-  badge.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:#1e8e5a;flex-shrink:0;"></span> Datos reales de mercado · ${cantidadActualizados} activos · ${hora} <span style="opacity:.65;">(hasta 15 min de rezago)</span>`;
+  badge.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:#1e8e5a;flex-shrink:0;"></span> Datos reales de mercado · ${cantidadActualizados} activos · ${hora} <span style="opacity:.65;">(hasta 15 min de rezago)</span> <button onclick="event.stopPropagation();this.closest('#badge-datos-reales').style.display='none';" style="background:transparent;border:none;color:var(--t3,#7a8ab0);cursor:pointer;padding:2px 4px;margin-left:2px;font-size:13px;line-height:1;" title="Cerrar">✕</button>`;
+
+  // Antes, esta notificación se creaba una vez y se quedaba fija en
+  // pantalla para siempre — no existía ningún código que la ocultara
+  // de nuevo. Ahora, cada vez que se muestra (o se vuelve a
+  // sincronizar), se reinicia un temporizador que la oculta sola
+  // pasado un tiempo razonable, sin interrumpir al estudiante si
+  // sigue mirándola (se puede cerrar antes con el botón).
+  if(window.__temporizadorBadgeDatosReales) clearTimeout(window.__temporizadorBadgeDatosReales);
+  window.__temporizadorBadgeDatosReales = setTimeout(() => {
+    const b = document.getElementById('badge-datos-reales');
+    if(b) b.style.display = 'none';
+  }, 12000);
 }
 
 function tickPrices() {

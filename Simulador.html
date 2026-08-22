@@ -298,6 +298,7 @@
 
     <div class="wl-nav-section" id="wl-nav-section-gestion" onclick="alternarSeccionNav(this)" style="display:none;"><i class="ti ti-chevron-down wl-nav-section-flecha"></i> Gestión</div>
     <button class="wl-nav-btn"        id="nav-profesor"      onclick="goPage('profesor')" style="display:none;"><i class="ti ti-school"></i> Modo Profesor</button>
+    <button class="wl-nav-btn"        id="nav-soporte"       onclick="abrirTicketSoporte()" style="display:none;"><i class="ti ti-message-report"></i> Reportar un problema</button>
     <button class="wl-nav-btn"        id="nav-admin"          onclick="goPage('admin')" style="display:none;"><i class="ti ti-shield-cog"></i> Administración</button>
   </div>
   <!-- Watchlist -->
@@ -1023,9 +1024,16 @@
     <div class="page-sub">Panorama general de toda la plataforma CapitalLab.</div>
   </div>
   <div id="admin-resumen" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;"></div>
-  <div class="card">
+  <div class="card" style="margin-bottom:16px;">
     <div class="card-title"><i class="ti ti-school" style="color:var(--accent2);"></i> Todas las sesiones de clase</div>
     <div id="admin-sesiones" style="margin-top:10px;"><div class="auth-hint">Cargando…</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span><i class="ti ti-message-report" style="color:var(--gold, #e8b94a);"></i> Tickets de soporte técnico</span>
+      <button class="btn btn-ghost btn-sm" onclick="cargarTicketsSoporte()"><i class="ti ti-refresh"></i></button>
+    </div>
+    <div id="admin-tickets" style="margin-top:10px;"><div class="auth-hint">Cargando…</div></div>
   </div>
 </div>
 
@@ -1182,5 +1190,36 @@
     <button onclick="enviarPreguntaMentor()" id="mentor-ia-btn-enviar" style="background:var(--gold, #e8b94a);border:none;border-radius:50%;width:36px;height:36px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1a1206;"><i class="ti ti-send" style="font-size:15px;"></i></button>
   </div>
 </div>
+<!-- ═══════════ TICKET DE SOPORTE TÉCNICO — docentes y superadmin ═══════════ -->
+<div id="ticket-soporte-overlay" class="export-modal-overlay" style="display:none;">
+  <div class="export-modal" style="max-width:520px;">
+    <button class="modal-close" onclick="document.getElementById('ticket-soporte-overlay').style.display='none';"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-message-report" style="color:var(--gold, #e8b94a);"></i> Reportar un problema</h2>
+    <p style="font-size:12.5px;color:var(--t2, #b8c4dc);margin-bottom:16px;">Cuéntanos qué pasó — tuyo o de un estudiante. Esto llega directo al equipo técnico, no es visible para nadie más dentro de la aplicación.</p>
+
+    <label style="font-size:12px;color:var(--t3, #7a8ab0);display:block;margin-bottom:5px;">¿Qué error tuviste? <span style="color:var(--red, #ff4757);">*</span></label>
+    <textarea id="ticket-error" rows="3" placeholder="Describe el problema con el mayor detalle posible…" style="width:100%;padding:10px 12px;background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:8px;color:var(--t1, #e8edf8);font-size:13px;margin-bottom:12px;resize:vertical;font-family:inherit;"></textarea>
+
+    <label style="font-size:12px;color:var(--t3, #7a8ab0);display:block;margin-bottom:5px;">¿Qué intentabas hacer? (opcional)</label>
+    <input type="text" id="ticket-intentaba" placeholder="Ej: exportar el reporte de un estudiante…" style="width:100%;padding:9px 12px;background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:8px;color:var(--t1, #e8edf8);font-size:13px;margin-bottom:12px;">
+
+    <label style="font-size:12px;color:var(--t3, #7a8ab0);display:block;margin-bottom:5px;">¿Intentaste algo para resolverlo? (opcional)</label>
+    <input type="text" id="ticket-intento-solucion" placeholder="Ej: probé con otro navegador, recargué la página…" style="width:100%;padding:9px 12px;background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:8px;color:var(--t1, #e8edf8);font-size:13px;margin-bottom:12px;">
+
+    <label style="font-size:12px;color:var(--t3, #7a8ab0);display:block;margin-bottom:5px;">Si lo pudiste resolver tú mismo, ¿qué hiciste? (opcional)</label>
+    <input type="text" id="ticket-como-resolvio" placeholder="Déjalo vacío si no lo resolviste…" style="width:100%;padding:9px 12px;background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:8px;color:var(--t1, #e8edf8);font-size:13px;margin-bottom:12px;">
+
+    <label style="font-size:12px;color:var(--t3, #7a8ab0);display:block;margin-bottom:5px;">Correo de contacto <span style="color:var(--red, #ff4757);">*</span></label>
+    <input type="email" id="ticket-email" placeholder="tu@correo.com" style="width:100%;padding:9px 12px;background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:8px;color:var(--t1, #e8edf8);font-size:13px;margin-bottom:14px;">
+
+    <div style="background:var(--c2, #161b26);border-radius:8px;padding:8px 10px;margin-bottom:14px;font-size:10.5px;color:var(--t3, #7a8ab0);display:flex;align-items:center;gap:6px;">
+      <i class="ti ti-info-circle" style="font-size:13px;flex-shrink:0;"></i> Se adjunta automáticamente tu navegador, dispositivo, y la sección donde estabas — no hace falta que escribas eso.
+    </div>
+
+    <div id="ticket-soporte-msg" style="font-size:12px;margin-bottom:8px;"></div>
+    <button class="btn" id="ticket-soporte-btn-enviar" onclick="enviarTicketSoporte()" style="width:100%;justify-content:center;"><i class="ti ti-send"></i> Enviar reporte</button>
+  </div>
+</div>
+
 </body>
 </html>

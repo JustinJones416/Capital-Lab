@@ -3274,7 +3274,7 @@ function renderAnalysis(id,type){
 
   // ── ESTADOS FINANCIEROS (acciones) ──
   if(type==='accion'&&asset.fs){
-    const isBanka=asset.id==='JPM'||asset.id==='BVPS';
+    const isBanka=asset.id==='JPM'||asset.id==='BVPS'||asset.id==='BLX';
     const inc=asset.fs.income;
     const bal=asset.fs.balance;
     const div=document.createElement('div');
@@ -3282,9 +3282,9 @@ function renderAnalysis(id,type){
     div.style.marginTop='14px';
     div.innerHTML=`
       <div class="card" style="margin-bottom:14px;">
-        <div class="card-title"><i class="ti ti-file-invoice" style="color:var(--accent2);"></i> Estado de Resultados Auditado — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
-        <p style="font-size:11px;color:var(--t3);margin-bottom:10px;">Cifras en millones USD (USD M) · Fuente: Reportes anuales auditados</p>
-        <table>
+        <div class="card-title"><i class="ti ti-file-invoice" style="color:var(--accent2);"></i> Estado de Resultados — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
+        <p style="font-size:11px;color:var(--t3);margin-bottom:10px;" id="fs-fuente-income">Cifras en millones USD (USD M) · Modelo estimado del simulador, no un reporte real</p>
+        <table id="fs-tabla-income">
           <thead><tr>
             <th>Concepto</th>
             ${inc.map(r=>`<th style="text-align:right;">Año ${r.year}</th>`).join('')}
@@ -3320,8 +3320,8 @@ function renderAnalysis(id,type){
         </table>
       </div>
       <div class="card">
-        <div class="card-title"><i class="ti ti-building" style="color:var(--green);"></i> Estado de Situación Financiera Auditado — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
-        <p style="font-size:11px;color:var(--t3);margin-bottom:10px;">Cifras en millones USD (USD M) · Fuente: Reportes anuales auditados</p>
+        <div class="card-title"><i class="ti ti-building" style="color:var(--green);"></i> Estado de Situación Financiera — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
+        <p style="font-size:11px;color:var(--t3);margin-bottom:10px;">Cifras en millones USD (USD M) · Modelo estimado del simulador — Yahoo Finance no entrega este detalle sin costo</p>
         <table>
           <thead><tr>
             <th>Concepto</th>
@@ -3377,7 +3377,7 @@ function renderAnalysis(id,type){
       divCF.innerHTML=`
       <div class="card">
         <div class="card-title"><i class="ti ti-cash" style="color:var(--gold);"></i> Estado de Flujo de Efectivo — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
-        <p style="font-size:11px;color:var(--t3);margin-bottom:10px;">Cifras en millones USD (USD M) · Estimación con base en reportes públicos más recientes disponibles</p>
+        <p style="font-size:11px;color:var(--t3);margin-bottom:10px;">Cifras en millones USD (USD M) · Modelo estimado del simulador — Yahoo Finance no entrega este detalle sin costo</p>
         <table>
           <thead><tr>
             <th>Concepto</th>
@@ -3421,6 +3421,15 @@ function renderAnalysis(id,type){
       body.appendChild(divCF);
     }
     autoColapsarEnMovil(body);
+
+    // Intento de traer el Estado de Resultados real de Yahoo Finance —
+    // solo se reemplazan Ingresos y Utilidad neta (los únicos campos
+    // que Yahoo entrega reales sin costo). Si falla por cualquier
+    // motivo, la tabla se queda con el modelo simulado que ya se
+    // dibujó arriba, sin que el estudiante note ningún error.
+    if(asset.ticker){
+      try { intentarCargarEstadosFinancierosReales(asset); } catch(e){}
+    }
   }
 
   // ── PROSPECTO DEL BONO ──
@@ -3620,6 +3629,60 @@ function renderAnalysis(id,type){
 }
 
 // ═══════════════════ CUSTOM ═══════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// ESTADOS FINANCIEROS REALES — solo Ingresos y Utilidad neta, los
+// únicos dos campos que Yahoo Finance entrega reales sin costo (se
+// confirmó con pruebas reales antes de construir esto: el Balance
+// General y el Flujo de Caja llegan restringidos, incluso con el
+// símbolo correcto). Si el intento falla por cualquier motivo — sin
+// conexión, símbolo no encontrado, Yahoo bloqueó la solicitud — la
+// tabla se queda tal cual con el modelo simulado, sin ningún cambio
+// visible para el estudiante, ni ningún error interrumpiendo nada.
+// ═══════════════════════════════════════════════════════════════════
+async function intentarCargarEstadosFinancierosReales(asset){
+  const tabla = document.getElementById('fs-tabla-income');
+  const fuenteEl = document.getElementById('fs-fuente-income');
+  if(!tabla || !fuenteEl) return; // la tarjeta ni siquiera está en pantalla
+
+  try {
+    const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/estados-financieros-yahoo?symbol=${encodeURIComponent(asset.ticker)}`, {
+      headers: { 'apikey': SIM_IA_ANON_KEY, 'Authorization': `Bearer ${SIM_IA_ANON_KEY}` },
+    });
+    const d = await respuesta.json();
+    if(!d.ok || !Array.isArray(d.anios) || d.anios.length < 2) throw new Error(d.error||'Sin datos reales disponibles.');
+
+    // Yahoo entrega en dólares exactos; el modelo del simulador usa
+    // millones — se convierte para que ambas cifras se lean igual.
+    const aniosReales = d.anios.map(a => ({ year:a.year, revenue:Math.round(a.revenue/1e6), netIncome:Math.round(a.netIncome/1e6) }));
+
+    // Actualizar solo las filas de Ingresos y Utilidad neta, que ya
+    // existen en la tabla simulada — el resto de las filas (utilidad
+    // bruta, EBIT, margen) se quedan con el valor estimado del
+    // modelo, porque Yahoo no entrega esos campos sin costo.
+    const filaIngresos = [...tabla.querySelectorAll('td')].find(td => td.textContent.trim()==='Ingresos totales')?.parentElement;
+    const filaUtilidadNeta = [...tabla.querySelectorAll('td')].find(td => td.textContent.trim()==='Utilidad neta')?.parentElement;
+
+    if(filaIngresos){
+      const celdas = filaIngresos.querySelectorAll('td.mono');
+      aniosReales.forEach((a,i) => { if(celdas[i]) celdas[i].textContent = a.revenue.toLocaleString('es-PA'); });
+      if(celdas[celdas.length-1] && aniosReales.length>=2){
+        const variacion = ((aniosReales[0].revenue-aniosReales[1].revenue)/aniosReales[1].revenue*100);
+        celdas[celdas.length-1].textContent = variacion.toFixed(1)+'%';
+        celdas[celdas.length-1].className = 'mono '+(variacion>=0?'g':'r');
+      }
+    }
+    if(filaUtilidadNeta){
+      const celdas = filaUtilidadNeta.querySelectorAll('td.mono');
+      aniosReales.forEach((a,i) => { if(celdas[i]) { celdas[i].textContent = a.netIncome.toLocaleString('es-PA'); celdas[i].className = 'mono '+(a.netIncome>=0?'g':'r'); celdas[i].style.fontWeight = '500'; } });
+    }
+
+    fuenteEl.innerHTML = `Cifras en millones USD (USD M) · <span style="color:var(--green);"><i class="ti ti-circle-check" style="font-size:11px;"></i> Ingresos y Utilidad neta reales</span>, resto estimado · <a href="${d.urlYahoo}" target="_blank" rel="noopener" style="color:var(--accent2);">Ver en Yahoo Finance ↗</a>`;
+  } catch(e){
+    // Silencioso a propósito — el modelo simulado ya está en pantalla
+    // y sigue siendo perfectamente utilizable para fines educativos.
+  }
+}
+
 function renderCustom(){
   const tipo=document.getElementById('c-tipo').value;
   const precio=+document.getElementById('c-precio').value;
