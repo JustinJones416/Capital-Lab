@@ -2760,11 +2760,34 @@ function confirmarYEjecutar(op){
   const fee = commissionFor(gross);
   const total = op==='buy' ? gross+fee : gross-fee;
 
+  // CUÁL ES MI RIESGO — el nivel de riesgo real del activo, en
+  // lenguaje simple, no solo el número de volatilidad aislado.
+  const sigma = selectedAsset.sigma || 0;
+  const nivelRiesgo = sigma<15 ? 'Bajo' : sigma<30 ? 'Moderado' : 'Alto';
+  const colorRiesgo = sigma<15 ? 'var(--green, #1e8e5a)' : sigma<30 ? 'var(--amber, #ffb400)' : 'var(--red, #ff4757)';
+
+  // QUÉ PASARÁ SI SE EJECUTA — distinto según sea compra o venta,
+  // siempre con los números reales de ESTE estudiante, nunca genéricos.
+  let queVaAPasar;
+  if(op==='buy'){
+    const pctDelCapital = capital>0 ? (total/capital*100) : 0;
+    const posActual = portfolio.find(p=>p.id===selectedAsset.id && p.type===selectedAsset.type);
+    const valorTotalCarteraActual = portfolio.reduce((s,p)=>s+((p.currentPrice||p.buyPrice)*p.qty),0);
+    const valorEnEsteActivoDespues = ((posActual?posActual.qty*(posActual.currentPrice||posActual.buyPrice):0)) + gross;
+    const pctDeLaCarteraDespues = (valorTotalCarteraActual+gross)>0 ? (valorEnEsteActivoDespues/(valorTotalCarteraActual+gross)*100) : 100;
+    queVaAPasar = `Usarás <b>${pctDelCapital.toFixed(1)}%</b> de tu capital disponible. Después de esta compra, ${selectedAsset.ticker} representará aproximadamente <b>${pctDeLaCarteraDespues.toFixed(1)}%</b> del valor total de tu cartera.`;
+  } else {
+    const posActual = portfolio.find(p=>p.id===selectedAsset.id && p.type===selectedAsset.type);
+    const pctDeLaPosicion = posActual && posActual.qty>0 ? (qty/posActual.qty*100) : 0;
+    const gananciaOPerdida = posActual ? (px-posActual.buyPrice)*qty : 0;
+    queVaAPasar = `Estás vendiendo el <b>${pctDeLaPosicion.toFixed(0)}%</b> de tu posición en ${selectedAsset.ticker}. Esta venta ${gananciaOPerdida>=0?'realiza una ganancia de':'realiza una pérdida de'} <b class="${gananciaOPerdida>=0?'g':'r'}">${gananciaOPerdida>=0?'+':'-'}$${fmt(Math.abs(gananciaOPerdida))}</b> frente a tu precio de compra.`;
+  }
+
   const overlay = document.createElement('div');
   overlay.className = 'grade-modal-overlay';
-  overlay.innerHTML = `<div class="grade-modal" style="max-width:400px;">
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:420px;">
     <h3>${op==='buy'?'Confirmar compra':'Confirmar venta'}</h3>
-    <div class="sub">${selectedAsset.name} (${selectedAsset.ticker})</div>
+    <div class="sub">Estás a punto de ${op==='buy'?'comprar':'vender'} ${qty} unidades de ${selectedAsset.name} (${selectedAsset.ticker}) a $${fmt(px)} cada una.</div>
     <div style="background:var(--c2);border-radius:var(--r);padding:14px;margin:14px 0;">
       <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span style="color:var(--t3);">Cantidad</span><span>${qty}</span></div>
       <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span style="color:var(--t3);">Precio de ejecución</span><span>$${fmt(px)}</span></div>
@@ -2772,6 +2795,8 @@ function confirmarYEjecutar(op){
       <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span style="color:var(--t3);">Comisión</span><span>$${fmt(fee)}</span></div>
       <div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:6px;border-top:1px solid var(--c4);font-size:14.5px;font-weight:700;"><span>${op==='buy'?'Total a pagar':'Total a recibir'}</span><span>$${fmt(total)}</span></div>
     </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:8px;"><i class="ti ti-gauge" style="color:${colorRiesgo};"></i> <span style="color:var(--t3);">Riesgo de este activo:</span> <b style="color:${colorRiesgo};">${nivelRiesgo}</b> <span style="color:var(--t3);">(volatilidad anual ${sigma.toFixed(1)}%)</span></div>
+    <div style="font-size:12px;color:var(--t2);line-height:1.5;background:rgba(255,255,255,.03);border-radius:8px;padding:10px 12px;margin-bottom:14px;"><i class="ti ti-info-circle" style="color:var(--accent2, #4a9eff);"></i> ${queVaAPasar}</div>
     <div style="display:flex;gap:10px;">
       <button class="btn btn-ghost" id="cf-cancelar" style="flex:1;">Cancelar</button>
       <button class="${op==='buy'?'btn btn-buy':'btn btn-sell'}" id="cf-confirmar" style="flex:1;">Confirmar</button>
@@ -2890,19 +2915,104 @@ function executeOrderAt(asset, side, qty){
   return true;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// STOP LOSS Y TAKE PROFIT — cada uno muestra en vivo, mientras el
+// estudiante escribe, exactamente qué va a pasar si el precio llega
+// ahí: la pérdida o ganancia potencial en dólares reales, y el
+// porcentaje de riesgo o retorno esperado, en vez de solo un campo de
+// número aislado sin ningún contexto. Reutilizan el mismo motor de
+// órdenes pendientes que ya existía (mismo "kind", mismo "trigger"),
+// así que la ejecución real no cambia en absoluto, solo la claridad
+// pedagógica de cómo se presenta antes de colocarla.
+// ═══════════════════════════════════════════════════════════════════
+function calcularStopLoss(){
+  const resultado = document.getElementById('sl-resultado');
+  if(!selectedAsset){ resultado.style.display='none'; return; }
+  const precioSalida = +document.getElementById('sl-precio').value;
+  const precioActual = selectedAsset.currentPrice || selectedAsset.price;
+  const qty = +document.getElementById('trade-qty').value || 0;
+  if(!precioSalida || precioSalida<=0 || !qty){ resultado.style.display='none'; return; }
+  const perdidaPct = ((precioSalida-precioActual)/precioActual)*100;
+  const perdidaMonto = (precioSalida-precioActual)*qty;
+  resultado.style.display = 'block';
+  document.getElementById('sl-precio-actual').textContent = '$'+fmt(precioActual);
+  document.getElementById('sl-precio-destino').textContent = '$'+fmt(precioSalida);
+  document.getElementById('sl-perdida').textContent = (perdidaMonto>=0?'+':'-')+'$'+fmt(Math.abs(perdidaMonto));
+  document.getElementById('sl-pct').textContent = Math.abs(perdidaPct).toFixed(1)+'%';
+  // Aviso si el precio de salida está por ENCIMA del actual — un stop
+  // loss así no protege nada, es una confusión común de quien recién
+  // empieza a usarlo, y vale la pena señalarlo antes de que lo coloque.
+  const avisoIncoherente = document.getElementById('sl-aviso-incoherente');
+  if(precioSalida >= precioActual){
+    if(!avisoIncoherente){
+      const div = document.createElement('div');
+      div.id = 'sl-aviso-incoherente';
+      div.style.cssText = 'font-size:10.5px;color:var(--red, #ff4757);margin-top:5px;';
+      div.innerHTML = '<i class="ti ti-alert-triangle"></i> Un stop loss normalmente se coloca por debajo del precio actual, para vender si el precio cae.';
+      resultado.parentElement.insertBefore(div, resultado.nextSibling);
+    }
+  } else if(avisoIncoherente){ avisoIncoherente.remove(); }
+}
+
+function calcularTakeProfit(){
+  const resultado = document.getElementById('tp-resultado');
+  if(!selectedAsset){ resultado.style.display='none'; return; }
+  const precioSalida = +document.getElementById('tp-precio').value;
+  const precioActual = selectedAsset.currentPrice || selectedAsset.price;
+  const qty = +document.getElementById('trade-qty').value || 0;
+  if(!precioSalida || precioSalida<=0 || !qty){ resultado.style.display='none'; return; }
+  const gananciaPct = ((precioSalida-precioActual)/precioActual)*100;
+  const gananciaMonto = (precioSalida-precioActual)*qty;
+  resultado.style.display = 'block';
+  document.getElementById('tp-precio-actual').textContent = '$'+fmt(precioActual);
+  document.getElementById('tp-precio-destino').textContent = '$'+fmt(precioSalida);
+  document.getElementById('tp-ganancia').textContent = (gananciaMonto>=0?'+':'-')+'$'+fmt(Math.abs(gananciaMonto));
+  document.getElementById('tp-pct').textContent = Math.abs(gananciaPct).toFixed(1)+'%';
+}
+
+function placeStopLoss(){
+  if(!selectedAsset){ notify('Selecciona un activo primero','error'); return; }
+  const qty = +document.getElementById('trade-qty').value;
+  if(qty<=0){ notify('Ingresa una cantidad válida','error'); return; }
+  const trigger = +document.getElementById('sl-precio').value;
+  if(!trigger || trigger<=0){ notify('Ingresa el precio de salida del stop loss','error'); return; }
+  const pos = portfolio.find(x=>x.id===selectedAsset.id && x.type===selectedAsset.type);
+  if(!pos || pos.qty<qty){ notify('No tienes unidades suficientes de este activo para protegerlas con un stop loss','error'); return; }
+  pendingOrders.push({ id: Date.now()+Math.random(), assetId:selectedAsset.id, type:selectedAsset.type, ticker:selectedAsset.ticker, name:selectedAsset.name, kind:'stop-loss', side:'sell', qty, trigger });
+  notify(`Stop loss colocado: se venderán ${qty}u de ${selectedAsset.ticker} si el precio cae a $${fmt(trigger)} ✓`);
+  document.getElementById('sl-precio').value = '';
+  document.getElementById('sl-resultado').style.display = 'none';
+  renderOrderList();
+  autosave();
+}
+
+function placeTakeProfit(){
+  if(!selectedAsset){ notify('Selecciona un activo primero','error'); return; }
+  const qty = +document.getElementById('trade-qty').value;
+  if(qty<=0){ notify('Ingresa una cantidad válida','error'); return; }
+  const trigger = +document.getElementById('tp-precio').value;
+  if(!trigger || trigger<=0){ notify('Ingresa el precio de salida del take profit','error'); return; }
+  const pos = portfolio.find(x=>x.id===selectedAsset.id && x.type===selectedAsset.type);
+  if(!pos || pos.qty<qty){ notify('No tienes unidades suficientes de este activo para asegurar una ganancia con un take profit','error'); return; }
+  pendingOrders.push({ id: Date.now()+Math.random(), assetId:selectedAsset.id, type:selectedAsset.type, ticker:selectedAsset.ticker, name:selectedAsset.name, kind:'limit-sell', side:'sell', qty, trigger });
+  notify(`Take profit colocado: se venderán ${qty}u de ${selectedAsset.ticker} si el precio sube a $${fmt(trigger)} ✓`);
+  document.getElementById('tp-precio').value = '';
+  document.getElementById('tp-resultado').style.display = 'none';
+  renderOrderList();
+  autosave();
+}
+
 function placePendingOrder(){
+  // Ahora solo maneja la orden límite de compra — stop loss y take
+  // profit tienen sus propias funciones dedicadas (placeStopLoss,
+  // placeTakeProfit), con su propio tratamiento pedagógico.
   if(!selectedAsset){notify('Selecciona un activo primero','error');return;}
   const qty=+document.getElementById('trade-qty').value;
   if(qty<=0){notify('Ingresa una cantidad válida','error');return;}
-  const kind=document.getElementById('order-kind').value;
+  const kind='limit-buy';
   const trigger=+document.getElementById('order-trigger').value;
   if(!trigger||trigger<=0){notify('Ingresa un precio de activación válido','error');return;}
-  const side = kind==='limit-buy' ? 'buy' : 'sell';
-  // Validación de coherencia: stop-loss y límite de venta requieren tener la posición.
-  if(side==='sell'){
-    const pos=portfolio.find(x=>x.id===selectedAsset.id&&x.type===selectedAsset.type);
-    if(!pos||pos.qty<qty){notify('No tienes unidades suficientes para esta orden de venta','error');return;}
-  }
+  const side = 'buy';
   pendingOrders.push({
     id: Date.now()+Math.random(),
     assetId: selectedAsset.id, type: selectedAsset.type,
@@ -2916,7 +3026,7 @@ function placePendingOrder(){
 }
 
 function kindLabel(kind){
-  return kind==='limit-buy'?'límite de compra':kind==='limit-sell'?'límite de venta':'stop-loss';
+  return kind==='limit-buy'?'límite de compra':kind==='limit-sell'?'take profit':'stop loss';
 }
 
 function cancelOrder(id){
