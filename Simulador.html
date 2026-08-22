@@ -864,7 +864,45 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 .export-modal{position:relative;background:var(--c1, #10141d);border:1px solid var(--c3, #1a2030);border-radius:16px;padding:28px 26px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;}
 .modal-close{position:absolute;top:14px;right:14px;background:transparent;border:none;color:var(--t3, #7a8ab0);font-size:18px;cursor:pointer;padding:4px;border-radius:6px;line-height:1;}
 .modal-close:hover{color:var(--t1, #e8edf8);background:var(--c2, #161b26);}
+/* ESCALA PARA PANTALLAS GRANDES — el resto de la interfaz usa tamaños
+   fijos en píxeles en cientos de lugares, así que en vez de reescribir
+   cada uno, se escala toda la interfaz de forma proporcional según el
+   ancho real de la pantalla. En una pantalla de escritorio normal
+   (hasta 1920px) no cambia nada; en pantallas más grandes, todo (el
+   texto, los espaciados, los íconos) crece junto, para no tener que
+   hacer zoom manual como pasaba antes en resoluciones como 2560×1440. */
+@media(min-width:1920px){ body{zoom:1.12;} }
+@media(min-width:2560px){ body{zoom:1.22;} }
+@media(min-width:3440px){ body{zoom:1.35;} }
 </style>
+<script>
+// Respaldo para Firefox, que históricamente no soporta "zoom" en CSS
+// tan bien como Chrome, Edge, o Safari — aplica la misma escala con
+// una transformación equivalente, solo si detecta que zoom no
+// funcionó (el navegador no lo interpretó correctamente).
+(function(){
+  function esFirefox(){ return navigator.userAgent.toLowerCase().includes('firefox'); }
+  function aplicarEscalaFirefox(){
+    if(!esFirefox()) return;
+    const ancho = window.innerWidth;
+    let escala = 1;
+    if(ancho>=3440) escala=1.35; else if(ancho>=2560) escala=1.22; else if(ancho>=1920) escala=1.12;
+    if(escala>1){
+      document.body.style.transform = `scale(${escala})`;
+      document.body.style.transformOrigin = 'top left';
+      document.body.style.width = `${100/escala}%`;
+      document.body.style.height = `${100/escala}%`;
+    } else {
+      document.body.style.transform = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+    }
+  }
+  window.addEventListener('load', aplicarEscalaFirefox);
+  let __resizeEscalaTimeout;
+  window.addEventListener('resize', () => { clearTimeout(__resizeEscalaTimeout); __resizeEscalaTimeout=setTimeout(aplicarEscalaFirefox,200); });
+})();
+</script>
 </head>
 <body>
 
@@ -7825,9 +7863,9 @@ async function abrirAnalisisCarteraIA(){
     <button class="modal-close" onclick="document.getElementById('cartera-ia-overlay').remove()"><i class="ti ti-x"></i></button>
     <h2><i class="ti ti-brain" style="color:var(--gold, #e8b94a);"></i> Analista de Cartera con IA</h2>
     <p style="font-size:12.5px;color:var(--t2, #b8c4dc);margin-bottom:14px;">La IA revisa tus posiciones reales de ahora mismo, no un ejemplo genérico, y te dice qué tan concentrada o diversificada está tu cartera.</p>
-    <div id="cartera-ia-resultado" style="text-align:center;padding:20px;color:var(--t3, #7a8ab0);">
-      <i class="ti ti-loader-2" style="font-size:24px;animation:girarSimIA 1s linear infinite;"></i>
-      <div style="margin-top:8px;font-size:12.5px;">Analizando tu cartera…</div>
+    <div id="cartera-ia-resultado" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:24px 10px;color:var(--t2, #b8c4dc);font-size:13px;">
+      <i class="ti ti-loader-2" style="font-size:16px;animation:girarSimIA 1s linear infinite;color:var(--gold, #e8b94a);"></i>
+      <span>Analizando tu cartera…</span>
     </div>
   </div>`;
   document.body.appendChild(overlay);
@@ -13691,11 +13729,15 @@ const NEWS_PANEL_PREF_KEY = 'capitallab_news_panel_colapsada';
 const GLOSARIO_TERMINOS = {
   'ratio sharpe': 'Mide cuánto retorno obtienes por cada unidad de riesgo que asumes. Se calcula como (retorno del activo − tasa libre de riesgo) / volatilidad. Un Sharpe por encima de 1 se considera bueno; por debajo de 0, el riesgo no se está viendo recompensado.',
   'sharpe promedio': 'El promedio del Ratio Sharpe de todas tus posiciones, ponderado por cuánto capital tienes en cada una. Mide qué tan eficiente es tu cartera completa en convertir riesgo en retorno.',
-  'riesgo (σ)': 'La volatilidad anualizada (sigma, σ) mide cuánto se mueve el precio de un activo típicamente en un año. A mayor sigma, mayor incertidumbre sobre el resultado, para bien o para mal.',
+  'ratio de treynor': 'Similar al Ratio Sharpe, pero mide el retorno obtenido por cada unidad de riesgo sistemático (beta), en vez de la volatilidad total. Útil quando la cartera ya está bien diversificada y solo queda el riesgo de mercado.',
+  'riesgo': 'La volatilidad anualizada (sigma, σ): mide cuánto se mueve el precio de un activo típicamente en un año. A mayor volatilidad, mayor incertidumbre sobre el resultado, para bien o para mal.',
+  'volatilidad': 'Mide cuánto se mueve el precio de un activo típicamente, expresado como porcentaje anualizado (sigma, σ). A mayor volatilidad, mayor incertidumbre sobre el resultado, para bien o para mal.',
+  'volatilidad implícita': 'La volatilidad que el mercado está "pagando" hoy por una opción, deducida de su precio actual, no calculada del historial de precios. Refleja la incertidumbre que el mercado espera hacia adelante.',
   'riesgo promedio σ': 'El promedio de la volatilidad (σ) de todas tus posiciones, ponderado por el capital invertido en cada una.',
-  'var 95% anual': 'El Valor en Riesgo (VaR): la pérdida máxima esperada en un año, con 95% de confianza. Un VaR de -20% significa que, en 19 de cada 20 años típicos, no perderías más del 20% del valor invertido.',
-  'beta (riesgo sistemático)': 'Mide cuánto se mueve un activo en relación al mercado general. Un beta de 1.5 significa que, si el mercado sube o baja 10%, el activo tiende a moverse 15% en la misma dirección.',
+  'var 95%': 'El Valor en Riesgo (VaR): la pérdida máxima esperada en un horizonte de tiempo, con 95% de confianza. Un VaR de -20% significa que, en 19 de cada 20 casos típicos, no perderías más del 20% del valor invertido.',
+  'cvar estimado (99%)': 'El CVaR (Valor en Riesgo Condicional) va más allá del VaR: mide la pérdida promedio esperada específicamente en el peor 1% de los casos, no solo dónde empieza esa cola de riesgo.',
   'beta': 'Mide cuánto se mueve un activo en relación al mercado general. Un beta mayor a 1 significa más volatilidad que el mercado; menor a 1, menos.',
+  'beta de cartera (ponderada)': 'El promedio del beta de todas tus posiciones, ponderado por cuánto capital tienes en cada una. Mide qué tan sensible es tu cartera completa a los movimientos del mercado general.',
   'rendimiento (ytm)': 'El Rendimiento al Vencimiento (Yield to Maturity): el retorno anual total que obtendrías si compras el bono hoy y lo mantienes hasta que vence, incluyendo el cupón y la diferencia entre el precio de compra y el valor nominal.',
   'riesgo país (embi)': 'El EMBI mide, en puntos base, cuánto más paga un país por endeudarse comparado con un bono del Tesoro de EE.UU. considerado libre de riesgo. A mayor EMBI, mayor percepción de riesgo de ese país.',
   'riesgo país': 'Mide cuánto más paga un país por endeudarse comparado con un bono libre de riesgo, reflejando la confianza del mercado en su estabilidad económica y política.',
@@ -13705,7 +13747,62 @@ const GLOSARIO_TERMINOS = {
   'calificación crediticia': 'Una nota (como AAA, BB, o CCC) que asignan agencias como S&P o Moody\'s, midiendo qué tan probable es que un emisor de deuda pague lo que debe. AAA es la más segura; entre más baja la letra, mayor el riesgo de impago.',
   'calificación s&p': 'La nota de riesgo crediticio asignada por Standard & Poor\'s. AAA es la calificación más alta (menor riesgo de impago); las letras más bajas indican mayor riesgo.',
   'calificación': 'Una nota que mide qué tan probable es que un emisor de deuda pague lo que debe. Entre más alta, más seguro se considera.',
+  'retorno esperado': 'El promedio de ganancia (o pérdida) que se espera de una inversión en un año, basado en su comportamiento histórico. No es una promesa: el resultado real de un año en particular puede ser distinto.',
+  'rentabilidad': 'La ganancia o pérdida generada por una inversión, expresada como porcentaje del capital invertido.',
+  'retorno': 'La ganancia o pérdida generada por una inversión, expresada como porcentaje del capital invertido.',
+  'prima de riesgo (retorno − rf)': 'El retorno adicional que un activo ofrece por encima de la tasa libre de riesgo, como compensación por asumir volatilidad. A mayor prima, mayor riesgo que el mercado exige compensar.',
+  'tasa libre de riesgo (rf)': 'El retorno de un activo considerado sin riesgo de impago, normalmente un bono del Tesoro de EE.UU. Sirve como punto de referencia para medir si otra inversión compensa bien su riesgo adicional.',
+  'alfa vs. tasa libre de riesgo': 'Mide cuánto retorno adicional generó un activo por encima de lo que ofrecería, sin riesgo alguno, invertir en un instrumento libre de riesgo.',
+  'tasa de acierto (win rate)': 'El porcentaje de tus operaciones que terminaron en ganancia, del total de operaciones cerradas. No mide cuánto ganaste o perdiste en cada una, solo cuántas veces acertaste.',
+  'eficiencia de capital': 'Mide qué tan bien se está usando el capital invertido para generar retorno, comparado con dejarlo sin invertir.',
+  'efic. de capital': 'Mide qué tan bien se está usando el capital invertido para generar retorno, comparado con dejarlo sin invertir.',
+  'eficiencia de riesgo': 'Mide qué tan bien la cartera convierte el riesgo asumido en retorno real, similar en espíritu al Ratio Sharpe.',
+  'efic. de riesgo': 'Mide qué tan bien la cartera convierte el riesgo asumido en retorno real, similar en espíritu al Ratio Sharpe.',
+  'duración macaulay': 'El tiempo promedio, ponderado por los pagos que recibes, que toma recuperar el valor de un bono a través de sus cupones y su pago final. A mayor duración, más sensible es el precio del bono a cambios en las tasas de interés.',
+  'duración modificada': 'Estima cuánto cambiaría el precio de un bono, en porcentaje, si la tasa de interés subiera o bajara 1 punto porcentual. Una duración modificada de 5 significa que el precio se movería aproximadamente 5% en dirección contraria a la tasa.',
+  'convexidad': 'Mide qué tan curva (no lineal) es la relación entre el precio de un bono y los cambios en la tasa de interés. Una convexidad positiva es favorable: el precio sube más de lo que baja ante cambios iguales de tasa en direcciones opuestas.',
+  'dv01 (valor bp)': 'Cuánto cambia el valor de una posición si la tasa de interés se mueve exactamente un punto base (0.01%). Útil para medir el riesgo de tasa en términos de dinero real, no solo porcentaje.',
+  'delta (δ)': 'Mide cuánto cambia el precio de una opción por cada $1 que se mueve el precio del activo subyacente. Un delta de 0.5 significa que la opción se mueve aproximadamente $0.50 por cada $1 del activo.',
+  'gamma (γ)': 'Mide qué tan rápido cambia el delta de una opción cuando se mueve el precio del activo subyacente. Un gamma alto significa que el riesgo de la posición puede cambiar rápidamente.',
+  'theta (θ)': 'Mide cuánto valor pierde una opción cada día que pasa, solo por el paso del tiempo, incluso si el precio del activo no se mueve. Casi siempre es negativo para quien compra la opción.',
+  'vega (ν)': 'Mide cuánto cambia el precio de una opción si la volatilidad esperada del mercado sube o baja un punto porcentual.',
+  'interés abierto': 'El número total de contratos de futuros u opciones que siguen activos (sin cerrar) en el mercado en un momento dado. Un interés abierto creciente sugiere más dinero nuevo entrando a esa posición.',
+  'base (futuro − spot)': 'La diferencia entre el precio de un contrato de futuro y el precio actual del activo en el mercado spot. Normalmente converge a cero a medida que se acerca el vencimiento del contrato.',
+  'riesgo de crédito': 'La posibilidad de que el emisor de un bono no pague sus intereses o el valor nominal a tiempo, o no pague en absoluto.',
+  'riesgo de reinversión': 'El riesgo de que, cuando recibas los pagos de un bono (cupones o el valor final), no encuentres otra inversión con un rendimiento igual de bueno para reinvertirlos.',
 };
+
+// Reconoce el concepto de fondo detrás de una etiqueta, aunque tenga
+// variantes de redacción distintas ("Retorno esperado anual",
+// "Rentabilidad prom.", "Riesgo σ prom.") — sin esta normalización,
+// cada variante habría necesitado su propia entrada exacta en el
+// glosario, y siempre faltaría alguna.
+function normalizarTerminoGlosario(texto){
+  let t = texto.trim().toLowerCase();
+  // Quita calificadores comunes que no cambian el concepto de fondo,
+  // uno por uno y con límites de palabra reales, para no cortar a
+  // mitad de una palabra más larga (como "esperado" al buscar "esp.").
+  t = t.replace(/[σ]/g, ' ');
+  t = t.replace(/\(aprox\.?\)/g, ' ');
+  t = t.replace(/\(anualizada\)/g, ' ');
+  t = t.replace(/\(diversificado\)/g, ' ');
+  t = t.replace(/\(1 año\)/g, ' ');
+  t = t.replace(/\(realizado\)/g, ' ');
+  t = t.replace(/\bparamétrico\b/g, ' ');
+  t = t.replace(/\banual(izada)?\b/g, ' ');
+  t = t.replace(/\besp\.?\b/g, ' ');
+  t = t.replace(/\bprom\.?\b/g, ' ');
+  t = t.replace(/\bpromedio\b/g, ' ');
+  t = t.replace(/\bponderad[ao]\b/g, ' ');
+  t = t.replace(/\bneta?\b/g, ' ');
+  t = t.replace(/\btotal\b/g, ' ');
+  t = t.replace(/\bdel per[ií]odo\b/g, ' ');
+  t = t.replace(/[.,]/g, ' ');
+  t = t.replace(/\s+/g, ' ').trim();
+  // Sinónimos frecuentes hacia la clave canónica del glosario
+  const sinonimos = { 'rendimiento esperado':'retorno esperado' };
+  return sinonimos[t] || t;
+}
 
 // Envuelve una etiqueta técnica con su ícono de ayuda directamente al
 // generarla — para los paneles de indicadores y tablas de resultados
@@ -13715,7 +13812,8 @@ const GLOSARIO_TERMINOS = {
 // aparecían con su explicación en los lugares donde más se consultan:
 // el panel de Indicadores clave y la tabla de resultados de un activo.
 function conAyuda(texto){
-  const explicacion = GLOSARIO_TERMINOS[texto.trim().toLowerCase()];
+  const clave = normalizarTerminoGlosario(texto);
+  const explicacion = GLOSARIO_TERMINOS[clave];
   if(!explicacion) return texto;
   return `${texto}<i class="ti ti-info-circle icono-ayuda-termino" data-explicacion="${explicacion.replace(/"/g,'&quot;')}" style="font-size:11px;margin-left:4px;color:var(--t3);cursor:pointer;vertical-align:middle;"></i>`;
 }
