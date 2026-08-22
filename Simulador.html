@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CapitalLab — Simulador de Cartera de Inversiones</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" media="print" onload="this.media='all'">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
@@ -13,12 +13,12 @@
   --c0:#0b0e14;--c1:#10141d;--c2:#151a27;--c3:#1c2333;--c4:#242d42;--c5:#2d3a55;
   --accent:#2962ff;--accent2:#00c4ff;--green:#00d084;--red:#ff4757;--amber:#ffb400;--gold:#d4af37;
   --t1:#e8edf8;--t2:#7a8ab0;--t3:#3d4d72;--t4:#2a3650;
-  --font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;--font-mono:'DM Mono',monospace;
+  --font-head:'Syne',sans-serif;--font-body:'Inter',sans-serif;--font-mono:'DM Mono',monospace;
   --r:8px;--r2:12px;--r3:16px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;}
-body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-x:hidden;}
+body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-x:hidden;font-weight:500;letter-spacing:.1px;-webkit-font-smoothing:antialiased;}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--c5);border-radius:4px;}
@@ -864,6 +864,10 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 .export-modal{position:relative;background:var(--c1, #10141d);border:1px solid var(--c3, #1a2030);border-radius:16px;padding:28px 26px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;}
 .modal-close{position:absolute;top:14px;right:14px;background:transparent;border:none;color:var(--t3, #7a8ab0);font-size:18px;cursor:pointer;padding:4px;border-radius:6px;line-height:1;}
 .modal-close:hover{color:var(--t1, #e8edf8);background:var(--c2, #161b26);}
+.tx-filtro-tipo-btn{background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);color:var(--t2, #b8c4dc);font-size:11px;padding:5px 10px;border-radius:14px;cursor:pointer;white-space:nowrap;}
+.tx-filtro-tipo-btn:hover{border-color:var(--accent2, #4a9eff);}
+.tx-filtro-tipo-btn.active{background:var(--accent2, #4a9eff);border-color:var(--accent2, #4a9eff);color:#fff;}
+.tx-grupo-dia-body.colapsado{display:none;}
 /* ESCALA PARA PANTALLAS GRANDES — el resto de la interfaz usa tamaños
    fijos en píxeles en cientos de lugares, así que en vez de reescribir
    cada uno, se escala toda la interfaz de forma proporcional según el
@@ -871,6 +875,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
    (hasta 1920px) no cambia nada; en pantallas más grandes, todo (el
    texto, los espaciados, los íconos) crece junto, para no tener que
    hacer zoom manual como pasaba antes en resoluciones como 2560×1440. */
+@media(min-width:1280px) and (max-width:1919px){ body{zoom:1.05;} }
 @media(min-width:1920px){ body{zoom:1.12;} }
 @media(min-width:2560px){ body{zoom:1.22;} }
 @media(min-width:3440px){ body{zoom:1.35;} }
@@ -886,7 +891,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     if(!esFirefox()) return;
     const ancho = window.innerWidth;
     let escala = 1;
-    if(ancho>=3440) escala=1.35; else if(ancho>=2560) escala=1.22; else if(ancho>=1920) escala=1.12;
+    if(ancho>=3440) escala=1.35; else if(ancho>=2560) escala=1.22; else if(ancho>=1920) escala=1.12; else if(ancho>=1280) escala=1.05;
     if(escala>1){
       document.body.style.transform = `scale(${escala})`;
       document.body.style.transformOrigin = 'top left';
@@ -8309,7 +8314,7 @@ function aplicarCompraP2PLocal(data, etiqueta){
   const ex = portfolio.find(x=>x.id===data.activo_id && x.type===data.activo_tipo);
   if(ex){ ex.qty += Number(data.cantidad); ex.invested = (ex.invested||0) + costo; }
   else portfolio.push({ id:data.activo_id, name:data.activo_nombre, type:data.activo_tipo, ticker:data.activo_nombre, qty:Number(data.cantidad), invested:costo, buyPrice:data.precio_unitario, currentPrice:data.precio_unitario });
-  txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:data.activo_nombre+' ('+etiqueta+')',type:data.activo_tipo,qty:data.cantidad,price:data.precio_unitario,total:costo,fee:0});
+  txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Compra',name:data.activo_nombre+' ('+etiqueta+')',type:data.activo_tipo,qty:data.cantidad,price:data.precio_unitario,total:costo,fee:0});
   updateNavCapital();
   autosave();
   return costo;
@@ -8434,7 +8439,7 @@ async function aplicarVentasP2PPendientes(){
         pos.qty -= cantidadAVender;
         capital += cashIn;
         if(pos.qty<=0) portfolio = portfolio.filter(x=>!(x.id===o.activo_id && x.type===o.activo_tipo));
-        txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:o.activo_nombre+' (a un compañero)',type:o.activo_tipo,qty:cantidadAVender,price:o.precio_unitario,total:cashIn,fee:0});
+        txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Venta',name:o.activo_nombre+' (a un compañero)',type:o.activo_tipo,qty:cantidadAVender,price:o.precio_unitario,total:cashIn,fee:0});
         updateNavCapital();
         autosave();
         notify(`Un compañero te compró ${cantidadAVender}u de ${o.activo_nombre} · +$${fmt(cashIn)}`, 'success');
@@ -8678,7 +8683,7 @@ function copiarOperacion(op){
     capital -= costo;
     if(ex){ ex.qty += Number(op.cantidad); ex.invested = (ex.invested||0) + costo; }
     else portfolio.push({ ...activo, qty:Number(op.cantidad), invested:costo, buyPrice:precioActual, currentPrice:precioActual });
-    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:activo.name+' (copiada)',type:activo.type,qty:op.cantidad,price:precioActual,total:costo,fee:0});
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Compra',name:activo.name+' (copiada)',type:activo.type,qty:op.cantidad,price:precioActual,total:costo,fee:0});
   } else {
     const pos = portfolio.find(x=>x.id===activo.id && x.type===activo.type);
     if(!pos || pos.qty < op.cantidad){ notify('No tienes suficientes unidades para copiar esta venta.', 'error'); return; }
@@ -8686,7 +8691,7 @@ function copiarOperacion(op){
     pos.qty -= op.cantidad;
     capital += ingreso;
     if(pos.qty<=0) portfolio = portfolio.filter(x=>!(x.id===activo.id && x.type===activo.type));
-    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:activo.name+' (copiada)',type:activo.type,qty:op.cantidad,price:precioActual,total:ingreso,fee:0});
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Venta',name:activo.name+' (copiada)',type:activo.type,qty:op.cantidad,price:precioActual,total:ingreso,fee:0});
   }
   updateNavCapital();
   autosave();
@@ -8719,7 +8724,7 @@ function repetirUltimaOperacion(){
     capital -= costo;
     if(ex){ ex.qty += Number(ultima.qty); ex.invested = (ex.invested||0) + costo; }
     else portfolio.push({ ...activo, qty:Number(ultima.qty), invested:costo, buyPrice:precioActual, currentPrice:precioActual });
-    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:activo.name+' (repetida)',type:activo.type,qty:ultima.qty,price:precioActual,total:costo,fee:0});
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Compra',name:activo.name+' (repetida)',type:activo.type,qty:ultima.qty,price:precioActual,total:costo,fee:0});
   } else {
     const pos = portfolio.find(x=>x.id===activo.id && x.type===activo.type);
     if(!pos || pos.qty < ultima.qty){ notify('No tienes suficientes unidades para repetir esta venta.', 'error'); return; }
@@ -8727,7 +8732,7 @@ function repetirUltimaOperacion(){
     pos.qty -= ultima.qty;
     capital += ingreso;
     if(pos.qty<=0) portfolio = portfolio.filter(x=>!(x.id===activo.id && x.type===activo.type));
-    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:activo.name+' (repetida)',type:activo.type,qty:ultima.qty,price:precioActual,total:ingreso,fee:0});
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Venta',name:activo.name+' (repetida)',type:activo.type,qty:ultima.qty,price:precioActual,total:ingreso,fee:0});
   }
   updateNavCapital();
   autosave();
@@ -9717,7 +9722,7 @@ function executeDirect(op){
     // El costo base de la posición incluye comisión (criterio contable: costo de adquisición).
     if(ex){ex.qty+=qty;ex.invested+=cashOut;ex.currentPrice=mid;}
     else portfolio.push({...selectedAsset,qty,invested:cashOut,buyPrice:gross/qty,currentPrice:mid});
-    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:selectedAsset.name,type:selectedAsset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Compra',name:selectedAsset.name,type:selectedAsset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
     notify(`Compra de ${qty}u ${selectedAsset.ticker} · costo $${fmt(fee)} ✓`);
     autosave();
     mostrarPromptDiarioTrading('Compra', selectedAsset.name);
@@ -9728,7 +9733,7 @@ function executeDirect(op){
     pos.qty-=qty;
     capital+=cashIn;
     if(pos.qty===0)portfolio=portfolio.filter(x=>!(x.id===selectedAsset.id&&x.type===selectedAsset.type));
-    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:selectedAsset.name,type:selectedAsset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Venta',name:selectedAsset.name,type:selectedAsset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
     notify(`Venta de ${qty}u ${selectedAsset.ticker} · costo $${fmt(fee)} ✓`);
     autosave();
     mostrarPromptDiarioTrading('Venta', selectedAsset.name);
@@ -9752,7 +9757,7 @@ function executeOrderAt(asset, side, qty){
     const ex = portfolio.find(x=>x.id===asset.id && x.type===asset.type);
     if (ex){ ex.qty+=qty; ex.invested+=cashOut; ex.currentPrice=mid; }
     else portfolio.push({...asset, qty, invested:cashOut, buyPrice:gross/qty, currentPrice:mid});
-    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:asset.name,type:asset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Compra',name:asset.name,type:asset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
   } else {
     const pos = portfolio.find(x=>x.id===asset.id && x.type===asset.type);
     if (!pos || pos.qty < qty) return false;              // sin unidades suficientes
@@ -9760,7 +9765,7 @@ function executeOrderAt(asset, side, qty){
     pos.qty -= qty;
     capital += cashIn;
     if (pos.qty === 0) portfolio = portfolio.filter(x=>!(x.id===asset.id && x.type===asset.type));
-    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:asset.name,type:asset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Venta',name:asset.name,type:asset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
   }
   return true;
 }
@@ -10544,7 +10549,7 @@ function addCustomToPortfolio(){
   const fee=commissionFor(gross);
   capital-=(gross+fee);   // descuenta valor + comisión
   portfolio.push({id:'CUSTOM_'+Date.now(),name:'Activo personalizado',ticker:'CUSTOM',type:tipo,price:precio,currentPrice:precio,sigma:vol,ret:retTotal,beta:1,qty,invested:gross+fee,buyPrice:precio,profile:'Activo definido manualmente.',rating:'N/A'});
-  txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Compra',name:'Activo personalizado',qty,price:precio,total:gross,fee:+fee.toFixed(2)});
+  txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Compra',name:'Activo personalizado',qty,price:precio,total:gross,fee:+fee.toFixed(2)});
   updateNavCapital();
   notify('Activo personalizado agregado ✓');
   autosave();
@@ -10652,7 +10657,7 @@ function sellFromPortfolio(id,type){
     overlay.remove();
     const snapshot = tomarSnapshotEstado();
     capital+=cashIn;
-    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),action:'Venta',name:pos.name,type:pos.type,qty:pos.qty,price:px,total:gross,fee:+fee.toFixed(2)});
+    txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Venta',name:pos.name,type:pos.type,qty:pos.qty,price:px,total:gross,fee:+fee.toFixed(2)});
     portfolio=portfolio.filter(x=>!(x.id===id&&x.type===type));
     updateNavCapital();
     notify(`Venta total de ${pos.ticker||pos.name} · costo $${fmt(fee)} ✓`);
@@ -10884,9 +10889,18 @@ function renderPortfolio(){
 let txFiltroActual = '';
 let txOrdenColumna = null;
 let txOrdenAscendente = false;
+let txFiltroTipo = 'todas'; // 'todas' | 'compras' | 'ventas' | 'ingresos'
+let txOcultarIngresos = false; // excluye cupones y dividendos, que se repiten mucho
 
 function aplicarFiltroYOrdenTx(lista){
   let out = lista;
+  // Los cupones y dividendos son ingresos recurrentes y frecuentes —
+  // se pueden excluir de la vista para que no dominen una lista que,
+  // de otra forma, se vuelve larga muy rápido con operaciones reales.
+  if(txOcultarIngresos) out = out.filter(t => t.action!=='Cupón' && t.action!=='Dividendo');
+  if(txFiltroTipo==='compras') out = out.filter(t => t.action==='Compra');
+  else if(txFiltroTipo==='ventas') out = out.filter(t => t.action==='Venta');
+  else if(txFiltroTipo==='ingresos') out = out.filter(t => t.action==='Cupón' || t.action==='Dividendo');
   const q = txFiltroActual.trim().toLowerCase();
   if(q) out = out.filter(t => (t.name||'').toLowerCase().includes(q) || (t.action||'').toLowerCase().includes(q) || (t.type||'').toLowerCase().includes(q));
   if(txOrdenColumna){
@@ -10900,6 +10914,20 @@ function aplicarFiltroYOrdenTx(lista){
     });
   }
   return out;
+}
+
+function fijarFiltroTipoTx(tipo, boton){
+  txFiltroTipo = tipo;
+  document.querySelectorAll('.tx-filtro-tipo-btn').forEach(b=>b.classList.remove('active'));
+  if(boton) boton.classList.add('active');
+  renderTablaHistorialTx(aplicarFiltroYOrdenTx(txHistory));
+}
+
+function alternarOcultarIngresosTx(){
+  txOcultarIngresos = !txOcultarIngresos;
+  const btn = document.getElementById('tx-toggle-ingresos');
+  if(btn) btn.classList.toggle('active', txOcultarIngresos);
+  renderTablaHistorialTx(aplicarFiltroYOrdenTx(txHistory));
 }
 
 function filtrarHistorialTx(query){
@@ -10921,22 +10949,47 @@ function flechaOrden(columna){
 function renderTablaHistorialTx(lista){
   const cont = document.getElementById('port-history');
   if(!cont) return;
+
+  // Barra de filtros rápidos — siempre visible, incluso con la lista
+  // vacía, para que el estudiante pueda cambiar de filtro sin tener
+  // que borrar la búsqueda primero.
+  const barraFiltros = `
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+      <button class="tx-filtro-tipo-btn ${txFiltroTipo==='todas'?'active':''}" onclick="fijarFiltroTipoTx('todas', this)">Todas</button>
+      <button class="tx-filtro-tipo-btn ${txFiltroTipo==='compras'?'active':''}" onclick="fijarFiltroTipoTx('compras', this)">Compras</button>
+      <button class="tx-filtro-tipo-btn ${txFiltroTipo==='ventas'?'active':''}" onclick="fijarFiltroTipoTx('ventas', this)">Ventas</button>
+      <button class="tx-filtro-tipo-btn ${txFiltroTipo==='ingresos'?'active':''}" onclick="fijarFiltroTipoTx('ingresos', this)">Cupones y dividendos</button>
+      <button class="tx-filtro-tipo-btn ${txOcultarIngresos?'active':''}" id="tx-toggle-ingresos" onclick="alternarOcultarIngresosTx()" style="margin-left:auto;">
+        <i class="ti ${txOcultarIngresos?'ti-eye-off':'ti-eye'}" style="font-size:12px;"></i> Ocultar cupones/dividendos
+      </button>
+    </div>`;
+
   if(txHistory.length===0){
-    cont.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;">Aún no hay transacciones. Ve al Mercado para comenzar.</div>';
+    cont.innerHTML = barraFiltros + '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;">Aún no hay transacciones. Ve al Mercado para comenzar.</div>';
     return;
   }
   if(lista.length===0){
-    cont.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;">Ninguna transacción coincide con esa búsqueda.</div>';
+    cont.innerHTML = barraFiltros + '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;">Ninguna transacción coincide con este filtro.</div>';
     return;
   }
+
+  // Agrupar por día real — las transacciones antiguas, guardadas
+  // antes de que se empezara a registrar la fecha completa, caen
+  // todas juntas en un grupo aparte, sin perderlas ni romper nada.
+  const grupos = new Map();
+  lista.forEach(t => {
+    const clave = t.timestamp ? new Date(t.timestamp).toLocaleDateString('es-PA', {weekday:'long', day:'numeric', month:'long'}) : 'Antes de esta actualización';
+    if(!grupos.has(clave)) grupos.set(clave, []);
+    grupos.get(clave).push(t);
+  });
+
   const th = (col, label) => `<th style="cursor:pointer;user-select:none;" onclick="ordenarHistorialTx('${col}')">${label}${flechaOrden(col)}</th>`;
-  cont.innerHTML = `<table><thead><tr>${th('date','Hora')}${th('action','Operación')}${th('name','Activo')}${th('type','Tipo')}${th('qty','Qty')}${th('price','Precio')}${th('total','Total')}<th>Efecto</th></tr></thead>
-      <tbody>${lista.map(t=>{
-        const isIncome = t.action==='Cupón'||t.action==='Dividendo';
-        const badgeCls = t.action==='Compra'?'badge-green':isIncome?'badge-cyan':'badge-red';
-        const effClass = t.action==='Compra'?'r':'g';
-        const effSign  = t.action==='Compra'?'−$':'+$';
-        return `<tr>
+  const filaDe = (t) => {
+    const isIncome = t.action==='Cupón'||t.action==='Dividendo';
+    const badgeCls = t.action==='Compra'?'badge-green':isIncome?'badge-cyan':'badge-red';
+    const effClass = t.action==='Compra'?'r':'g';
+    const effSign  = t.action==='Compra'?'−$':'+$';
+    return `<tr>
         <td class="mono" style="font-size:10px;color:var(--t3);">${t.date}</td>
         <td><span class="badge ${badgeCls}">${t.action}</span></td>
         <td style="font-weight:500;">${t.name}</td>
@@ -10945,8 +10998,24 @@ function renderTablaHistorialTx(lista){
         <td class="mono">${t.price>0?'$'+fmt(t.price):'—'}</td>
         <td class="mono">$${fmt(t.total)}</td>
         <td class="mono ${effClass}">${effSign}${fmt(t.total)}</td>
-      </tr>`;}).join('')}</tbody></table>
-      <div style="font-size:10px;color:var(--t3);text-align:right;margin-top:8px;">${lista.length} de ${txHistory.length} op. · Compras: ${txHistory.filter(t=>t.action==='Compra').length} · Ventas: ${txHistory.filter(t=>t.action==='Venta').length} · Ingresos: ${txHistory.filter(t=>t.action==='Cupón'||t.action==='Dividendo').length}</div>`;
+      </tr>`;
+  };
+
+  const bloquesPorDia = [...grupos.entries()].map(([dia, ops], i) => `
+    <div class="tx-grupo-dia" style="margin-bottom:10px;">
+      <div class="tx-grupo-dia-header" onclick="this.nextElementSibling.classList.toggle('colapsado');this.querySelector('.ti-chevron-down').style.transform=this.nextElementSibling.classList.contains('colapsado')?'rotate(-90deg)':'rotate(0)';" style="display:flex;align-items:center;gap:6px;padding:8px 4px;cursor:pointer;font-size:12px;font-weight:600;color:var(--t2);border-bottom:1px solid var(--c4);">
+        <i class="ti ti-chevron-down" style="font-size:14px;transition:transform .15s;"></i>
+        ${dia.charAt(0).toUpperCase()+dia.slice(1)}
+        <span style="font-weight:400;color:var(--t3);">· ${ops.length} operación${ops.length===1?'':'es'}</span>
+      </div>
+      <div class="tx-grupo-dia-body">
+        <table><thead><tr>${th('date','Hora')}${th('action','Operación')}${th('name','Activo')}${th('type','Tipo')}${th('qty','Qty')}${th('price','Precio')}${th('total','Total')}<th>Efecto</th></tr></thead>
+        <tbody>${ops.map(filaDe).join('')}</tbody></table>
+      </div>
+    </div>`).join('');
+
+  cont.innerHTML = barraFiltros + bloquesPorDia +
+      `<div style="font-size:10px;color:var(--t3);text-align:right;margin-top:8px;">${lista.length} de ${txHistory.length} op. · Compras: ${txHistory.filter(t=>t.action==='Compra').length} · Ventas: ${txHistory.filter(t=>t.action==='Venta').length} · Ingresos: ${txHistory.filter(t=>t.action==='Cupón'||t.action==='Dividendo').length}</div>`;
 }
 
 function renderLabPicker(){
