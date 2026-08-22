@@ -4494,12 +4494,14 @@ function simulateLab(){
 
   const pickedNames=labPickedIds.length>0?labPickedIds.map(id=>{const a=allAssets().find(x=>x.id===id);return a?a.ticker:'';}).filter(Boolean).join(', '):'Todos los activos disponibles';
 
-  // Transaction history HTML
-  const txHtml=txHistory.length===0
+  // Transaction history HTML — solo compras y ventas, sin cupones ni
+  // dividendos, que son clutter en un reporte de operaciones.
+  const txOperacionesReales=txHistory.filter(t=>t.action==='Compra'||t.action==='Venta');
+  const txHtml=txOperacionesReales.length===0
     ?'<div style="text-align:center;padding:1.2rem;color:var(--t3);font-size:12px;">Aún no hay transacciones registradas en el mercado.</div>'
     :`<table>
         <thead><tr><th>Hora</th><th>Operación</th><th>Activo</th><th>Tipo</th><th>Qty</th><th>Precio</th><th>Total</th><th>Efecto</th></tr></thead>
-        <tbody>${txHistory.map(t=>`<tr>
+        <tbody>${txOperacionesReales.map(t=>`<tr>
           <td class="mono" style="font-size:10px;color:var(--t3);">${t.date}</td>
           <td><span class="badge ${t.action==='Compra'?'badge-green':'badge-red'}" style="font-size:9px;">${t.action}</span></td>
           <td style="font-weight:500;font-size:11px;">${t.name}</td>
@@ -4511,7 +4513,7 @@ function simulateLab(){
         </tr>`).join('')}</tbody>
       </table>
       <div style="font-size:10px;color:var(--t3);text-align:right;margin-top:6px;">
-        ${txHistory.length} operación(es) · Compras: ${txHistory.filter(t=>t.action==='Compra').length} · Ventas: ${txHistory.filter(t=>t.action==='Venta').length}
+        ${txOperacionesReales.length} operación(es) · Compras: ${txOperacionesReales.filter(t=>t.action==='Compra').length} · Ventas: ${txOperacionesReales.filter(t=>t.action==='Venta').length}
       </div>`;
 
   // Allocation table rows for all 5 types

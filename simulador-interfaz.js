@@ -458,7 +458,7 @@ function renderResults(){
           <th>Hora</th><th>Operación</th><th>Activo</th><th>Cantidad</th><th>Precio</th><th>Total</th>
         </tr></thead>
         <tbody>
-          ${txHistory.map(t=>`<tr>
+          ${txHistory.filter(t=>t.action==='Compra'||t.action==='Venta').map(t=>`<tr>
             <td class="mono" style="font-size:10px;color:var(--t3);">${t.date}</td>
             <td><span class="badge ${t.action==='Compra'?'badge-green':'badge-red'}">${t.action}</span></td>
             <td style="font-weight:500;">${t.name}</td>
@@ -1676,12 +1676,18 @@ function exportProgress() {
 // SERIE 6: EXPORT TRANSACTIONS TO CSV
 // ══════════════════════════════════════════════════
 function exportTransactionsCSV() {
-  if (txHistory.length === 0) {
-    notify('No hay operaciones para exportar','error');
+  // Cupones y dividendos son ingresos pasivos recurrentes que no
+  // aportan al objetivo de un libro de operaciones (compras y
+  // ventas reales) — se excluyen de la exportación, aunque sí se
+  // pueden seguir viendo dentro de la app, en Mi Cartera, con su
+  // propio interruptor para mostrarlos u ocultarlos a gusto.
+  const operacionesReales = txHistory.filter(t=>t.action==='Compra'||t.action==='Venta');
+  if (operacionesReales.length === 0) {
+    notify('No hay operaciones de compra o venta para exportar','error');
     return;
   }
   const headers = ['Hora','Operación','Activo','Tipo','Cantidad','Precio ejecución','Valor bruto','Comisión','Efecto neto sobre capital'];
-  const rows = txHistory.map(t => {
+  const rows = operacionesReales.map(t => {
     const fee = t.fee || 0;
     // Efecto neto: compra = −(bruto+comisión); venta/ingreso = +(bruto−comisión)
     const effect = t.action === 'Compra' ? -(t.total + fee) : (t.total - fee);
@@ -1697,16 +1703,16 @@ function exportTransactionsCSV() {
       (effect >= 0 ? '+' : '') + effect.toFixed(2),
     ].join(',');
   });
-  // Summary footer
-  const compras  = txHistory.filter(t=>t.action==='Compra').length;
-  const ventas   = txHistory.filter(t=>t.action==='Venta').length;
-  const ingresos = txHistory.filter(t=>t.action==='Cupón'||t.action==='Dividendo').length;
-  const totalFees= txHistory.reduce((s,t)=>s+(t.fee||0),0);
+  // Summary footer — coherente con lo que realmente se exportó
+  // arriba: solo compras y ventas, sin cupones ni dividendos.
+  const compras  = operacionesReales.filter(t=>t.action==='Compra').length;
+  const ventas   = operacionesReales.filter(t=>t.action==='Venta').length;
+  const totalFees= operacionesReales.reduce((s,t)=>s+(t.fee||0),0);
   const csv = [
     'CapitalLab — Libro de Operaciones',
     'Exportado:,'+new Date().toLocaleString('es-PA'),
-    'Total operaciones:,'+txHistory.length,
-    'Compras:,'+compras+',Ventas:,'+ventas+',Ingresos pasivos:,'+ingresos,
+    'Total operaciones:,'+operacionesReales.length,
+    'Compras:,'+compras+',Ventas:,'+ventas,
     'Costos de transacción acumulados:,'+totalFees.toFixed(2),
     '',
     headers.join(','),
@@ -2078,10 +2084,10 @@ ${portfolio.length===0
 
 <!-- ══ HISTORIAL DE TRANSACCIONES ══ -->
 <div class="section">
-  <div class="section-title">Historial completo de transacciones</div>
-  <div class="section-sub">${txHistory.length} operación(es) · Compras: ${txHistory.filter(t=>t.action==='Compra').length} · Ventas: ${txHistory.filter(t=>t.action==='Venta').length}</div>
+  <div class="section-title">Historial de compras y ventas</div>
+  <div class="section-sub">${txHistory.filter(t=>t.action==='Compra'||t.action==='Venta').length} operación(es) · Compras: ${txHistory.filter(t=>t.action==='Compra').length} · Ventas: ${txHistory.filter(t=>t.action==='Venta').length}</div>
 </div>
-${txHistory.length===0
+${txHistory.filter(t=>t.action==='Compra'||t.action==='Venta').length===0
   ? '<div class="empty">Sin transacciones registradas.</div>'
   : `<table>
     <thead>
@@ -2091,7 +2097,7 @@ ${txHistory.length===0
       </tr>
     </thead>
     <tbody>
-      ${txHistory.map(t=>`<tr>
+      ${txHistory.filter(t=>t.action==='Compra'||t.action==='Venta').map(t=>`<tr>
         <td class="mono" style="color:#888;">${t.date}</td>
         <td><span class="badge" style="background:${t.action==='Compra'?'#00a86b':'#e02d2d'};">${t.action}</span></td>
         <td><b>${t.name}</b></td>
