@@ -12483,7 +12483,16 @@ function tickPrices() {
       const newPrice = Math.max(0.0001, (a.currentPrice || a.price) * (1 + shock));
       const dec = getDecimals(a);
       a.currentPrice = +newPrice.toFixed(dec);
-      a.change       = +((a.currentPrice - a.price) / a.price * 100).toFixed(2);
+      // Antes esto comparaba contra el precio base del activo (a.price,
+      // fijo desde el arranque), mientras que "Variación de sesión" en
+      // el detalle comparaba contra el precio de apertura de la sesión
+      // actual (a.sessionOpenPrice) — dos referencias distintas que
+      // podían mostrar signos opuestos al mismo tiempo en pantalla, sin
+      // ninguna etiqueta que aclarara la diferencia. Ahora usan la
+      // misma referencia en toda la aplicación (cinta, listas,
+      // ganadores/perdedores, y el encabezado del detalle).
+      const referenciaCambio = a.sessionOpenPrice != null ? a.sessionOpenPrice : a.price;
+      a.change       = +((a.currentPrice - referenciaCambio) / referenciaCambio * 100).toFixed(2);
       addCandle(a);
     });
   });

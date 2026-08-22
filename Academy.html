@@ -27,6 +27,7 @@
 .cl-tools-dropdown a:hover{background:var(--c2, var(--c4));}
 @media(max-width:640px){.cl-tools-btn .cl-tools-txt{display:none;}.cl-tools-btn{padding:6px 8px;}}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -36,12 +37,12 @@
   --t1:#eef3fb; --t2:#9fb0ca; --t3:#5f7491;
   --accent:#00c4ff; --accent2:#2e9bff; --green:#00d084; --red:#ff4757; --amber:#ffb400; --gold:#e8b94a; --gold2:#f4cf6b; --purple:#a78bfa; --purple2:#c4b5fd; --teal:#00d0b0; --rose:#fb7185; --indigo:#818cf8; --lime:#a3e635; --emerald:#34d399;
   --r:8px; --r2:12px; --r3:16px;
-  --font-head:'DM Sans',system-ui,-apple-system,'Segoe UI',Arial,sans-serif; --font-body:'DM Sans',system-ui,-apple-system,'Segoe UI',Arial,sans-serif; --font-mono:'DM Mono','Consolas','Courier New',monospace;
+  --font-head:'Inter','DM Sans',system-ui,-apple-system,'Segoe UI',Arial,sans-serif; --font-body:'Inter','DM Sans',system-ui,-apple-system,'Segoe UI',Arial,sans-serif; --font-mono:'DM Mono','Consolas','Courier New',monospace;
   --vh:1vh;
   --ac:var(--gold); --ac-text:#1a1404; /* acento activo: se sobreescribe por materia */
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{background:var(--bg);color:var(--t1);font-family:var(--font-body);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+html,body{background:var(--bg);color:var(--t1);font-family:var(--font-body);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;font-weight:500;letter-spacing:.1px;}
 body{min-height:100vh;background:radial-gradient(1200px 600px at 80% -10%, rgba(232,185,74,.05), transparent), radial-gradient(900px 500px at 0% 0%, rgba(167,139,250,.05), transparent), var(--bg);}
 a{color:var(--ac);text-decoration:none;}
 b,strong{font-weight:700;color:inherit;}
