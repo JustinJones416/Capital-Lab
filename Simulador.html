@@ -816,7 +816,9 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
 /* ── Chip de usuario en la topbar ── */
 .user-chip{display:flex;align-items:center;gap:8px;background:var(--c2);border:1px solid var(--c4);border-radius:20px;padding:5px 6px 5px 12px;font-size:11.5px;color:var(--t1);}
-.user-chip .role-badge{font-size:9px;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:10px;font-weight:700;}
+.user-chip .role-badge{font-size:9px;text-transform:uppercase;letter-spacing:normal;padding:2px 7px;border-radius:10px;font-weight:700;white-space:nowrap;flex-shrink:0;}
+.user-chip .chip-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.user-chip button{flex-shrink:0;}
 .user-chip .role-badge.docente{background:rgba(212,175,55,.15);color:var(--gold);}
 .user-chip .role-badge.estudiante{background:rgba(0,196,255,.12);color:var(--accent2);}
 .user-chip .role-badge.superadmin{background:rgba(255,71,87,.14);color:var(--red);}
@@ -865,9 +867,23 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 .modal-close{position:absolute;top:14px;right:14px;background:transparent;border:none;color:var(--t3, #7a8ab0);font-size:18px;cursor:pointer;padding:4px;border-radius:6px;line-height:1;}
 .modal-close:hover{color:var(--t1, #e8edf8);background:var(--c2, #161b26);}
 .tx-filtro-tipo-btn{background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);color:var(--t2, #b8c4dc);font-size:11px;padding:5px 10px;border-radius:14px;cursor:pointer;white-space:nowrap;}
+/* Fila de "Mis sesiones de clase" — en escritorio, título y botones
+   quedan lado a lado como siempre; en pantallas angostas, los
+   botones de archivar/eliminar antes quedaban apretados y pegados
+   contra el botón "Cambiar" cuando una sesión tenía los tres a la
+   vez, así que se apilan en su propia fila, con espacio real. */
+@media(min-width:640px){
+  .ms-fila-sesion{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .ms-fila-sesion-info{margin-bottom:0 !important;}
+}
 .tx-filtro-tipo-btn:hover{border-color:var(--accent2, #4a9eff);}
 .tx-filtro-tipo-btn.active{background:var(--accent2, #4a9eff);border-color:var(--accent2, #4a9eff);color:#fff;}
 .tx-grupo-dia-body.colapsado{display:none;}
+/* El Mentor IA no debe aparecer antes de iniciar sesión, y en móvil
+   no debe chocar con el botón de reabrir noticias que ya vive en la
+   esquina inferior derecha dentro de Mercado. */
+#auth-gate:not(.hidden) ~ #mentor-ia-fab, #auth-gate:not(.hidden) ~ #mentor-ia-panel{display:none !important;}
+@media(max-width:768px){ #mentor-ia-fab{bottom:16px;right:16px;} #mentor-ia-panel{bottom:78px;right:12px;} }
 /* ESCALA PARA PANTALLAS GRANDES — el resto de la interfaz usa tamaños
    fijos en píxeles en cientos de lugares, así que en vez de reescribir
    cada uno, se escala toda la interfaz de forma proporcional según el
@@ -875,10 +891,10 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
    (hasta 1920px) no cambia nada; en pantallas más grandes, todo (el
    texto, los espaciados, los íconos) crece junto, para no tener que
    hacer zoom manual como pasaba antes en resoluciones como 2560×1440. */
-@media(min-width:1280px) and (max-width:1919px){ body{zoom:1.05;} }
-@media(min-width:1920px){ body{zoom:1.12;} }
-@media(min-width:2560px){ body{zoom:1.22;} }
-@media(min-width:3440px){ body{zoom:1.35;} }
+@media(min-width:1280px) and (max-width:1919px){ body{zoom:1.12;} }
+@media(min-width:1920px){ body{zoom:1.2;} }
+@media(min-width:2560px){ body{zoom:1.32;} }
+@media(min-width:3440px){ body{zoom:1.45;} }
 </style>
 <script>
 // Respaldo para Firefox, que históricamente no soporta "zoom" en CSS
@@ -891,7 +907,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     if(!esFirefox()) return;
     const ancho = window.innerWidth;
     let escala = 1;
-    if(ancho>=3440) escala=1.35; else if(ancho>=2560) escala=1.22; else if(ancho>=1920) escala=1.12; else if(ancho>=1280) escala=1.05;
+    if(ancho>=3440) escala=1.45; else if(ancho>=2560) escala=1.32; else if(ancho>=1920) escala=1.2; else if(ancho>=1280) escala=1.12;
     if(escala>1){
       document.body.style.transform = `scale(${escala})`;
       document.body.style.transformOrigin = 'top left';
@@ -2753,12 +2769,12 @@ async function renderMiCuenta(cont){
       if(contadorEl) contadorEl.textContent = filas.length;
       if(!filas.length){ listaCont.innerHTML = '<div class="auth-hint">Todavía no perteneces a ninguna sesión.</div>'; return; }
       listaCont.innerHTML = filas.map(s => `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--c4);border-radius:var(--r);margin-bottom:8px;${s.id===currentUser.sesion_id?'border-color:var(--accent2);background:rgba(0,196,255,.06);':''}${s.activa===false?'opacity:.55;':''}">
-          <div style="min-width:0;">
+        <div class="ms-fila-sesion" style="border:1px solid var(--c4);border-radius:var(--r);margin-bottom:8px;padding:10px 12px;${s.id===currentUser.sesion_id?'border-color:var(--accent2);background:rgba(0,196,255,.06);':''}${s.activa===false?'opacity:.55;':''}">
+          <div class="ms-fila-sesion-info" style="min-width:0;margin-bottom:8px;">
             <div style="font-weight:600;font-size:13px;">${s.nombre} ${s.activa===false?'<span class="nav-badge" style="margin-left:4px;">Archivada</span>':''}</div>
             <div style="font-size:11px;color:var(--t3);font-family:var(--font-mono);display:flex;align-items:center;gap:5px;">${s.codigo} <i class="ti ti-copy" style="font-size:11px;cursor:pointer;" title="Copiar código" onclick="copiarCodigoSesion('${s.codigo}')"></i></div>
           </div>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <div class="ms-fila-sesion-botones" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             ${s.id===currentUser.sesion_id
               ? '<span class="nav-badge" style="background:var(--accent2);color:#031320;">Activa</span>'
               : `<button class="btn btn-sm" onclick="cambiarSesionActiva('${s.id}','${s.nombre.replace(/'/g,"\\'")}','${s.codigo}')">Cambiar</button>`}
@@ -3803,6 +3819,107 @@ function generarReflexionRestriccionesLocal(contexto){
     diagnostico: `Tu cartera incumplió "${incumplida.nombre}": el límite era ${incumplida.limite} y tuviste ${incumplida.real}.`,
     preguntaReflexiva: `Si tuvieras que ajustar tu asignación para cumplir con ${incumplida.nombre.toLowerCase()} (límite ${incumplida.limite}), ¿qué porcentaje reducirías, y hacia cuál otro tipo de activo lo moverías?`,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MENTOR IA — el primer espacio conversacional real del simulador.
+// Todas las demás funciones de IA son de un solo disparo (un botón,
+// una respuesta fija); este panel permite preguntas libres, con
+// memoria real de lo ya conversado en esta sesión, y contexto real
+// de la cartera y la página donde está el estudiante en ese momento.
+// ═══════════════════════════════════════════════════════════════════
+let mentorHistorialChat = [];
+
+function alternarMentorIA(){
+  const panel = document.getElementById('mentor-ia-panel');
+  const abriendo = panel.style.display === 'none';
+  panel.style.display = abriendo ? 'flex' : 'none';
+  if(abriendo && !mentorHistorialChat.length){
+    agregarMensajeMentor('mentor', '¡Hola! Soy tu Mentor IA. Puedo ayudarte a entender tu cartera, un concepto financiero, o una decisión que estés por tomar. ¿En qué te ayudo?');
+  }
+  if(abriendo) setTimeout(()=>document.getElementById('mentor-ia-input')?.focus(), 100);
+}
+
+function agregarMensajeMentor(rol, texto){
+  mentorHistorialChat.push({ rol, texto });
+  const cont = document.getElementById('mentor-ia-mensajes');
+  const esUsuario = rol === 'usuario';
+  const burbuja = document.createElement('div');
+  burbuja.style.cssText = `align-self:${esUsuario?'flex-end':'flex-start'};max-width:85%;background:${esUsuario?'var(--accent2, #4a9eff)':'var(--c2, #161b26)'};color:${esUsuario?'#fff':'var(--t1, #e8edf8)'};padding:9px 13px;border-radius:14px;${esUsuario?'border-bottom-right-radius:4px;':'border-bottom-left-radius:4px;'}font-size:13px;line-height:1.5;white-space:pre-wrap;`;
+  burbuja.textContent = texto;
+  cont.appendChild(burbuja);
+  cont.scrollTop = cont.scrollHeight;
+}
+
+function recopilarContextoMentor(){
+  const posiciones = (portfolio||[]).map(p => ({
+    name: p.name, type: p.type,
+    pesoPct: (() => { const total = (portfolio||[]).reduce((s,x)=>s+((x.currentPrice||x.buyPrice)*x.qty),0); return total ? (((p.currentPrice||p.buyPrice)*p.qty/total)*100).toFixed(1) : 0; })(),
+    gananciaPct: p.buyPrice ? (((p.currentPrice-p.buyPrice)/p.buyPrice)*100).toFixed(1) : 0,
+  }));
+  const valorTotal = (portfolio||[]).reduce((s,p)=>s+((p.currentPrice||p.buyPrice)*p.qty),0);
+  const invertido = (portfolio||[]).reduce((s,p)=>s+(p.invested||0),0);
+  const retornoPct = invertido ? (((valorTotal-invertido)/invertido)*100).toFixed(1) : 0;
+  return {
+    valorTotal: valorTotal.toFixed(2), retornoPct, posiciones,
+    perfilDeclarado: window.__perfilRiesgoDeclarado || 'moderado',
+    paginaActual: document.querySelector('.page.active')?.id?.replace('page-','') || 'desconocida',
+  };
+}
+
+async function enviarPreguntaMentor(){
+  const input = document.getElementById('mentor-ia-input');
+  const pregunta = input.value.trim();
+  if(!pregunta) return;
+  input.value = '';
+  agregarMensajeMentor('usuario', pregunta);
+
+  const boton = document.getElementById('mentor-ia-btn-enviar');
+  boton.disabled = true; boton.style.opacity = '.6';
+  const cont = document.getElementById('mentor-ia-mensajes');
+  const indicadorCarga = document.createElement('div');
+  indicadorCarga.id = 'mentor-ia-cargando';
+  indicadorCarga.style.cssText = 'align-self:flex-start;font-size:12px;color:var(--t3);display:flex;align-items:center;gap:6px;';
+  indicadorCarga.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Escribiendo…';
+  if(!document.getElementById('sim-ia-estilo-girar')){
+    const st=document.createElement('style'); st.id='sim-ia-estilo-girar';
+    st.textContent='@keyframes girarSimIA{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
+  cont.appendChild(indicadorCarga);
+  cont.scrollTop = cont.scrollHeight;
+
+  // El historial que se manda a Gemini es el de antes de esta
+  // pregunta (el turno actual va aparte, ver la función del servidor).
+  const historialPrevio = mentorHistorialChat.slice(0, -1).map(m => ({ rol:m.rol, texto:m.texto }));
+
+  try {
+    const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SIM_IA_ANON_KEY,'Authorization':`Bearer ${SIM_IA_ANON_KEY}`},
+      body: JSON.stringify({ modo:'mentor_chat', pregunta, historial:historialPrevio, contexto:recopilarContextoMentor() }),
+    });
+    const d = await respuesta.json();
+    if(!d.ok) throw new Error(d.error||'Error desconocido.');
+    document.getElementById('mentor-ia-cargando')?.remove();
+    agregarMensajeMentor('mentor', d.respuesta);
+  } catch(e){
+    document.getElementById('mentor-ia-cargando')?.remove();
+    agregarMensajeMentor('mentor', generarRespuestaMentorLocal(pregunta, recopilarContextoMentor()));
+  } finally {
+    boton.disabled = false; boton.style.opacity = '1';
+  }
+}
+
+function generarRespuestaMentorLocal(pregunta, contexto){
+  // Sin IA disponible — un reconocimiento honesto, con los datos
+  // reales que sí se pueden dar sin necesitar redacción de IA, en vez
+  // de dejar al estudiante sin ninguna respuesta en el chat.
+  const q = pregunta.toLowerCase();
+  if(q.includes('cartera') || q.includes('portafolio')){
+    return `La IA no está disponible ahora mismo, pero puedo darte el dato directo: tu cartera vale US$${contexto.valorTotal} en este momento, con un retorno acumulado de ${contexto.retornoPct}% y ${contexto.posiciones.length} posición(es) activa(s).`;
+  }
+  return 'La IA no está disponible ahora mismo, así que no puedo redactar una respuesta completa a esa pregunta. Intenta de nuevo en un momento, o revisa el panel de Análisis para ver los datos directos de cualquier activo.';
 }
 
 function generarInformeAcademicoLocal(actividad){
@@ -12426,8 +12543,16 @@ function actualizarIndicadorSincronizacion(cantidadActualizados){
 function tickPrices() {
   if (!marketSession.open) return;
 
+  // allAssets() reconstruye un arreglo nuevo de 150 elementos cada vez
+  // que se llama (sin ningún caché) — antes se llamaba varias veces
+  // dentro de este mismo ciclo, incluso una vez POR CADA posición de
+  // la cartera del estudiante, multiplicando el costo real según
+  // cuántas posiciones tenga. Ahora se calcula una sola vez, con un
+  // mapa de búsqueda instantánea en vez de una búsqueda lineal repetida.
   const prevPrices = {};
-  allAssets().forEach(a => prevPrices[a.id] = a.currentPrice || a.price);
+  const todosLosActivosDelTick = allAssets();
+  const mapaActivosPorClave = new Map(todosLosActivosDelTick.map(a => [a.id+'|'+a.type, a]));
+  todosLosActivosDelTick.forEach(a => prevPrices[a.id] = a.currentPrice || a.price);
 
   // ── SERIE 1: One-factor market correlation model (CAPM-style) ──
   // A single market-wide shock affects all assets proportionally to their beta,
@@ -12499,7 +12624,7 @@ function tickPrices() {
 
   // Sync portfolio MtM — cash capital is immutable
   portfolio.forEach(pos => {
-    const live = allAssets().find(a => a.id === pos.id && a.type === pos.type);
+    const live = mapaActivosPorClave.get(pos.id+'|'+pos.type);
     if (live) pos.currentPrice = live.currentPrice;
   });
 
@@ -12514,7 +12639,7 @@ function tickPrices() {
   }
 
   if (selectedAsset) {
-    const updated = allAssets().find(a => a.id === selectedAsset.id && a.type === selectedAsset.type);
+    const updated = mapaActivosPorClave.get(selectedAsset.id+'|'+selectedAsset.type);
     if (updated) { selectedAsset = updated; updateMarketToolbar(updated); updateTradeCalc(); drawCandlestickChart(updated); }
   }
   updateNavCapital();
@@ -15089,5 +15214,20 @@ function initApp() {
   try { sincronizarPreciosRealesSimulador(); } catch(e){}
 }
 </script>
+<!-- ═══════════ MENTOR IA — panel flotante, disponible en cualquier página ═══════════ -->
+<button id="mentor-ia-fab" onclick="alternarMentorIA()" title="Mentor IA" style="position:fixed;bottom:20px;right:20px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg, var(--gold, #e8b94a), #c99a2e);border:none;box-shadow:0 6px 18px rgba(0,0,0,.4);cursor:pointer;z-index:950;display:flex;align-items:center;justify-content:center;color:#1a1206;">
+  <i class="ti ti-message-chatbot" style="font-size:24px;"></i>
+</button>
+<div id="mentor-ia-panel" style="display:none;flex-direction:column;overflow:hidden;position:fixed;bottom:84px;right:20px;width:min(380px,calc(100vw - 24px));height:min(560px,calc(100vh - 120px));background:var(--c1, #10141d);border:1px solid var(--c4, #242d42);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.5);z-index:950;">
+  <div style="padding:12px 14px;border-bottom:1px solid var(--c4);display:flex;align-items:center;justify-content:space-between;background:var(--c2, #161b26);flex-shrink:0;">
+    <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;"><i class="ti ti-message-chatbot" style="color:var(--gold, #e8b94a);"></i> Mentor IA</div>
+    <button onclick="alternarMentorIA()" style="background:transparent;border:none;color:var(--t3);cursor:pointer;padding:4px;"><i class="ti ti-x" style="font-size:16px;"></i></button>
+  </div>
+  <div id="mentor-ia-mensajes" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;"></div>
+  <div style="padding:10px 12px;border-top:1px solid var(--c4);display:flex;gap:8px;flex-shrink:0;">
+    <input type="text" id="mentor-ia-input" placeholder="Pregúntale al Mentor…" maxlength="500" onkeydown="if(event.key==='Enter')enviarPreguntaMentor()" style="flex:1;padding:9px 12px;background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:20px;color:var(--t1, #e8edf8);font-size:13px;">
+    <button onclick="enviarPreguntaMentor()" id="mentor-ia-btn-enviar" style="background:var(--gold, #e8b94a);border:none;border-radius:50%;width:36px;height:36px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1a1206;"><i class="ti ti-send" style="font-size:15px;"></i></button>
+  </div>
+</div>
 </body>
 </html>
