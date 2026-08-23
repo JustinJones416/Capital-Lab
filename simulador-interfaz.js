@@ -1511,9 +1511,10 @@ function updateMarketToolbar(asset) {
     const openP  = asset.sessionOpenPrice != null ? asset.sessionOpenPrice : asset.price;
     const sessionChg = openP > 0 ? ((p - openP) / openP * 100) : 0;
     const hv = computeHistVaR(asset, 0.95);
+    const esPrecioEnVivo = asset.__ultimoRealMs && (Date.now() - asset.__ultimoRealMs) < UMBRAL_ANCLA_REAL_FRESCA_MS;
     kpis.innerHTML = [
       ['Precio apertura sesión', '$' + fmt(openP), ''],
-      ['Precio actual (en vivo)', '$' + fmt(p), chg >= 0 ? 'g' : 'r'],
+      [esPrecioEnVivo?'Precio actual (en vivo)':'Precio actual (simulado)', '$' + fmt(p), chg >= 0 ? 'g' : 'r'],
       ['Variación de sesión', (sessionChg >= 0 ? '+' : '') + sessionChg.toFixed(2) + '%', sessionChg >= 0 ? 'g' : 'r'],
       ['Retorno esperado anual', asset.ret.toFixed(1) + '%', 'g'],
       ['Riesgo σ anual', asset.sigma.toFixed(1) + '%', 'a'],
@@ -1521,7 +1522,7 @@ function updateMarketToolbar(asset) {
       ['VaR 95% (' + hv.method + ')', hv.pct.toFixed(1) + '%', 'r'],
       [asset.type === 'accion' ? 'Beta (riesgo sist.)' : asset.type === 'bono' ? 'Cupón anual' : 'Volatilidad anual',
        asset.type === 'accion' ? (asset.beta||0).toFixed(2) : asset.type === 'bono' ? (asset.coupon||0).toFixed(2) + '%' : asset.sigma.toFixed(1) + '%', ''],
-    ].map(([l, v, c]) => `<div class="detail-kpi"><div class="dk-label">${conAyuda(l)}</div><div class="dk-val mono ${c}">${v}</div></div>`).join('');
+    ].map(([l, v, c], i) => `<div class="detail-kpi${i===1||i===2?' dk-primary':''}"><div class="dk-label">${conAyuda(l)}</div><div class="dk-val mono ${c}">${v}</div></div>`).join('');
     // Flash the live price KPI
     const liveKpi = kpis.children[1]?.querySelector('.dk-val');
     if (liveKpi) { liveKpi.classList.remove('price-flash-up','price-flash-dn'); void liveKpi.offsetWidth; liveKpi.classList.add(chg >= 0 ? 'price-flash-up' : 'price-flash-dn'); }

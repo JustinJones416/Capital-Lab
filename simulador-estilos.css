@@ -287,6 +287,14 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .hb-custom input{width:70px;padding:3px 8px;background:var(--c3);border:1px solid var(--c4);border-radius:5px;color:var(--t1);font-size:11px;font-family:var(--font-mono);}
 .detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
 .detail-kpi{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);padding:10px 14px;}
+/* Antes las 8 métricas (precio, variación, riesgo, beta...) tenían
+   exactamente el mismo peso visual — nada le decía al ojo cuáles son
+   las dos que de verdad importan de un vistazo (precio actual,
+   variación de sesión) frente a las seis de contexto/riesgo. Esta
+   variante les da un borde de acento a la izquierda y un valor más
+   grande, sin salirse del sistema de tarjetas existente. */
+.detail-kpi.dk-primary{border-left:3px solid var(--accent2);background:var(--c3);}
+.detail-kpi.dk-primary .dk-val{font-size:22px;}
 .dk-label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
 .dk-val{font-family:var(--font-mono);font-size:18px;font-weight:500;}
 .chart-panel{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);padding:14px;margin-bottom:14px;}
@@ -464,12 +472,20 @@ tr:hover td{background:rgba(255,255,255,.015);}
 .spin-once{animation:spinOnce .55s linear;}
 
 /* ── CANDLESTICK ── */
-.candle-wrap{position:relative;width:100%;background:#0a0c10;border-radius:var(--r2);border:1px solid rgba(0,196,255,.15);overflow:hidden;}
+.candle-wrap{position:relative;width:100%;background:#0a0c10;border-radius:var(--r2);border:1px solid rgba(0,196,255,.15);overflow:hidden;display:flex;flex-direction:column;}
 canvas.candle-canvas{display:block;width:100%;height:340px;}
-.candle-hud{position:absolute;top:10px;left:14px;display:flex;gap:16px;pointer-events:none;background:rgba(10,12,16,.7);padding:4px 10px;border-radius:var(--r);border:1px solid var(--c4);}
-.chud-item{display:flex;flex-direction:column;gap:2px;align-items:center;}
-.chud-lbl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;}
-.chud-val{font-size:11px;font-family:var(--font-mono);color:var(--t1);}
+/* Antes .candle-hud flotaba en position:absolute sobre el propio
+   canvas, con un fondo semitransparente que se veía como un tooltip
+   de depuración olvidado, no como parte del diseño — desconectado del
+   resto de la tarjeta y comiéndose espacio real del gráfico. Ahora es
+   una barra de cabecera de verdad, integrada arriba del canvas (el
+   mismo patrón que usan las plataformas de trading reales para
+   mostrar O/H/L/C persistente), con su propio fondo y un borde
+   inferior que la separa limpiamente de las velas. */
+.candle-hud{display:flex;gap:20px;padding:8px 14px;background:var(--c1);border-bottom:1px solid var(--c4);flex-shrink:0;}
+.chud-item{display:flex;flex-direction:column;gap:2px;}
+.chud-lbl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;}
+.chud-val{font-size:12.5px;font-family:var(--font-mono);color:var(--t1);font-weight:500;}
 
 /* ── FINANCIAL DOCS ── */
 .fin-doc-panel{margin-top:14px;}

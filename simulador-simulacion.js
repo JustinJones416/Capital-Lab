@@ -1198,9 +1198,14 @@ function showAssetDetail(id,type){
   const openP = asset.sessionOpenPrice != null ? asset.sessionOpenPrice : asset.price;
   const sessionChg = openP > 0 ? ((p - openP) / openP * 100) : 0;
   const hv = computeHistVaR(asset, 0.95);
+  // "En vivo" solo si ESTE activo tiene un ancla real fresca ahora
+  // mismo (mismo criterio que usa tickPrices() para pausar la
+  // simulación) — antes esta etiqueta decía "en vivo" siempre, sin
+  // importar si el precio venía de Yahoo o de la simulación.
+  const esPrecioEnVivo = asset.__ultimoRealMs && (Date.now() - asset.__ultimoRealMs) < UMBRAL_ANCLA_REAL_FRESCA_MS;
   document.getElementById('mkt-kpis').innerHTML=[
     ['Precio apertura sesión','$'+fmt(openP),''],
-    ['Precio actual (en vivo)','$'+fmt(p),chg>=0?'g':'r'],
+    [esPrecioEnVivo?'Precio actual (en vivo)':'Precio actual (simulado)','$'+fmt(p),chg>=0?'g':'r'],
     ['Variación de sesión',(sessionChg>=0?'+':'')+sessionChg.toFixed(2)+'%',sessionChg>=0?'g':'r'],
     ['Retorno esperado anual',asset.ret.toFixed(1)+'%','g'],
     ['Riesgo σ anual',asset.sigma.toFixed(1)+'%','a'],
@@ -1208,7 +1213,7 @@ function showAssetDetail(id,type){
     ['VaR 95% ('+hv.method+')',hv.pct.toFixed(1)+'%','r'],
     [asset.type==='accion'?'Beta (riesgo sist.)':asset.type==='bono'?'Cupón anual':'Volatilidad anual',
      asset.type==='accion'?(asset.beta||0).toFixed(2):asset.type==='bono'?(asset.coupon||0).toFixed(2)+'%':asset.sigma.toFixed(1)+'%',''],
-  ].map(([l,v,c])=>`<div class="detail-kpi"><div class="dk-label">${conAyuda(l)}</div><div class="dk-val mono ${c}">${v}</div></div>`).join('');
+  ].map(([l,v,c],i)=>`<div class="detail-kpi${i===1||i===2?' dk-primary':''}"><div class="dk-label">${conAyuda(l)}</div><div class="dk-val mono ${c}">${v}</div></div>`).join('');
 
   document.getElementById('mkt-profile').innerHTML=buildProfile(asset);
   renderEnlaceYahooFinance(asset);
