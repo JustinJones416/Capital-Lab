@@ -5050,14 +5050,14 @@ function allBase(){return[...ALL_STOCKS,...ALL_BONDS,...ALL_FOREX,...ALL_FUTURES
 let mktChartInst,anPriceChart,anRvChart,cProjChartInst,portDonutInst,portEvolInst,portPnlBarInst,portRetBarInst,portScatterInst,labChartInst,resBarInst,resScatterInst;
 function dc(c){if(c)c.destroy();return null;}
 
-// Devuelve la densidad de píxeles efectiva (dpr real × zoom CSS activo del body).
-// Necesario porque body{zoom:...} en escritorio (simulador-estilos.css) estira el
-// canvas visualmente sin volver a renderizarlo, causando un desenfoque proporcional
-// exacto a 1/zoom (ej. zoom:1.12 → canvas al 89.3% de nitidez real).
+// Devuelve la densidad de píxeles real del dispositivo (window.devicePixelRatio).
+// Antes también multiplicaba por el zoom de CSS del body (para compensar el
+// desenfoque que causaba en los gráficos de Cartera), pero ese zoom se
+// eliminó por completo de simulador-estilos.css — ver la nota ahí. Esta
+// función se mantiene como punto único de referencia de densidad de
+// píxeles para Chart.js, con la lógica de zoom ya simplificada.
 function dprEfectivo(){
-  let z=1;
-  try{ z=parseFloat(getComputedStyle(document.body).zoom)||1; }catch(e){}
-  return (window.devicePixelRatio||1)*z;
+  return window.devicePixelRatio||1;
 }
 
 // ═══════════════════ UTILS ═══════════════════

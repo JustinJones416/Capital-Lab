@@ -926,14 +926,21 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
   #mentor-ia-fab{display:none !important;}
   #mentor-ia-panel{bottom:calc(70px + env(safe-area-inset-bottom));right:12px;}
 }
-/* ESCALA PARA PANTALLAS GRANDES — el resto de la interfaz usa tamaños
-   fijos en píxeles en cientos de lugares, así que en vez de reescribir
-   cada uno, se escala toda la interfaz de forma proporcional según el
-   ancho real de la pantalla. En una pantalla de escritorio normal
-   (hasta 1920px) no cambia nada; en pantallas más grandes, todo (el
-   texto, los espaciados, los íconos) crece junto, para no tener que
-   hacer zoom manual como pasaba antes en resoluciones como 2560×1440. */
-@media(min-width:1280px) and (max-width:1919px){ body{zoom:1.12;} }
-@media(min-width:1920px){ body{zoom:1.2;} }
-@media(min-width:2560px){ body{zoom:1.32;} }
-@media(min-width:3440px){ body{zoom:1.45;} }
+/* ESCALA PARA PANTALLAS GRANDES — ELIMINADA. Aquí vivía body{zoom:...}
+   para pantallas ≥1280px (hasta 1.45× en 3440px+). Se quitó por
+   completo: en un mismo día produjo tres bugs reales distintos
+   (desenfoque de los gráficos de Cartera, un bug de repintado que
+   dejaba el fondo bloqueando contenido al hacer scroll, y — el más
+   grave — desplazamiento con la rueda del mouse que dejaba de
+   funcionar en Windows + Edge a 2560×1440, reportado directamente por
+   el usuario y no reproducible en este entorno de prueba). `zoom` es
+   una propiedad no estándar con comportamiento inconsistente entre
+   motores de navegador y configuraciones de escalado de Windows —
+   cada síntoma nuevo costaba una sesión de diagnóstico distinta. La
+   comodidad cosmética que daba (evitar el zoom manual del navegador
+   en pantallas grandes) no vale el riesgo de romper interacción
+   básica como el scroll. En pantallas grandes ahora el contenido se
+   ve a tamaño real (sin escalar) en vez de agrandado — el usuario
+   siempre puede usar el zoom nativo de su navegador (Ctrl + / Ctrl -)
+   si quiere agrandar la interfaz, con la ventaja de que ESE zoom sí
+   está garantizado por el navegador para no romper scroll ni hit-testing. */

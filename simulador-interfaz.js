@@ -2597,27 +2597,26 @@ window.addEventListener('resize', () => {
   __resizeTimeoutPanelNoticias = setTimeout(cerrarPanelNoticiasPorCompleto, 150);
 });
 
-// Re-dibuja los gráficos de Cartera cuando la ventana cruza uno de los
-// breakpoints de zoom del body (1280/1920/2560/3440px en simulador-estilos.css).
-// El zoom de CSS cambia la densidad de píxeles efectiva que necesita Chart.js
-// (ver dprEfectivo() en simulador-motor.js); sin este recálculo, el usuario
-// tendría que recargar la página para que los gráficos vuelvan a verse nítidos
-// tras redimensionar o mover la ventana entre monitores de distinta resolución.
+// Re-dibuja los gráficos de Cartera si cambia la densidad de píxeles
+// real del dispositivo (window.devicePixelRatio) — esto pasa al mover
+// la ventana entre monitores de distinta resolución (ej. de un
+// externo 1x a un laptop 2x). Sin este recálculo, el usuario tendría
+// que recargar la página para que los gráficos vuelvan a verse
+// nítidos tras el cambio. Antes esto vigilaba breakpoints de un
+// zoom de CSS que ya no existe (ver nota en simulador-estilos.css);
+// ahora vigila el DPR real, que es lo que dprEfectivo() en
+// simulador-motor.js realmente necesita.
+let __dprAnterior = window.devicePixelRatio || 1;
 let __resizeTimeoutChartsCartera = null;
-let __anchoAnteriorZoom = window.innerWidth;
 window.addEventListener('resize', () => {
   clearTimeout(__resizeTimeoutChartsCartera);
   __resizeTimeoutChartsCartera = setTimeout(() => {
-    const zoomBreakpoints = [1280, 1920, 2560, 3440];
-    const anchoActual = window.innerWidth;
-    const cruzoUnBreakpoint = zoomBreakpoints.some(bp =>
-      (__anchoAnteriorZoom < bp && anchoActual >= bp) ||
-      (__anchoAnteriorZoom >= bp && anchoActual < bp)
-    );
-    __anchoAnteriorZoom = anchoActual;
-    if (cruzoUnBreakpoint && typeof renderPortfolio === 'function' &&
-        document.getElementById('port-evolution')) {
-      renderPortfolio(false);
+    const dprActual = window.devicePixelRatio || 1;
+    if (dprActual !== __dprAnterior) {
+      __dprAnterior = dprActual;
+      if (typeof renderPortfolio === 'function' && document.getElementById('port-evolution')) {
+        renderPortfolio(false);
+      }
     }
   }, 200);
 });
