@@ -5037,6 +5037,16 @@ function allBase(){return[...ALL_STOCKS,...ALL_BONDS,...ALL_FOREX,...ALL_FUTURES
 let mktChartInst,anPriceChart,anRvChart,cProjChartInst,portDonutInst,portEvolInst,portPnlBarInst,portRetBarInst,portScatterInst,labChartInst,resBarInst,resScatterInst;
 function dc(c){if(c)c.destroy();return null;}
 
+// Devuelve la densidad de píxeles efectiva (dpr real × zoom CSS activo del body).
+// Necesario porque body{zoom:...} en escritorio (simulador-estilos.css) estira el
+// canvas visualmente sin volver a renderizarlo, causando un desenfoque proporcional
+// exacto a 1/zoom (ej. zoom:1.12 → canvas al 89.3% de nitidez real).
+function dprEfectivo(){
+  let z=1;
+  try{ z=parseFloat(getComputedStyle(document.body).zoom)||1; }catch(e){}
+  return (window.devicePixelRatio||1)*z;
+}
+
 // ═══════════════════ UTILS ═══════════════════
 function fmt(n){n=Math.abs(n);return n>=1000?n.toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2}):n.toFixed(2);}
 function fmtS(n){return(n<0?'-$':'$')+fmt(n);}

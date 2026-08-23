@@ -4105,7 +4105,7 @@ function renderPortfolio(permitirSaltarGraficos){
     portEvolInst=new Chart(_c,{type:'line',data:{labels:evL,datasets:[
       {label:'Valor cartera (NAV real)',data:evT,borderColor:'#00c4ff',backgroundColor:'rgba(0,196,255,.07)',tension:.3,fill:true,pointRadius:0,borderWidth:2},
       {label:'Capital invertido',data:evI,borderColor:'rgba(255,180,0,.55)',borderDash:[5,4],fill:false,pointRadius:0,borderWidth:1.5},
-    ]},options:{responsive:true,maintainAspectRatio:false,
+    ]},options:{responsive:true,maintainAspectRatio:false,devicePixelRatio:dprEfectivo(),
       plugins:{legend:{labels:{color:'#7a8ab0',font:{size:10}}}},
       scales:{x:{ticks:{color:'#3d4d72',font:{size:10},maxTicksLimit:8},grid:{color:'rgba(255,255,255,.03)'}},
               y:{ticks:{color:'#3d4d72',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k'},grid:{color:'rgba(255,255,255,.03)'}}}}});
@@ -4120,7 +4120,7 @@ function renderPortfolio(permitirSaltarGraficos){
       labels:['Acciones','Bonos','Divisas','Futuros','Derivados'],
       datasets:[{data:[byT.accion,byT.bono,byT.divisa,byT.futuro,byT.derivado],
         backgroundColor:['#2962ff','#00d084','#ffb400','#ff4757','#00c4ff'],borderWidth:0,borderRadius:3}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{
+      options:{responsive:true,maintainAspectRatio:false,devicePixelRatio:dprEfectivo(),plugins:{
         legend:{labels:{color:'#7a8ab0',font:{size:10}}},
         tooltip:{callbacks:{label:c=>{const t=Object.values(byT).reduce((s,v)=>s+v,0);return c.label+': $'+fmt(c.raw)+' ('+(t>0?(c.raw/t*100).toFixed(1):0)+'%)';}}}}}});
   }}
@@ -4132,7 +4132,7 @@ function renderPortfolio(permitirSaltarGraficos){
     const pnls=portfolio.map(p=>{const cur=p.currentPrice||p.buyPrice;return +((cur-p.buyPrice)*p.qty).toFixed(2);});
     portPnlBarInst=new Chart(_c,{type:'bar',data:{labels:lbs,datasets:[{label:'P&L ($)',data:pnls,
       backgroundColor:pnls.map(v=>v>=0?'rgba(0,208,132,.72)':'rgba(255,71,87,.72)'),borderRadius:4}]},
-      options:{responsive:true,maintainAspectRatio:false,
+      options:{responsive:true,maintainAspectRatio:false,devicePixelRatio:dprEfectivo(),
         plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>(c.raw>=0?'+$':'-$')+fmt(Math.abs(c.raw))}}},
         scales:{x:{ticks:{color:'#3d4d72',font:{size:10}},grid:{color:'rgba(255,255,255,.03)'}},
                 y:{ticks:{color:'#3d4d72',font:{size:10},callback:v=>'$'+Math.round(v)},grid:{color:'rgba(255,255,255,.03)'},
@@ -4146,7 +4146,7 @@ function renderPortfolio(permitirSaltarGraficos){
     const rets=portfolio.map(p=>{const cur=p.currentPrice||p.buyPrice;return +((cur-p.buyPrice)/p.buyPrice*100).toFixed(2);});
     portRetBarInst=new Chart(_c,{type:'bar',data:{labels:lbs,datasets:[{label:'Retorno %',data:rets,
       backgroundColor:rets.map(v=>v>=0?'rgba(0,196,255,.72)':'rgba(255,71,87,.72)'),borderRadius:4}]},
-      options:{responsive:true,maintainAspectRatio:false,
+      options:{responsive:true,maintainAspectRatio:false,devicePixelRatio:dprEfectivo(),
         plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>(c.raw>=0?'+':'')+c.raw.toFixed(2)+'%'}}},
         scales:{x:{ticks:{color:'#3d4d72',font:{size:10}},grid:{color:'rgba(255,255,255,.03)'}},
                 y:{ticks:{color:'#3d4d72',font:{size:10},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,.03)'},
@@ -4159,7 +4159,7 @@ function renderPortfolio(permitirSaltarGraficos){
     const pts=portfolio.map(p=>{const cur=p.currentPrice||p.buyPrice;return{x:p.sigma,y:+((cur-p.buyPrice)/p.buyPrice*100).toFixed(2),label:p.ticker};});
     portScatterInst=new Chart(_c,{type:'scatter',data:{datasets:[{data:pts,
       backgroundColor:pts.map(p=>p.y>=0?'rgba(0,208,132,.72)':'rgba(255,71,87,.72)'),pointRadius:9}]},
-      options:{responsive:true,maintainAspectRatio:false,
+      options:{responsive:true,maintainAspectRatio:false,devicePixelRatio:dprEfectivo(),
         plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const d=c.dataset.data[c.dataIndex];return d.label+': σ='+d.x.toFixed(1)+'%  r='+(d.y>=0?'+':'')+d.y.toFixed(2)+'%';}}}},
         scales:{x:{title:{display:true,text:'Riesgo σ (%)',color:'#3d4d72'},ticks:{color:'#3d4d72',font:{size:10}},grid:{color:'rgba(255,255,255,.03)'}},
                 y:{title:{display:true,text:'Retorno (%)',color:'#3d4d72'},ticks:{color:'#3d4d72',font:{size:10}},grid:{color:'rgba(255,255,255,.03)'},
