@@ -855,16 +855,23 @@ function renderEnlaceYahooFinance(asset){
   let marcaActualizacion;
   if(asset.type==='bono'){
     marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Precio calculado por el modelo del simulador — los bonos no tienen una fuente gratuita de precio real en tiempo real disponible</div>`;
-  } else if(window.__ultimaSincronizacionReal && window.__mercadoRealAbierto){
-    // Mercado real detectado como abierto ahora mismo (cotización de
-    // Yahoo con menos de 20 min de antigüedad) — el precio se
-    // resincroniza cada 45s mientras se mantenga así.
-    marcaActualizacion = `<div style="font-size:10.5px;color:var(--green, #1e8e5a);margin-top:4px;"><i class="ti ti-circle-filled" style="font-size:7px;"></i> Precio real de mercado, actualizado ${window.__ultimaSincronizacionReal.toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'})} (Yahoo Finance)</div>`;
-  } else if(window.__ultimaSincronizacionReal && !window.__mercadoRealAbierto){
-    // Mercado real cerrado (fin de semana, feriado, fuera de horario)
-    // — se usa el último precio real conocido como ancla, y de ahí
+  } else if(asset.__ultimoRealMs && (Date.now() - asset.__ultimoRealMs) < UMBRAL_ANCLA_REAL_FRESCA_MS){
+    // Antes esto revisaba banderas GLOBALES (window.__mercadoRealAbierto),
+    // compartidas por los ~66 activos del catálogo — si una sola divisa
+    // o futuro (que cotizan casi 24h, a diferencia de las acciones)
+    // lograba sincronizarse fresco, TODOS los activos mostraban "precio
+    // real, actualizado ahora" aunque el suyo propio siguiera siendo
+    // 100% simulado. Ahora se revisa la marca de tiempo de ESTE activo
+    // específico (asset.__ultimoRealMs, la misma que usa tickPrices()
+    // para decidir si pausar la simulación) — el aviso ya no puede
+    // mentir sobre un activo mientras otro sí tiene datos frescos.
+    marcaActualizacion = `<div style="font-size:10.5px;color:var(--green, #1e8e5a);margin-top:4px;"><i class="ti ti-circle-filled" style="font-size:7px;"></i> Precio real de mercado, actualizado ${new Date(asset.__ultimoRealMs).toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'})} (Yahoo Finance)</div>`;
+  } else if(asset.__ultimoRealMs){
+    // Este activo sí tuvo un ancla real en algún momento de la sesión,
+    // pero ya se enfrió (mercado real cerrado para este instrumento
+    // específico) — se usa ese último precio real conocido, y de ahí
     // en adelante el motor de simulación continúa el movimiento.
-    marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Mercado real cerrado — último precio real conocido, la simulación continúa el movimiento desde ahí</div>`;
+    marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Mercado real cerrado — último precio real conocido (${new Date(asset.__ultimoRealMs).toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'})}), la simulación continúa el movimiento desde ahí</div>`;
   } else {
     marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Precio base del simulador — la sincronización con el mercado real no estuvo disponible en esta sesión</div>`;
   }
