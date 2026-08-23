@@ -2727,7 +2727,7 @@ async function renderCuestionariosPage(){
           ${c.descripcion ? `<div style="font-size:12.5px;color:var(--t2);margin-top:3px;">${c.descripcion}</div>` : ''}
           <div style="font-size:11px;color:var(--t3);margin-top:5px;">${numPreguntas} pregunta${numPreguntas===1?'':'s'}${c.tiempo_limite_minutos ? ` · <i class="ti ti-clock" style="font-size:10px;"></i> ${c.tiempo_limite_minutos} min` : ''}</div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           ${esDocente
             ? `<button class="btn btn-sm" onclick="verResultadosCuestionario('${c.id}','${c.titulo.replace(/'/g,"\\'")}')"><i class="ti ti-chart-bar"></i> Resultados</button>
                <button class="btn btn-sm" onclick="editarCuestionarioDesdeCache('${c.id}')"><i class="ti ti-pencil"></i> Editar</button>
