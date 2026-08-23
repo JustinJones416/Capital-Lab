@@ -530,12 +530,21 @@ function goPage(p){
   // .main-content vuelve a ser el único contenedor con scroll. Ver
   // el comentario junto a .mercado-scroll-propio en simulador-estilos.css.
   document.querySelector('.main-content')?.classList.toggle('mercado-scroll-propio', p==='mercado');
+  // A partir de aquí, cada bloque de inicialización de página corre
+  // dentro de su propio try/catch. Antes, si una de estas funciones
+  // lanzaba una excepción sin capturar (confirmado: pasa en Tesis,
+  // Laboratorio y Análisis cuando los datos de mercado todavía no han
+  // cargado), TODO lo que viniera después en goPage() se cancelaba a
+  // mitad de camino — incluyendo el cierre del menú móvil al final.
+  // Aislar cada bloque garantiza que un error en una sección nunca
+  // deje a medio inicializar ninguna otra parte de la navegación.
+  const intentar = (fn) => { try { fn(); } catch(e) { console.error('[goPage] Error inicializando página "'+p+'":', e); } };
   if(p==='mercado'&&selectedAsset){
     // Canvas had zero size while hidden — redraw now that the page is visible
     requestAnimationFrame(()=>requestAnimationFrame(()=>drawCandlestickChart(selectedAsset)));
   }
   if(p==='cartera'){
-    renderPortfolioTabs();
+    intentar(renderPortfolioTabs);
     // Los gráficos de Chart.js medían el ancho de su contenedor en el
     // mismo instante en que la página se activaba, antes de que el
     // navegador terminara de calcular el diseño final del grid —
@@ -543,28 +552,28 @@ function goPage(p){
     // siquiera su propio método resize() la corrige después. Se
     // espera al siguiente repintado real, el mismo patrón ya usado
     // para el gráfico de velas arriba.
-    requestAnimationFrame(()=>requestAnimationFrame(renderPortfolio));
+    requestAnimationFrame(()=>requestAnimationFrame(()=>intentar(renderPortfolio)));
   }
-  if(p==='resultados')renderResults();
-  if(p==='analisis')populateAnalysisSelect();
-  if(p==='laboratorio'){renderLabHistory();renderLabPicker();}
-  if(p==='resultados-lab')renderResultsLab();
-  if(p==='profesor'){ renderTeacher(); cargarRosterProfesor(); iniciarRealtimeProfesor(); }
-  else { detenerRealtimeProfesor(); detenerSalaEnVivo(); }
-  if(p==='inicio') renderInicioPage();
+  if(p==='resultados')intentar(renderResults);
+  if(p==='analisis')intentar(populateAnalysisSelect);
+  if(p==='laboratorio'){intentar(renderLabHistory);intentar(renderLabPicker);}
+  if(p==='resultados-lab')intentar(renderResultsLab);
+  if(p==='profesor'){ intentar(renderTeacher); intentar(cargarRosterProfesor); intentar(iniciarRealtimeProfesor); }
+  else { intentar(detenerRealtimeProfesor); intentar(detenerSalaEnVivo); }
+  if(p==='inicio') intentar(renderInicioPage);
   if(p==='mercado' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_mercado_'+currentUser.sesion_id, '1');
   if(p==='calificaciones' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_calificaciones_'+currentUser.sesion_id, '1');
-  if(p==='calificaciones') renderCalificacionesPage();
-  if(p==='cuestionarios') renderCuestionariosPage();
-  if(p==='p2p'){ renderMercadoP2P(); iniciarRealtimeP2P(); cargarChat('p2p'); iniciarRealtimeChat(); document.getElementById('dot-p2p').style.display='none'; }
-  else { detenerRealtimeP2P(); }
-  if(p==='chat'){ cargarChat('sesion'); iniciarRealtimeChat(); document.getElementById('dot-chat').style.display='none'; setTimeout(()=>document.getElementById('sesion-chat-input')?.focus(), 200); }
-  else if(p!=='p2p'){ detenerRealtimeChat(); }
-  if(p==='posiciones') renderPosicionesPage();
-  if(p==='logros') renderLogrosPage();
-  if(p==='admin') renderAdminPage();
-  if(p==='noticias')renderNewsCenter();
-  if(p==='tesis'){ renderFormularioTesis(); renderMiTesis(); }
+  if(p==='calificaciones') intentar(renderCalificacionesPage);
+  if(p==='cuestionarios') intentar(renderCuestionariosPage);
+  if(p==='p2p'){ intentar(renderMercadoP2P); intentar(iniciarRealtimeP2P); intentar(()=>cargarChat('p2p')); intentar(iniciarRealtimeChat); const d=document.getElementById('dot-p2p'); if(d)d.style.display='none'; }
+  else { intentar(detenerRealtimeP2P); }
+  if(p==='chat'){ intentar(()=>cargarChat('sesion')); intentar(iniciarRealtimeChat); const d=document.getElementById('dot-chat'); if(d)d.style.display='none'; setTimeout(()=>document.getElementById('sesion-chat-input')?.focus(), 200); }
+  else if(p!=='p2p'){ intentar(detenerRealtimeChat); }
+  if(p==='posiciones') intentar(renderPosicionesPage);
+  if(p==='logros') intentar(renderLogrosPage);
+  if(p==='admin') intentar(renderAdminPage);
+  if(p==='noticias')intentar(renderNewsCenter);
+  if(p==='tesis'){ intentar(renderFormularioTesis); intentar(renderMiTesis); }
   // Close mobile drawer on navigation
   if(window.innerWidth<=768)closeMobileSidebar();
 }
