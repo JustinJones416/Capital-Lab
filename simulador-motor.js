@@ -3429,14 +3429,68 @@ async function cargarTicketsSoporte(){
         ${t.que_intentaba?`<div style="font-size:11px;color:var(--t3);">Intentaba: ${t.que_intentaba}</div>`:''}
         ${t.intento_solucion?`<div style="font-size:11px;color:var(--t3);">Intentó: ${t.intento_solucion}</div>`:''}
         ${t.como_lo_resolvio?`<div style="font-size:11px;color:var(--green);">Se resolvió con: ${t.como_lo_resolvio}</div>`:''}
+        ${t.respuesta?`<div style="font-size:11.5px;color:var(--t2);margin-top:8px;padding:8px 10px;background:var(--c2);border-left:3px solid var(--accent2);border-radius:4px;"><b style="color:var(--accent2);font-size:10.5px;text-transform:uppercase;">Tu respuesta</b><br>${t.respuesta.replace(/\n/g,'<br>')}<div style="font-size:10px;color:var(--t3);margin-top:5px;">${t.respondido_en?new Date(t.respondido_en).toLocaleString('es-PA'):''}</div></div>`:''}
+        <div id="respuesta-box-${t.id}" style="display:none;margin-top:8px;">
+          <textarea id="respuesta-txt-${t.id}" placeholder="Escribe tu respuesta para ${t.email_contacto}…" style="width:100%;min-height:80px;padding:8px 10px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12.5px;resize:vertical;"></textarea>
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            <button class="btn btn-primary btn-sm" onclick="enviarRespuestaTicket('${t.id}')"><i class="ti ti-send"></i> Enviar respuesta</button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('respuesta-box-${t.id}').style.display='none';">Cancelar</button>
+          </div>
+          <div id="respuesta-msg-${t.id}" style="font-size:11px;margin-top:6px;"></div>
+        </div>
         <div style="font-size:10px;color:var(--t3);margin-top:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
           <span>${t.email_contacto} · ${new Date(t.created_at).toLocaleString('es-PA')}</span>
-          ${t.estado!=='resuelto'?`<button class="btn btn-ghost btn-sm" onclick="marcarTicketResuelto('${t.id}')">Marcar como resuelto</button>`:''}
+          <span style="display:flex;gap:6px;">
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('respuesta-box-${t.id}').style.display='block';document.getElementById('respuesta-txt-${t.id}').focus();"><i class="ti ti-mail-forward"></i> ${t.respuesta?'Responder de nuevo':'Responder'}</button>
+            ${t.estado!=='resuelto'?`<button class="btn btn-ghost btn-sm" onclick="marcarTicketResuelto('${t.id}')">Marcar como resuelto</button>`:''}
+          </span>
         </div>
       </div>
     `).join('');
   } catch(e){
     cont.innerHTML = `<div class="auth-hint" style="color:var(--red);">No se pudieron cargar los tickets: ${e.message||e}</div>`;
+  }
+}
+
+// Envía la respuesta del superadministrador al correo de quien reportó
+// el ticket, vía la Edge Function responder-ticket-soporte (la clave de
+// Resend vive del lado del servidor, nunca en el navegador). La
+// respuesta se guarda en la base de datos aunque el correo falle, así
+// que nunca se pierde lo escrito.
+async function enviarRespuestaTicket(id){
+  const txt = document.getElementById('respuesta-txt-'+id);
+  const msg = document.getElementById('respuesta-msg-'+id);
+  const respuesta = (txt?.value || '').trim();
+  if(!respuesta){ msg.style.color='var(--red)'; msg.textContent='Escribe una respuesta antes de enviar.'; return; }
+
+  msg.style.color='var(--t3)'; msg.textContent='Enviando…';
+  try {
+    const { data: sesion } = await sb.auth.getSession();
+    const token = sesion?.session?.access_token;
+    const respuestaHttp = await fetch(`${SIM_IA_URL}/functions/v1/responder-ticket-soporte`, {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'apikey': SIM_IA_ANON_KEY,
+        'Authorization': `Bearer ${token || SIM_IA_ANON_KEY}`,
+      },
+      body: JSON.stringify({ ticketId: id, respuesta }),
+    });
+    const d = await respuestaHttp.json();
+    if(!d.ok) throw new Error(d.error || 'Error desconocido.');
+    if(d.correoEnviado){
+      notify('Respuesta enviada por correo.', 'success');
+    } else {
+      // El aviso viene tal cual del servidor (ej. el 403 de Resend en
+      // modo de prueba); se muestra completo en vez de ocultarlo.
+      msg.style.color='var(--amber)';
+      msg.textContent = d.aviso || 'Respuesta guardada, pero el correo no se envió.';
+      notify('Respuesta guardada (el correo no se pudo enviar).', 'warning');
+    }
+    cargarTicketsSoporte();
+  } catch(e){
+    msg.style.color='var(--red)';
+    msg.textContent = 'No se pudo enviar: ' + (e.message||e);
   }
 }
 
