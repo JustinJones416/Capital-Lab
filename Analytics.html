@@ -139,7 +139,7 @@ b,strong{font-weight:700;color:inherit;}
 
 /* ───── RESULTS ───── */
 .verdict{position:relative;border-radius:var(--r3);padding:28px;margin-bottom:20px;overflow:hidden;border:1px solid var(--c3);background:var(--c1);}
-.verdict-grade{font-family:var(--font-head);font-weight:800;font-size:42px;line-height:1;letter-spacing:-1px;}
+.verdict-grade{font-family:var(--font-head);font-weight:800;font-size:34px;line-height:1;letter-spacing:-1px;}
 .verdict-head{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
 .verdict-ring{position:relative;width:120px;height:120px;flex-shrink:0;}
 .verdict-info{flex:1;min-width:200px;}
@@ -1375,6 +1375,24 @@ function runMonteCarlo(mc){
 // ══════════════════════════════════════════════════════════════
 // VEREDICTO Y PUNTAJE DE RIESGO
 // ══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// CALIFICACIÓN CAPITALLAB — misma escala, títulos, colores y
+// disclaimer que usa el Simulador (calificarActivoCapitalLab en
+// simulador-motor.js), para que un mismo perfil de riesgo/retorno se
+// lea igual en las tres herramientas. La lógica de puntaje interna
+// (composite 0-100, con Monte Carlo, CAPM, Gordon, etc.) es propia de
+// Analytics y más completa que el Sharpe aislado del Simulador — se
+// mantiene, solo se homologa la ESCALA DE SALIDA y la presentación.
+// ═══════════════════════════════════════════════════════════════════
+const NIVELES_CALIFICACION_CAPITALLAB = {
+  'A+': { titulo:'Excelente', cls:'success', color:'var(--green)' },
+  'A':  { titulo:'Muy sólido', cls:'success', color:'var(--green)' },
+  'B':  { titulo:'Sólido', cls:'warn', color:'var(--cyan,#4a9eff)' },
+  'C':  { titulo:'Neutral / Mixto', cls:'warn', color:'var(--amber)' },
+  'D':  { titulo:'Débil', cls:'danger', color:'#ff8c42' },
+  'E':  { titulo:'Alto riesgo / Débil', cls:'danger', color:'var(--red)' },
+};
+
 function computeVerdict(result, mcRes){
   // Riesgo global = promedio ponderado de factores (todos 0..100)
   const factors = result.riskFactors;
@@ -1403,22 +1421,41 @@ function computeVerdict(result, mcRes){
   // Score compuesto: combina atractivo y (100-riesgo)
   const composite = attract*0.6 + (100-riskScore)*0.4;
 
-  let grade, title, cls, desc;
-  if(composite>=68 && riskScore<60){
-    grade='A'; title='Recomendable invertir'; cls='success';
-    desc='El análisis es favorable: la rentabilidad esperada compensa el riesgo medido y los indicadores fundamentales respaldan la inversión. Aun así, dimensiona la posición según tu tolerancia al riesgo.';
-  } else if(composite>=52){
-    grade='B'; title='Invertir con cautela'; cls='warn';
-    desc='El activo presenta un perfil mixto: hay elementos atractivos, pero también riesgos relevantes que conviene gestionar. Considera una posición moderada, diversificación y un plan de salida claro.';
-  } else if(composite>=38){
-    grade='C'; title='Precaución elevada'; cls='warn';
-    desc='El balance entre riesgo y retorno es desfavorable según los datos ingresados. La inversión solo se justificaría con una tesis muy específica y una gestión de riesgo estricta.';
-  } else {
-    grade='D'; title='No recomendable'; cls='danger';
-    desc='El riesgo medido supera con claridad la recompensa esperada. Con los datos actuales, esta inversión no resulta aconsejable. Reevalúa los supuestos o busca alternativas.';
-  }
+  // Escala homologada con el Simulador: 6 niveles, no 4, para que la
+  // misma lectura de "qué tan bueno es este activo" se vea igual en
+  // ambas herramientas. Los cortes de composite (0-100) se calibraron
+  // para repartir el rango de forma comparable al reparto por Sharpe
+  // que usa el Simulador (A+ ≈ top decil, E ≈ riesgo no compensado).
+  let grade;
+  if(composite>=78 && riskScore<50) grade='A+';
+  else if(composite>=66 && riskScore<62) grade='A';
+  else if(composite>=54) grade='B';
+  else if(composite>=42) grade='C';
+  else if(composite>=28) grade='D';
+  else grade='E';
 
-  return { grade, title, cls, desc, riskScore, attract, composite };
+  const { titulo:title, cls, color } = NIVELES_CALIFICACION_CAPITALLAB[grade];
+
+  const descPorNivel = {
+    'A+':'Retorno esperado alto con riesgo bien compensado: los indicadores fundamentales y el resultado de la simulación respaldan la inversión con amplio margen.',
+    'A':'Buen balance entre retorno y riesgo. Los indicadores respaldan razonablemente la inversión.',
+    'B':'Balance aceptable, sin margen amplio. Hay elementos atractivos, pero también riesgos relevantes que conviene gestionar con una posición moderada y un plan de salida claro.',
+    'C':'El retorno apenas compensa el riesgo asumido, o hay señales mixtas. Solo se justificaría con una tesis muy específica y gestión de riesgo estricta.',
+    'D':'El riesgo medido supera al retorno esperado con los datos actuales. Reevalúa los supuestos o busca alternativas antes de invertir.',
+    'E':'El riesgo medido supera con claridad la recompensa esperada, o el retorno esperado es negativo. Con esta información, no resulta aconsejable.',
+  };
+
+  // Fortalezas y riesgos: se derivan de los riskFactors YA CALCULADOS
+  // (mismos datos que se muestran en el desglose de factores de riesgo
+  // más abajo en pantalla), nunca de una narrativa aparte inventada.
+  const fortalezas = factors.filter(f=>f.score<40).map(f=>`${f.name}: ${f.desc}`);
+  const riesgos = factors.filter(f=>f.score>=60).map(f=>`${f.name}: ${f.desc}`);
+  if(mcRes.expRet>8) fortalezas.push(`Retorno esperado (simulación Monte Carlo) de ${fmt(mcRes.expRet,1)}%, por encima del promedio de mercado.`);
+  if(mcRes.probLoss>55) riesgos.push(`Probabilidad de pérdida de ${fmt(mcRes.probLoss,0)}% en los escenarios simulados.`);
+  if(!fortalezas.length) fortalezas.push('Sin fortalezas destacadas frente al resto del mercado con los datos disponibles.');
+  if(!riesgos.length) riesgos.push('Sin riesgos destacados frente al resto del mercado con los datos disponibles.');
+
+  return { grade, title, cls, color, desc: descPorNivel[grade], riskScore, attract, composite, fortalezas, riesgos };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1494,12 +1531,12 @@ function renderVerdict(v, mcRes){
         <div style="position:absolute;inset:0;display:grid;place-items:center;text-align:center;">
           <div>
             <div class="verdict-grade" style="color:${col};">${v.grade}</div>
-            <div style="font-size:10px;color:var(--t3);font-family:var(--font-mono);">PUNTAJE</div>
+            <div style="font-size:10px;color:var(--t3);font-family:var(--font-mono);">CALIFICACIÓN<br>CAPITALLAB</div>
           </div>
         </div>
       </div>
       <div class="verdict-info">
-        <div class="verdict-label">Recomendación</div>
+        <div class="verdict-label">Calificación CapitalLab</div>
         <div class="verdict-title" style="color:${col};">${v.title}</div>
         <div class="verdict-desc">${v.desc}</div>
         <div class="verdict-score">
@@ -1509,16 +1546,27 @@ function renderVerdict(v, mcRes){
         </div>
       </div>
     </div>
-    ${simple ? `<div class="info-box ${v.cls}" style="margin-top:18px;margin-bottom:0;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px;">
+      <div>
+        <div style="font-size:10.5px;font-weight:600;color:var(--green, #1e8e5a);margin-bottom:4px;">FORTALEZAS</div>
+        ${v.fortalezas.map(f=>`<div style="font-size:11.5px;color:var(--t2);line-height:1.5;padding:2px 0 4px 10px;border-left:2px solid var(--green, #1e8e5a);margin-bottom:4px;">${f}</div>`).join('')}
+      </div>
+      <div>
+        <div style="font-size:10.5px;font-weight:600;color:var(--red, #ff4757);margin-bottom:4px;">RIESGOS</div>
+        ${v.riesgos.map(r=>`<div style="font-size:11.5px;color:var(--t2);line-height:1.5;padding:2px 0 4px 10px;border-left:2px solid var(--red, #ff4757);margin-bottom:4px;">${r}</div>`).join('')}
+      </div>
+    </div>
+    ${simple ? `<div class="info-box ${v.cls}" style="margin-top:14px;margin-bottom:0;">
       <b>En palabras simples:</b> ${simpleExplanation(v, mcRes)}
     </div>`:''}
+    <div style="font-size:10px;color:var(--t3);margin-top:14px;font-style:italic;">Esta calificación resume el comportamiento de las métricas disponibles y no constituye una recomendación financiera.</div>
   `;
   drawRing('verdict-ring-c', ringPct, col);
 }
 
 function simpleExplanation(v, mcRes){
   const g=v.grade;
-  if(g==='A') return `Según los números, esta inversión luce bien. Podría ganar valor y el riesgo está bajo control. De cada 100 escenarios simulados, en cerca de ${fmt(100-mcRes.probLoss,0)} terminarías ganando. Aun así, nunca inviertas más de lo que puedes permitirte arriesgar.`;
+  if(g==='A+'||g==='A') return `Según los números, esta inversión luce bien. Podría ganar valor y el riesgo está bajo control. De cada 100 escenarios simulados, en cerca de ${fmt(100-mcRes.probLoss,0)} terminarías ganando. Aun así, nunca inviertas más de lo que puedes permitirte arriesgar.`;
   if(g==='B') return `Esta inversión tiene cosas buenas y cosas riesgosas. Puede salir bien, pero también puede perder valor. En unos ${fmt(mcRes.probLoss,0)} de cada 100 escenarios simulados terminarías perdiendo. Si inviertes, hazlo con una parte pequeña y mantente atento.`;
   if(g==='C') return `Aquí el riesgo pesa más que la posible ganancia. En muchos escenarios (${fmt(mcRes.probLoss,0)} de cada 100) terminarías perdiendo. Solo tendría sentido si tienes una razón muy concreta para creer que subirá.`;
   return `Los números dicen que el riesgo es demasiado alto frente a lo que podrías ganar. En la mayoría de escenarios simulados no compensa. Con esta información, lo más prudente es no invertir.`;
@@ -2029,7 +2077,7 @@ async function renderHistory(){
   const sec = $('history-section');
   if(!list.length){ sec.classList.add('hidden'); return; }
   sec.classList.remove('hidden');
-  const gradeColor = g => g==='A'?'var(--green)':g==='B'?'var(--amber)':g==='C'?'var(--amber)':'var(--red)';
+  const gradeColor = g => (g==='A+'||g==='A')?'var(--green)':(g==='B'||g==='C')?'var(--amber)':'var(--red)';
   $('history-grid').innerHTML = list.map(h=>`
     <div class="hist-card" onclick="openHistory('${h.id}')">
       <div class="hist-grade" style="background:${gradeColor(h.grade)}22;color:${gradeColor(h.grade)};">${h.grade}</div>
@@ -2105,7 +2153,7 @@ async function doCompare(id){
   const aWin = aComp>=bComp;
   const col = (R, isWin, tag) => {
     const v=R.verdict, mc=R.mcRes;
-    const gc = v.grade==='A'?'var(--green)':v.grade==='B'||v.grade==='C'?'var(--amber)':'var(--red)';
+    const gc = (v.grade==='A+'||v.grade==='A')?'var(--green)':(v.grade==='B'||v.grade==='C')?'var(--amber)':'var(--red)';
     return `<div class="cmp-col ${isWin?'winner':''}">
       <div class="cmp-head">
         <div><div class="cmp-name">${R.data.ticker||MARKETS[R.market].name}</div><div class="hist-market">${MARKETS[R.market].name}</div></div>

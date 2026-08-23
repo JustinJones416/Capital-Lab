@@ -1893,7 +1893,20 @@ async function enviarTicketSoporte(){
     setTimeout(()=>{ document.getElementById('ticket-soporte-overlay').style.display='none'; }, 1800);
   } catch(e){
     msg.style.color = 'var(--red)';
-    msg.textContent = 'No se pudo enviar: '+(e.message||e)+'. Intenta de nuevo, o escribe directo a soporte.';
+    // El fetch al endpoint de tickets falla con "Failed to fetch" cuando la
+    // función Edge no está desplegada en Supabase (no hay respuesta HTTP,
+    // solo un error de red genérico del navegador). Mientras ese endpoint
+    // no exista, no perdemos lo que el usuario ya escribió: lo copiamos al
+    // portapapeles para que lo pueda pegar en el canal de soporte que use.
+    let copiado = false;
+    try{
+      await navigator.clipboard.writeText(JSON.stringify(cuerpo, null, 2));
+      copiado = true;
+    }catch(_e){ /* portapapeles no disponible; seguimos sin bloquear el flujo */ }
+    msg.innerHTML = 'No se pudo enviar el reporte (el servidor de soporte no respondió). '
+      + (copiado
+          ? '<strong>Tu reporte se copió al portapapeles</strong> — pégalo donde le escribas al equipo técnico.'
+          : 'Vuelve a intentarlo en unos minutos.');
   } finally {
     boton.disabled = false; boton.style.opacity = '1';
     boton.innerHTML = '<i class="ti ti-send"></i> Enviar reporte';
