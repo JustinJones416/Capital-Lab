@@ -302,6 +302,16 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .card.tarjeta-colapsada .card-title{margin-bottom:0;}
 .card-title i{color:var(--accent2);font-size:15px;}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+/* Perfil del emisor + Ejecutar operación, en el detalle de Mercado:
+   cuando el perfil es corto y el panel de operación es largo (con
+   Stop Loss y Take Profit desplegados), la tarjeta corta dejaba un
+   hueco vacío debajo, sin ningún fondo cubriéndolo — se veía como una
+   "zona negra sin contenido" (era el fondo base de la página
+   asomando, no un elemento roto). Se estiran ambas a la misma altura
+   para que sus propios fondos cubran el espacio siempre.
+   Solo aplica a esta pareja específica, no a las demás del sitio. */
+.grid2-parejas-iguales{align-items:stretch;}
+.grid2-parejas-iguales>.profile-panel,.grid2-parejas-iguales>.trade-panel{display:flex;flex-direction:column;}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
 @media(max-width:900px){.grid2,.grid3,.market-layout{grid-template-columns:1fr;}}
 
