@@ -169,6 +169,17 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .profile-key{color:var(--t2);}
 .profile-val{font-family:var(--font-mono);font-weight:500;color:var(--t1);text-align:right;}
 .main-content{overflow-y:auto;background:var(--c0);overscroll-behavior:contain;}
+/* Mercado gestiona su propio scroll interno en .market-body (para
+   mantener fija la barra de precio/activo mientras el contenido se
+   desplaza debajo). Si .main-content ADEMÁS pudiera desplazarse, un
+   desfase de un par de píxeles en el cálculo de altura de
+   .market-main bastaba para que apareciera una segunda barra de
+   desplazamiento detrás, con solo esos pocos píxeles de recorrido —
+   sensación de quedar "atascado" al hacer scroll. Esta clase (activada
+   por JS solo mientras la página de Mercado está abierta) elimina esa
+   segunda barra de raíz en vez de depender de que el cálculo de
+   altura sea exacto en todo momento. */
+.main-content.mercado-scroll-propio{overflow-y:hidden;}
 
 /* ── MULTIPLE PORTFOLIOS ── */
 .port-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
@@ -612,6 +623,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     -webkit-overflow-scrolling:touch;
     position:relative;
   }
+  .main-content.mercado-scroll-propio{overflow-y:hidden;}
 
   /* 8. PAGES: normal block flow inside scrollable container */
   .page{

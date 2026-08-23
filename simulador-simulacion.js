@@ -525,6 +525,11 @@ function goPage(p){
   const btn=document.getElementById('nav-'+p);
   if(btn)btn.classList.add('active');
   document.querySelectorAll('.mbn-btn').forEach(el=>el.classList.toggle('active', el.dataset.pagina===p));
+  // Solo Mercado tiene su propio scroll interno (.market-body, para
+  // mantener fija la barra de precio/activo); en el resto de páginas
+  // .main-content vuelve a ser el único contenedor con scroll. Ver
+  // el comentario junto a .mercado-scroll-propio en simulador-estilos.css.
+  document.querySelector('.main-content')?.classList.toggle('mercado-scroll-propio', p==='mercado');
   if(p==='mercado'&&selectedAsset){
     // Canvas had zero size while hidden — redraw now that the page is visible
     requestAnimationFrame(()=>requestAnimationFrame(()=>drawCandlestickChart(selectedAsset)));
