@@ -1878,6 +1878,7 @@ async function enviarTicketSoporte(){
     rol: currentUser?.rol || 'invitado',
     sesionNombre: currentUser?.sesion_nombre || null,
     entorno: recopilarEntornoNavegador(),
+    seccion: 'simulador',
   };
 
   try {
@@ -3409,29 +3410,80 @@ async function finalizarReto(id){
 // ══════════════════════════════════════════════════
 // SUPERADMINISTRADOR — panorama de toda la plataforma
 // ══════════════════════════════════════════════════
+// Prefijo de sección para el número de ticket visible (TK no incluye
+// sección porque hoy son casi todos del Simulador; el prefijo por
+// sección da contexto inmediato de dónde vino cuando haya varias).
+const PREFIJO_SECCION_TICKET = { simulador:'SIM', academy:'ACA', analytics:'ANL', general:'GEN' };
+function numeroTicket(t){
+  const prefijo = PREFIJO_SECCION_TICKET[t.seccion] || 'GEN';
+  return `${prefijo}-${String(t.id).padStart(5,'0')}`;
+}
+
+let __filtroSeccionTickets = 'todas';
+
 async function cargarTicketsSoporte(){
   const cont = document.getElementById('admin-tickets');
   if(!cont || !currentUser || currentUser.rol!=='superadmin') return;
   try {
     const { data, error } = await sb.from('tickets_soporte').select('*').order('created_at', { ascending:false }).limit(50);
     if(error) throw error;
-    if(!data || !data.length){
-      cont.innerHTML = '<div class="auth-hint">No hay tickets reportados todavía.</div>';
+    const todos = data || [];
+
+    // Pestañas de sección: el superadmin ve todas las secciones porque
+    // su rol tiene acceso global, pero puede filtrar por herramienta.
+    const secciones = ['todas', ...new Set(todos.map(t=>t.seccion||'simulador'))];
+    const tabsHtml = secciones.length>2 ? `
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+        ${secciones.map(s=>`<button class="btn btn-sm ${__filtroSeccionTickets===s?'btn-primary':'btn-ghost'}" onclick="__filtroSeccionTickets='${s}';cargarTicketsSoporte();">${s==='todas'?'Todas':(PREFIJO_SECCION_TICKET[s]||s)}</button>`).join('')}
+      </div>` : '';
+
+    const filtrados = __filtroSeccionTickets==='todas' ? todos : todos.filter(t=>(t.seccion||'simulador')===__filtroSeccionTickets);
+
+    if(!filtrados.length){
+      cont.innerHTML = tabsHtml + '<div class="auth-hint">No hay tickets reportados todavía.</div>';
       return;
     }
-    cont.innerHTML = data.map(t => `
+
+    // Traer el hilo de mensajes de todos los tickets visibles en una
+    // sola consulta, en vez de una por ticket.
+    const idsTickets = filtrados.map(t=>t.id);
+    const { data: mensajes } = await sb.from('tickets_soporte_mensajes').select('*').in('ticket_id', idsTickets).order('creado_en', { ascending:true });
+    const mensajesPorTicket = {};
+    (mensajes||[]).forEach(m => { (mensajesPorTicket[m.ticket_id] ??= []).push(m); });
+
+    cont.innerHTML = tabsHtml + filtrados.map(t => {
+      const hilo = mensajesPorTicket[t.id] || [];
+      const hiloHtml = hilo.map(m => `
+        <div style="font-size:11.5px;color:var(--t2);margin-top:6px;padding:8px 10px;background:var(--c2);border-left:3px solid var(--accent2);border-radius:4px;">
+          <b style="color:var(--accent2);font-size:10.5px;text-transform:uppercase;">Tu respuesta</b><br>
+          ${m.mensaje.replace(/\n/g,'<br>')}
+          ${(m.imagenes&&m.imagenes.length)?`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">${m.imagenes.map(url=>`<a href="${url}" target="_blank"><img src="${url}" style="width:70px;height:70px;object-fit:cover;border-radius:4px;border:1px solid var(--c4);"></a>`).join('')}</div>`:''}
+          <div style="font-size:10px;color:var(--t3);margin-top:5px;">${new Date(m.creado_en).toLocaleString('es-PA')}</div>
+        </div>
+      `).join('');
+      return `
       <div style="border:1px solid var(--c4);border-left:3px solid ${t.estado==='resuelto'?'var(--green)':'var(--amber)'};border-radius:8px;padding:10px 12px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;">
-          <div style="font-size:12.5px;font-weight:600;">${t.nombre_usuario||'desconocido'} <span style="font-weight:400;color:var(--t3);">(${t.rol||'sin rol'}${t.sesion_nombre?' · '+t.sesion_nombre:''})</span></div>
+          <div style="font-size:12.5px;font-weight:600;">
+            <span style="font-family:var(--font-mono);color:var(--t3);font-weight:400;">${numeroTicket(t)}</span> ·
+            ${t.nombre_usuario||'desconocido'} <span style="font-weight:400;color:var(--t3);">(${t.rol||'sin rol'}${t.sesion_nombre?' · '+t.sesion_nombre:''})</span>
+          </div>
           <span class="nav-badge" style="background:${t.estado==='resuelto'?'var(--green)':'var(--amber)'};color:#000;flex-shrink:0;">${t.estado}</span>
         </div>
         <div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:6px;">${t.error_descripcion}</div>
         ${t.que_intentaba?`<div style="font-size:11px;color:var(--t3);">Intentaba: ${t.que_intentaba}</div>`:''}
         ${t.intento_solucion?`<div style="font-size:11px;color:var(--t3);">Intentó: ${t.intento_solucion}</div>`:''}
         ${t.como_lo_resolvio?`<div style="font-size:11px;color:var(--green);">Se resolvió con: ${t.como_lo_resolvio}</div>`:''}
-        ${t.respuesta?`<div style="font-size:11.5px;color:var(--t2);margin-top:8px;padding:8px 10px;background:var(--c2);border-left:3px solid var(--accent2);border-radius:4px;"><b style="color:var(--accent2);font-size:10.5px;text-transform:uppercase;">Tu respuesta</b><br>${t.respuesta.replace(/\n/g,'<br>')}<div style="font-size:10px;color:var(--t3);margin-top:5px;">${t.respondido_en?new Date(t.respondido_en).toLocaleString('es-PA'):''}</div></div>`:''}
+        ${hiloHtml}
         <div id="respuesta-box-${t.id}" style="display:none;margin-top:8px;">
           <textarea id="respuesta-txt-${t.id}" placeholder="Escribe tu respuesta para ${t.email_contacto}…" style="width:100%;min-height:80px;padding:8px 10px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12.5px;resize:vertical;"></textarea>
+          <div style="margin-top:6px;">
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
+              <i class="ti ti-photo-plus"></i> Adjuntar imágenes (máx. 3, 5MB c/u)
+              <input type="file" id="respuesta-img-${t.id}" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none;" onchange="previsualizarImagenesTicket('${t.id}')">
+            </label>
+            <div id="respuesta-img-preview-${t.id}" style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;"></div>
+          </div>
           <div style="display:flex;gap:6px;margin-top:6px;">
             <button class="btn btn-primary btn-sm" onclick="enviarRespuestaTicket('${t.id}')"><i class="ti ti-send"></i> Enviar respuesta</button>
             <button class="btn btn-ghost btn-sm" onclick="document.getElementById('respuesta-box-${t.id}').style.display='none';">Cancelar</button>
@@ -3441,30 +3493,73 @@ async function cargarTicketsSoporte(){
         <div style="font-size:10px;color:var(--t3);margin-top:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
           <span>${t.email_contacto} · ${new Date(t.created_at).toLocaleString('es-PA')}</span>
           <span style="display:flex;gap:6px;">
-            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('respuesta-box-${t.id}').style.display='block';document.getElementById('respuesta-txt-${t.id}').focus();"><i class="ti ti-mail-forward"></i> ${t.respuesta?'Responder de nuevo':'Responder'}</button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('respuesta-box-${t.id}').style.display='block';document.getElementById('respuesta-txt-${t.id}').focus();"><i class="ti ti-mail-forward"></i> ${hilo.length?'Hacer seguimiento':'Responder'}</button>
             ${t.estado!=='resuelto'?`<button class="btn btn-ghost btn-sm" onclick="marcarTicketResuelto('${t.id}')">Marcar como resuelto</button>`:''}
           </span>
         </div>
       </div>
-    `).join('');
+    `;}).join('');
   } catch(e){
     cont.innerHTML = `<div class="auth-hint" style="color:var(--red);">No se pudieron cargar los tickets: ${e.message||e}</div>`;
   }
 }
 
+// Guarda temporalmente los archivos elegidos por ticket, antes de subirlos
+// (la subida real ocurre recién al enviar, para no llenar Storage de
+// imágenes de respuestas que el superadmin empieza y no termina).
+const __imagenesTicketPendientes = {};
+
+function previsualizarImagenesTicket(id){
+  const input = document.getElementById('respuesta-img-'+id);
+  const preview = document.getElementById('respuesta-img-preview-'+id);
+  const msg = document.getElementById('respuesta-msg-'+id);
+  let archivos = Array.from(input.files || []);
+  if(archivos.length > 3){
+    msg.style.color='var(--amber)';
+    msg.textContent = 'Máximo 3 imágenes por respuesta — se tomaron las primeras 3.';
+    archivos = archivos.slice(0,3);
+  }
+  const sobrepasan = archivos.filter(f=>f.size > 5*1024*1024);
+  if(sobrepasan.length){
+    msg.style.color='var(--red)';
+    msg.textContent = `${sobrepasan.length} imagen(es) superan 5MB y no se van a subir: ${sobrepasan.map(f=>f.name).join(', ')}`;
+    archivos = archivos.filter(f=>f.size <= 5*1024*1024);
+  }
+  __imagenesTicketPendientes[id] = archivos;
+  preview.innerHTML = archivos.map(f => `<span style="font-size:10px;background:var(--c2);border:1px solid var(--c4);border-radius:4px;padding:3px 6px;">${f.name} (${(f.size/1024).toFixed(0)}KB)</span>`).join('');
+}
+
+// Sube las imágenes pendientes de un ticket a Storage y devuelve sus
+// URLs públicas. Devuelve [] si no hay imágenes — no es un error.
+async function subirImagenesTicket(id){
+  const archivos = __imagenesTicketPendientes[id] || [];
+  if(!archivos.length) return [];
+  const urls = [];
+  for(const archivo of archivos){
+    const ruta = `${id}/${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+    const { error } = await sb.storage.from('tickets-adjuntos').upload(ruta, archivo, { upsert:false });
+    if(error) throw new Error('No se pudo subir '+archivo.name+': '+error.message);
+    const { data: pub } = sb.storage.from('tickets-adjuntos').getPublicUrl(ruta);
+    urls.push(pub.publicUrl);
+  }
+  return urls;
+}
+
 // Envía la respuesta del superadministrador al correo de quien reportó
 // el ticket, vía la Edge Function responder-ticket-soporte (la clave de
-// Resend vive del lado del servidor, nunca en el navegador). La
-// respuesta se guarda en la base de datos aunque el correo falle, así
-// que nunca se pierde lo escrito.
+// Resend vive del lado del servidor, nunca en el navegador). El mensaje
+// se agrega al hilo del ticket (no sobreescribe respuestas anteriores),
+// así que se puede hacer seguimiento con varios mensajes.
 async function enviarRespuestaTicket(id){
   const txt = document.getElementById('respuesta-txt-'+id);
   const msg = document.getElementById('respuesta-msg-'+id);
   const respuesta = (txt?.value || '').trim();
   if(!respuesta){ msg.style.color='var(--red)'; msg.textContent='Escribe una respuesta antes de enviar.'; return; }
 
-  msg.style.color='var(--t3)'; msg.textContent='Enviando…';
+  msg.style.color='var(--t3)'; msg.textContent='Subiendo imágenes…';
   try {
+    const imagenes = await subirImagenesTicket(id);
+    msg.textContent='Enviando…';
     const { data: sesion } = await sb.auth.getSession();
     const token = sesion?.session?.access_token;
     const respuestaHttp = await fetch(`${SIM_IA_URL}/functions/v1/responder-ticket-soporte`, {
@@ -3474,7 +3569,7 @@ async function enviarRespuestaTicket(id){
         'apikey': SIM_IA_ANON_KEY,
         'Authorization': `Bearer ${token || SIM_IA_ANON_KEY}`,
       },
-      body: JSON.stringify({ ticketId: id, respuesta }),
+      body: JSON.stringify({ ticketId: id, respuesta, imagenes }),
     });
     const d = await respuestaHttp.json();
     if(!d.ok) throw new Error(d.error || 'Error desconocido.');
@@ -3487,6 +3582,7 @@ async function enviarRespuestaTicket(id){
       msg.textContent = d.aviso || 'Respuesta guardada, pero el correo no se envió.';
       notify('Respuesta guardada (el correo no se pudo enviar).', 'warning');
     }
+    delete __imagenesTicketPendientes[id];
     cargarTicketsSoporte();
   } catch(e){
     msg.style.color='var(--red)';
