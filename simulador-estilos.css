@@ -888,7 +888,15 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
    no debe chocar con el botón de reabrir noticias que ya vive en la
    esquina inferior derecha dentro de Mercado. */
 #auth-gate:not(.hidden) ~ #mentor-ia-fab, #auth-gate:not(.hidden) ~ #mentor-ia-panel{display:none !important;}
-@media(max-width:768px){ #mentor-ia-fab{bottom:16px;right:16px;} #mentor-ia-panel{bottom:78px;right:12px;} }
+@media(max-width:768px){
+  /* El botón flotante del Mentor IA (bottom:20px de base) caía
+     directamente sobre la pestaña "Menú" de la barra de navegación
+     inferior de móvil — se sube lo suficiente para despejarla por
+     completo, con margen real, incluyendo el área segura de
+     dispositivos con gesto de inicio (notch inferior). */
+  #mentor-ia-fab{bottom:calc(70px + env(safe-area-inset-bottom)) !important;right:16px !important;}
+  #mentor-ia-panel{bottom:calc(132px + env(safe-area-inset-bottom));right:12px;}
+}
 /* ESCALA PARA PANTALLAS GRANDES — el resto de la interfaz usa tamaños
    fijos en píxeles en cientos de lugares, así que en vez de reescribir
    cada uno, se escala toda la interfaz de forma proporcional según el
