@@ -932,7 +932,14 @@ async function cambiarSesionActiva(sesionId, sesionNombre, sesionCodigo){
   loadProgress();
 
   document.getElementById('user-role-badge').className = 'role-badge ' + currentUser.rol;
-  renderAssetList(); renderCustom(); renderWatchlist(); renderPortfolio(); renderPortfolioTabs();
+  renderAssetList(); renderCustom(); renderWatchlist(); renderPortfolioTabs();
+  // Los gráficos de Cartera medían su contenedor en el mismo instante
+  // de la inicialización de la sesión, antes de que el navegador
+  // terminara de calcular el diseño final — quedándose con una
+  // medida incorrecta para siempre, sin que ni el propio resize() de
+  // Chart.js la corrigiera después. Se espera al siguiente repintado
+  // real antes de crearlos.
+  requestAnimationFrame(()=>requestAnimationFrame(renderPortfolio));
   renderLabHistory(); updateNavCapital();
   if(document.getElementById('page-profesor').classList.contains('active')){ cargarRosterProfesor(); iniciarRealtimeProfesor(); }
   notify(`Cambiaste a: ${sesionNombre}`, 'success');

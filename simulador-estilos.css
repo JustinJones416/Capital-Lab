@@ -302,7 +302,7 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 @media(max-width:480px){.tp-order-row{grid-template-columns:1fr;}}
 
 /* ── STANDARD CARDS ── */
-.card{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);padding:16px 20px;box-shadow:var(--sombra-sm);transition:box-shadow .2s ease;}
+.card{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);padding:16px 20px;box-shadow:var(--sombra-sm);transition:box-shadow .2s ease;min-width:0;}
 .card-title{font-family:var(--font-head);font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;color:var(--t1);}
 .card-collapse-toggle{margin-left:auto;cursor:pointer;font-size:14px;color:var(--t3);transition:transform .15s;flex-shrink:0;padding:10px;margin-right:-10px;margin-top:-10px;margin-bottom:-10px;display:inline-flex;align-items:center;justify-content:center;}
 .card.tarjeta-colapsada > *:not(.card-title){display:none;}

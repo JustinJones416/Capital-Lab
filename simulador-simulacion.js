@@ -529,7 +529,17 @@ function goPage(p){
     // Canvas had zero size while hidden — redraw now that the page is visible
     requestAnimationFrame(()=>requestAnimationFrame(()=>drawCandlestickChart(selectedAsset)));
   }
-  if(p==='cartera'){renderPortfolio();renderPortfolioTabs();}
+  if(p==='cartera'){
+    renderPortfolioTabs();
+    // Los gráficos de Chart.js medían el ancho de su contenedor en el
+    // mismo instante en que la página se activaba, antes de que el
+    // navegador terminara de calcular el diseño final del grid —
+    // Chart.js se queda con esa medida incorrecta para siempre, ni
+    // siquiera su propio método resize() la corrige después. Se
+    // espera al siguiente repintado real, el mismo patrón ya usado
+    // para el gráfico de velas arriba.
+    requestAnimationFrame(()=>requestAnimationFrame(renderPortfolio));
+  }
   if(p==='resultados')renderResults();
   if(p==='analisis')populateAnalysisSelect();
   if(p==='laboratorio'){renderLabHistory();renderLabPicker();}
