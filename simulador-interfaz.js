@@ -772,6 +772,14 @@ const SIM_YAHOO_FUNCION = 'datos-yahoo-finance';
 // una sincronización que no sería de fiar.
 const FUTUROS_YAHOO_MAP = { 'CL1!':'CL=F', 'GC1!':'GC=F', 'ES1!':'ES=F', 'ZW1!':'ZW=F', '6E1!':'6E=F' };
 
+// Cuánto tiempo puede tener una cotización de Yahoo antes de
+// considerarla "congelada" (mercado cerrado) en vez de "real ahora
+// mismo". 20 minutos da margen de sobra para cualquier demora normal
+// de Yahoo durante horario de mercado, pero rechaza sin ambigüedad
+// cualquier cosa de horas o días de antigüedad (fin de semana,
+// feriado, fuera de horario bursátil).
+const MAX_ANTIGUEDAD_COTIZACION_MS = 20 * 60 * 1000;
+
 async function sincronizarPreciosRealesSimulador(){
   // Bonos y derivados (opciones, swaps, CDS, forwards) no tienen una
   // fuente gratuita y confiable en Yahoo Finance — se quedan siempre
@@ -802,6 +810,8 @@ async function sincronizarPreciosRealesSimulador(){
     if(!d.ok || !Array.isArray(d.cotizaciones) || !d.cotizaciones.length) return;
 
     let actualizados = 0;
+    let descartadosPorAntiguos = 0;
+    const ahoraMs = Date.now();
     // El servidor normaliza "EUR/USD" a "EURUSD=X" antes de responder
     // — la comparación tiene que aplicar esa misma conversión, o una
     // divisa nunca encontraría su propio activo correspondiente.
@@ -817,6 +827,17 @@ async function sincronizarPreciosRealesSimulador(){
       // ese rango, es casi seguro un error de datos, no un movimiento
       // real de mercado, y se descarta para no corromper la simulación.
       if(c.precioActual < activo.price * 0.1 || c.precioActual > activo.price * 10) return;
+      // "Mejor de los dos mundos": si la cotización es fresca (mercado
+      // realmente abierto ahora mismo), el precio real manda. Si está
+      // congelada (mercado cerrado — fin de semana, noche, feriado),
+      // NO se sobreescribe con ese dato viejo una y otra vez; se deja
+      // que el motor de simulación (tickPrices, cada 5s) siga
+      // moviendo el precio desde el último valor real conocido, en
+      // vez de forzarlo a quedarse pegado en el cierre congelado.
+      if(c.tiempoUTC){
+        const antiguedadMs = ahoraMs - (c.tiempoUTC * 1000);
+        if(antiguedadMs > MAX_ANTIGUEDAD_COTIZACION_MS){ descartadosPorAntiguos++; return; }
+      }
       activo.price = c.precioActual;
       if(activo.currentPrice !== undefined) activo.currentPrice = c.precioActual;
       activo._urlYahoo = `https://finance.yahoo.com/quote/${encodeURIComponent(simboloAPedir(activo))}`;
@@ -831,7 +852,9 @@ async function sincronizarPreciosRealesSimulador(){
     });
 
     if(actualizados > 0){
+      const esPrimeraSincronizacion = !window.__ultimaSincronizacionReal;
       window.__ultimaSincronizacionReal = new Date();
+      window.__mercadoRealAbierto = true;
       // Solo se refresca lo que ya está visible, sin recargar nada ni
       // interrumpir cualquier cosa que el estudiante esté haciendo.
       try { allAssets().forEach(a => { if(!candleHistory[a.id]) initCandles(a); }); } catch(e){}
@@ -839,7 +862,19 @@ async function sincronizarPreciosRealesSimulador(){
       try { renderWatchlist(); } catch(e){}
       try { if(selectedAsset) showAssetDetail(selectedAsset.id, selectedAsset.type); } catch(e){}
       try { actualizarIndicadorSincronizacion(actualizados); } catch(e){}
-      try { notify(`${actualizados} precio(s) recalibrados con la cotización real de mercado ✓`); } catch(e){}
+      // El aviso solo se muestra la primera vez de la sesión — con
+      // resincronización cada 45s, repetirlo cada vez sería un toast
+      // constante y molesto en vez de una confirmación útil.
+      if(esPrimeraSincronizacion){
+        try { notify(`${actualizados} precio(s) recalibrados con la cotización real de mercado ✓`); } catch(e){}
+      }
+    } else if(descartadosPorAntiguos > 0 && actualizados === 0){
+      // Todos los datos que llegaron están congelados (mercado
+      // cerrado ahora mismo) — se marca explícitamente para que el
+      // indicador en pantalla diga "mercado cerrado" en vez de
+      // simplemente no decir nada, que es ambiguo con "no se pudo
+      // conectar a Yahoo".
+      window.__mercadoRealAbierto = false;
     }
   } catch(e){
     clearTimeout(limiteTiempo);
@@ -848,6 +883,25 @@ async function sincronizarPreciosRealesSimulador(){
     // funcionando con sus precios base normales, sin ninguna
     // interrupción ni mensaje de error visible para el estudiante.
   }
+}
+
+// Antes esto se llamaba UNA sola vez, al iniciar sesión — el precio
+// real quedaba fijo desde ese instante y todo lo demás era simulación
+// pura, sin importar cuánto durara la sesión. Ahora se repite cada 45
+// segundos: mientras el mercado real esté abierto, el precio se
+// mantiene anclado a la cotización real de Yahoo casi en vivo; cuando
+// cierra (noches, fines de semana), la función de arriba detecta la
+// cotización congelada y deja de forzarla, así que el motor de
+// simulación (tickPrices) sigue moviendo el precio desde ahí sin
+// interrupciones. 45s es sostenible — no satura el endpoint no
+// oficial de Yahoo, que ya de por sí exige cookie+token para datos
+// profundos y podría empezar a bloquear si se le pidiera cada pocos
+// segundos.
+const SYNC_REAL_MS = 45000;
+let __intervaloSyncReal = null;
+function iniciarSincronizacionRealPeriodica(){
+  if(__intervaloSyncReal) return; // ya está corriendo, no duplicar
+  __intervaloSyncReal = setInterval(()=>{ try{ sincronizarPreciosRealesSimulador(); }catch(e){} }, SYNC_REAL_MS);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3721,4 +3775,5 @@ function initApp() {
   try { restaurarPreferenciaPanelNoticias(); } catch(e){}
   try { iniciarAyudaTerminos(); } catch(e){}
   try { sincronizarPreciosRealesSimulador(); } catch(e){}
+  try { iniciarSincronizacionRealPeriodica(); } catch(e){}
 }

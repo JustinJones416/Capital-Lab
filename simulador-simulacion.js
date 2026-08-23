@@ -855,8 +855,16 @@ function renderEnlaceYahooFinance(asset){
   let marcaActualizacion;
   if(asset.type==='bono'){
     marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Precio calculado por el modelo del simulador — los bonos no tienen una fuente gratuita de precio real en tiempo real disponible</div>`;
-  } else if(window.__ultimaSincronizacionReal){
-    marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Precio real confirmado a las ${window.__ultimaSincronizacionReal.toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'})} · hasta 15 min de rezago frente a bolsa, desde ahí la simulación toma el control</div>`;
+  } else if(window.__ultimaSincronizacionReal && window.__mercadoRealAbierto){
+    // Mercado real detectado como abierto ahora mismo (cotización de
+    // Yahoo con menos de 20 min de antigüedad) — el precio se
+    // resincroniza cada 45s mientras se mantenga así.
+    marcaActualizacion = `<div style="font-size:10.5px;color:var(--green, #1e8e5a);margin-top:4px;"><i class="ti ti-circle-filled" style="font-size:7px;"></i> Precio real de mercado, actualizado ${window.__ultimaSincronizacionReal.toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'})} (Yahoo Finance)</div>`;
+  } else if(window.__ultimaSincronizacionReal && !window.__mercadoRealAbierto){
+    // Mercado real cerrado (fin de semana, feriado, fuera de horario)
+    // — se usa el último precio real conocido como ancla, y de ahí
+    // en adelante el motor de simulación continúa el movimiento.
+    marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Mercado real cerrado — último precio real conocido, la simulación continúa el movimiento desde ahí</div>`;
   } else {
     marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Precio base del simulador — la sincronización con el mercado real no estuvo disponible en esta sesión</div>`;
   }
