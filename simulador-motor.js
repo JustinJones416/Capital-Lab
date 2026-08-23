@@ -3576,11 +3576,15 @@ async function enviarRespuestaTicket(id){
     if(d.correoEnviado){
       notify('Respuesta enviada por correo.', 'success');
     } else {
-      // El aviso viene tal cual del servidor (ej. el 403 de Resend en
-      // modo de prueba); se muestra completo en vez de ocultarlo.
-      msg.style.color='var(--amber)';
-      msg.textContent = d.aviso || 'Respuesta guardada, pero el correo no se envió.';
-      notify('Respuesta guardada (el correo no se pudo enviar).', 'warning');
+      // Caso esperado mientras Resend no tenga un dominio propio
+      // verificado: no es un error real, es una limitación conocida.
+      // Se distingue del resto de fallos para no alarmar cada vez.
+      const esLimiteConocidaDeResend = (d.aviso||'').includes('403') || (d.aviso||'').includes('own email address');
+      msg.style.color = esLimiteConocidaDeResend ? 'var(--t3)' : 'var(--amber)';
+      msg.textContent = esLimiteConocidaDeResend
+        ? 'Respuesta guardada y visible en el hilo. El correo automático no sale todavía (falta verificar un dominio propio en Resend) — puedes avisarle al estudiante por otro medio.'
+        : (d.aviso || 'Respuesta guardada, pero el correo no se envió.');
+      notify('Respuesta guardada' + (esLimiteConocidaDeResend ? '.' : ' (el correo no se pudo enviar).'), esLimiteConocidaDeResend ? 'success' : 'warning');
     }
     delete __imagenesTicketPendientes[id];
     cargarTicketsSoporte();
