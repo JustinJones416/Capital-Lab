@@ -2548,6 +2548,17 @@ function alternarPanelNoticias(){
   } else {
     const colapsada = contenedor.classList.toggle('news-colapsada');
     try { localStorage.setItem(NEWS_PANEL_PREF_KEY, colapsada ? '1' : '0'); } catch(e){}
+    // Red de seguridad contra un fallo de repintado real de Chrome:
+    // animar el ancho de la columna del grid mientras el cuerpo de
+    // Mercado tiene su propio desplazamiento puede dejar una franja
+    // sin repintar (se ve como una zona negra) hasta que algo fuerce
+    // a Chrome a recalcular. Se fuerza un reflow real justo cuando
+    // termina la animación (250ms), sin esperar a que el estudiante
+    // tenga que redimensionar la ventana para que se corrija solo.
+    setTimeout(() => {
+      const body = document.querySelector('.market-body');
+      if(body){ body.style.display='none'; void body.offsetHeight; body.style.display=''; }
+    }, 260);
   }
 }
 
