@@ -20,7 +20,7 @@ function renderLabHistory(){
 
   panel.innerHTML=`
     <!-- Summary row -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+    <div class="grid-4-resp" style="gap:10px;margin-bottom:16px;">
       ${[
         ['Sesiones totales', totalSessions, 'var(--accent2)'],
         ['Metas alcanzadas', passed+' / '+totalSessions, passed===totalSessions?'var(--green)':'var(--amber)'],
@@ -508,7 +508,7 @@ function renderResults(){
   document.getElementById('res-evaluation').innerHTML=`
 
     <!-- ─── INDICADORES CLAVE ─── -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+    <div class="grid-4-resp" style="gap:10px;margin-bottom:16px;">
       ${[
         ['Rentabilidad total',(retPct>=0?'+':'')+retPct.toFixed(2)+'%',retColor,retRating],
         ['Ratio Sharpe',sh.toFixed(2),shColor,shRating],
@@ -569,7 +569,7 @@ function renderResults(){
       <!-- Composición por clase de activo -->
       <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--c4);">
         <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Exposición por clase de activo (% del AUM gestionado)</div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
+        <div class="grid-5-resp" style="gap:8px;">
           ${['accion','bono','divisa','futuro','derivado'].map(t=>{
             const v=portfolio.filter(p=>p.type===t).reduce((s,p)=>s+(p.currentPrice||p.buyPrice)*p.qty,0);
             const pctv=cV>0?(v/cV*100):0;
@@ -840,6 +840,11 @@ async function sincronizarPreciosRealesSimulador(){
       }
       activo.price = c.precioActual;
       if(activo.currentPrice !== undefined) activo.currentPrice = c.precioActual;
+      // Marca de cuándo llegó este precio real — tickPrices() la usa
+      // para saber si debe dejar este activo en paz (precio real
+      // manda) o seguir moviéndolo con el modelo de simulación
+      // (mercado cerrado, sin ancla fresca).
+      activo.__ultimoRealMs = ahoraMs;
       activo._urlYahoo = `https://finance.yahoo.com/quote/${encodeURIComponent(simboloAPedir(activo))}`;
       // El gráfico de velas ya se había generado con el precio base
       // viejo, antes de que llegara este dato real — si no se borra
@@ -897,7 +902,23 @@ async function sincronizarPreciosRealesSimulador(){
 // oficial de Yahoo, que ya de por sí exige cookie+token para datos
 // profundos y podría empezar a bloquear si se le pidiera cada pocos
 // segundos.
-const SYNC_REAL_MS = 45000;
+// Antes esto se llamaba UNA sola vez, al iniciar sesión — el precio
+// real quedaba fijo desde ese instante y todo lo demás era simulación
+// pura, sin importar cuánto durara la sesión. Ahora se repite cada 10
+// segundos — lo más seguido que es razonable pedirle al endpoint no
+// oficial de Yahoo sin arriesgarse a que empiece a bloquear las
+// solicitudes (no es una API con licencia de datos en tiempo real; es
+// el mismo endpoint que usa el sitio web de Yahoo). Combinado con que
+// tickPrices() ahora se salta el activo mientras tenga un ancla real
+// fresca (ver __ultimoRealMs más abajo), el resultado práctico es que
+// el precio real manda de verdad mientras el mercado esté abierto, no
+// solo "tira" del simulador cada tanto.
+const SYNC_REAL_MS = 10000;
+// Cuánto se considera "fresco" un ancla real antes de que tickPrices()
+// vuelva a tomar el control con su propio modelo — un poco más que
+// SYNC_REAL_MS, para no parpadear entre real y simulado si una
+// sincronización individual se demora un poco más de lo normal.
+const UMBRAL_ANCLA_REAL_FRESCA_MS = SYNC_REAL_MS + 5000;
 let __intervaloSyncReal = null;
 function iniciarSincronizacionRealPeriodica(){
   if(__intervaloSyncReal) return; // ya está corriendo, no duplicar
@@ -1041,13 +1062,15 @@ function actualizarIndicadorSincronizacion(cantidadActualizados){
   badge.style.opacity = '1';
   badge.style.display = 'flex';
   const hora = new Date().toLocaleTimeString('es-PA', {hour:'2-digit', minute:'2-digit'});
-  // Honestidad con el estudiante: el dato es real, pero no instantáneo.
-  // Yahoo Finance, como cualquier fuente gratuita de NASDAQ y NYSE,
-  // entrega la cotización con un rezago estándar de hasta 15 minutos
-  // frente al precio exacto de bolsa en ese segundo — la misma norma
-  // que aplica a cualquier servicio de datos bursátiles sin costo.
-  badge.title = 'Como toda fuente gratuita de NASDAQ y NYSE, este dato puede tener hasta 15 minutos de rezago frente al precio exacto de bolsa en este segundo. Sigue siendo un precio real de mercado, no simulado.';
-  badge.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:#1e8e5a;flex-shrink:0;"></span> Datos reales de mercado · ${cantidadActualizados} activos · ${hora} <span style="opacity:.65;">(hasta 15 min de rezago)</span> <button onclick="event.stopPropagation();this.closest('#badge-datos-reales').style.display='none';" style="background:transparent;border:none;color:var(--t3,#7a8ab0);cursor:pointer;padding:2px 4px;margin-left:2px;font-size:13px;line-height:1;" title="Cerrar">✕</button>`;
+  // El endpoint de Yahoo Finance que se usa aquí no es una API con
+  // licencia formal de datos en tiempo real (esas se pagan) — es el
+  // mismo que usa el sitio web de Yahoo, y en la práctica suele estar
+  // a segundos del precio real durante horario de mercado, sin una
+  // garantía formal de latencia exacta. Mientras el mercado esté
+  // abierto, este precio se resincroniza cada 10 segundos y el motor
+  // de simulación se pausa para ese activo — el precio real manda.
+  badge.title = 'Precio real de Yahoo Finance, resincronizado cada 10 segundos mientras el mercado esté abierto. Fuera de horario bursátil (noches, fines de semana), se usa el último precio real conocido y el simulador continúa el movimiento desde ahí.';
+  badge.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:#1e8e5a;flex-shrink:0;"></span> Datos reales de mercado · ${cantidadActualizados} activos · ${hora} <button onclick="event.stopPropagation();this.closest('#badge-datos-reales').style.display='none';" style="background:transparent;border:none;color:var(--t3,#7a8ab0);cursor:pointer;padding:2px 4px;margin-left:2px;font-size:13px;line-height:1;" title="Cerrar">✕</button>`;
 
   // Antes, esta notificación se creaba una vez y se quedaba fija en
   // pantalla para siempre — no existía ningún código que la ocultara
@@ -1107,6 +1130,19 @@ function tickPrices() {
   // Geometric Brownian Motion per tick — amplified for visible, risky movement
   [STOCKS, BONDS, FOREX, FUTURES, DERIVATIVES].forEach(arr => {
     arr.forEach(a => {
+      // Si este activo tiene un ancla de precio real fresca (llegó de
+      // Yahoo hace menos de UMBRAL_ANCLA_REAL_FRESCA_MS), el precio
+      // real manda: no se le aplica ningún shock simulado este tick.
+      // Solo se registra la vela para que el gráfico siga su curso —
+      // el motor de simulación vuelve a tomar el control
+      // automáticamente en cuanto el ancla se enfríe (mercado
+      // cerrado, o la sincronización deja de encontrar datos frescos).
+      if(a.__ultimoRealMs && (Date.now() - a.__ultimoRealMs) < UMBRAL_ANCLA_REAL_FRESCA_MS){
+        const referenciaCambioReal = a.sessionOpenPrice != null ? a.sessionOpenPrice : a.price;
+        a.change = +((a.currentPrice - referenciaCambioReal) / referenciaCambioReal * 100).toFixed(2);
+        addCandle(a);
+        return;
+      }
       const cs    = candleSigma(a.sigma);
       const drift = (a.ret / 100) / EFFECTIVE_PERIODS;
       const beta  = betaFor(a);
