@@ -3645,7 +3645,7 @@ function renderAnalysis(id,type){
       <div class="card" style="margin-bottom:14px;">
         <div class="card-title"><i class="ti ti-file-text" style="color:var(--amber);"></i> Prospecto del Bono — ${asset.name} (${asset.ticker})</div>
         <p style="font-size:11px;color:var(--t3);margin-bottom:14px;">Documento informativo del instrumento de renta fija · Fuente: Datos de mercado de referencia</p>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+        <div class="grid-4-resp" style="gap:10px;margin-bottom:16px;">
           ${[
             ['Precio de mercado','$'+fmt(p2),'g'],
             ['Rendimiento (YTM)',ytm.toFixed(2)+'%','a'],
@@ -3702,7 +3702,7 @@ function renderAnalysis(id,type){
     div.innerHTML=`
       <div class="card">
         <div class="card-title"><i class="ti ti-world-dollar" style="color:var(--amber);"></i> Contexto Macroeconómico — ${asset.country}</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+        <div class="grid-4-resp" style="gap:10px;margin-bottom:14px;">
           ${[
             ['PIB total','$'+g.total+' B USD','g'],
             ['PIB per cápita','$'+g.perCapita+' USD','g'],
@@ -4202,7 +4202,7 @@ function renderPortfolio(permitirSaltarGraficos){
   document.getElementById('port-evaluation').innerHTML=portfolio.length===0?'':
     `<div class="card" style="margin-bottom:14px;border-color:rgba(0,196,255,.18);">
       <div class="card-title"><i class="ti ti-report-analytics" style="color:var(--accent2);"></i> Evaluación financiera estructurada</div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;">
+      <div class="grid-5-resp" style="gap:10px;margin-bottom:16px;">
         ${[
           ['Retorno total',(retPct>=0?'+':'')+retPct.toFixed(2)+'%',retPct>8?'var(--green)':retPct>0?'var(--amber)':'var(--red)',retPct>8?'Óptimo':retPct>0?'Positivo':'Negativo'],
           ['Ratio Sharpe',sh.toFixed(2),shColor,shLabel],

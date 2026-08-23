@@ -414,6 +414,8 @@ tr:hover td{background:rgba(255,255,255,.015);}
 .verdict-loss{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.25);border-radius:var(--r2);padding:16px;}
 .verdict-neutral{background:rgba(255,180,0,.08);border:1px solid rgba(255,180,0,.25);border-radius:var(--r2);padding:16px;}
 .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.grid-4-resp{display:grid;grid-template-columns:repeat(4,1fr);}
+.grid-5-resp{display:grid;grid-template-columns:repeat(5,1fr);}
 .kpi{background:var(--c3);border-radius:var(--r);padding:12px;text-align:center;}
 .kpi-label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
 .kpi-val{font-family:var(--font-mono);font-size:22px;font-weight:500;}
@@ -771,6 +773,22 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
   /* ── KPI ROWS ── */
   .kpi-row{grid-template-columns:repeat(2,1fr)!important;}
+
+  /* ── GRILLAS DE MÉTRICAS DE 4/5 COLUMNAS (respuesta a reporte de
+     desbordamiento en Cartera en móvil) ── Estas filas de tarjetas
+     (Evaluación financiera estructurada, resumen de Análisis, panel
+     de Resultados, etc.) se generan en JS con grid-template-columns
+     fijo escrito directamente como estilo en línea — un estilo en
+     línea no puede ser alcanzado por ningún media query externo, así
+     que en móvil intentaban caber 4 o 5 columnas sin importar el
+     ancho real de pantalla, empujando toda la página hacia un lado.
+     Se movió esa parte del estilo a estas clases (ver
+     simulador-simulacion.js y simulador-interfaz.js), que sí pueden
+     responder aquí. !important porque conviven con un
+     grid-template-columns que sigue viniendo en el mismo atributo
+     style en línea para el resto de propiedades (gap, margin) —
+     sin !important, el inline seguiría ganando. */
+  .grid-4-resp,.grid-5-resp{grid-template-columns:repeat(2,1fr)!important;}
 }
 
 /* ── SMALL MOBILE (≤480px) ── */
