@@ -810,7 +810,8 @@ async function sincronizarPreciosRealesSimulador(){
     if(!d.ok || !Array.isArray(d.cotizaciones) || !d.cotizaciones.length) return;
 
     let actualizados = 0;
-    let descartadosPorAntiguos = 0;
+    let anclasNuevasCongeladas = 0;
+    const activosAnclados = []; // los que recibieron precio real esta ronda
     const ahoraMs = Date.now();
     // El servidor normaliza "EUR/USD" a "EURUSD=X" antes de responder
     // — la comparación tiene que aplicar esa misma conversión, o una
@@ -827,59 +828,88 @@ async function sincronizarPreciosRealesSimulador(){
       // ese rango, es casi seguro un error de datos, no un movimiento
       // real de mercado, y se descarta para no corromper la simulación.
       if(c.precioActual < activo.price * 0.1 || c.precioActual > activo.price * 10) return;
-      // "Mejor de los dos mundos": si la cotización es fresca (mercado
-      // realmente abierto ahora mismo), el precio real manda. Si está
-      // congelada (mercado cerrado — fin de semana, noche, feriado),
-      // NO se sobreescribe con ese dato viejo una y otra vez; se deja
-      // que el motor de simulación (tickPrices, cada 5s) siga
-      // moviendo el precio desde el último valor real conocido, en
-      // vez de forzarlo a quedarse pegado en el cierre congelado.
-      if(c.tiempoUTC){
-        const antiguedadMs = ahoraMs - (c.tiempoUTC * 1000);
-        if(antiguedadMs > MAX_ANTIGUEDAD_COTIZACION_MS){ descartadosPorAntiguos++; return; }
-      }
+
+      // ¿Es esta cotización nueva información, o es la misma que ya
+      // aplicamos antes? Yahoo devuelve el mismo cierre congelado una
+      // y otra vez mientras el mercado esté cerrado (mismo tiempoUTC
+      // en cada sondeo) — sin este control, cada sincronización de
+      // 10s volvería a "clavar" el precio en ese mismo valor viejo,
+      // sin dejar nunca que el motor de simulación avance desde ahí,
+      // el problema opuesto al que se quiere resolver.
+      const esInformacionNueva = !activo.__ultimoTiempoUTCAplicado
+        || !c.tiempoUTC
+        || c.tiempoUTC !== activo.__ultimoTiempoUTCAplicado;
+      if(!esInformacionNueva) return; // ya se aplicó este mismo dato antes; se deja al simulador en paz
+
+      // El precio real SIEMPRE se usa como ancla en cuanto es nuevo,
+      // sin importar qué tan viejo sea (aunque sea el cierre del
+      // viernes) — es siempre mejor punto de partida que el precio
+      // base fijo del código. "Usa siempre el precio más reciente
+      // como inicio, y de ahí vete al fallback del simulador."
       activo.price = c.precioActual;
       if(activo.currentPrice !== undefined) activo.currentPrice = c.precioActual;
-      // Marca de cuándo llegó este precio real — tickPrices() la usa
-      // para saber si debe dejar este activo en paz (precio real
-      // manda) o seguir moviéndolo con el modelo de simulación
-      // (mercado cerrado, sin ancla fresca).
-      activo.__ultimoRealMs = ahoraMs;
+      if(c.tiempoUTC) activo.__ultimoTiempoUTCAplicado = c.tiempoUTC;
       activo._urlYahoo = `https://finance.yahoo.com/quote/${encodeURIComponent(simboloAPedir(activo))}`;
-      // El gráfico de velas ya se había generado con el precio base
-      // viejo, antes de que llegara este dato real — si no se borra
-      // aquí, el gráfico queda desalineado con el precio real nuevo,
-      // mostrando un salto que no corresponde a ningún movimiento
-      // real. Al borrarlo, initCandles lo vuelve a generar ya
-      // anclado al precio real correcto.
       delete candleHistory[activo.id];
+
+      // Esta es la SEGUNDA decisión, independiente de la primera: si
+      // ADEMÁS esta cotización es fresca (mercado realmente abierto
+      // ahora mismo), se marca __ultimoRealMs para que tickPrices()
+      // pause la simulación en este activo — el precio real manda
+      // tick a tick. Si es una cotización nueva pero vieja (el cierre
+      // del viernes, recién aplicado por primera vez esta sesión), NO
+      // se marca — el motor de simulación toma el control de
+      // inmediato y sigue el movimiento desde este precio real como
+      // punto de partida, en vez de quedarse congelado en él.
+      const esFresca = c.tiempoUTC && (ahoraMs - c.tiempoUTC * 1000) < MAX_ANTIGUEDAD_COTIZACION_MS;
+      if(esFresca){
+        activo.__ultimoRealMs = ahoraMs;
+      } else {
+        delete activo.__ultimoRealMs;
+        anclasNuevasCongeladas++;
+      }
+      activosAnclados.push(activo);
       actualizados++;
     });
 
     if(actualizados > 0){
       const esPrimeraSincronizacion = !window.__ultimaSincronizacionReal;
       window.__ultimaSincronizacionReal = new Date();
-      window.__mercadoRealAbierto = true;
+      window.__mercadoRealAbierto = anclasNuevasCongeladas < actualizados; // hay al menos un activo con dato fresco de verdad
       // Solo se refresca lo que ya está visible, sin recargar nada ni
       // interrumpir cualquier cosa que el estudiante esté haciendo.
-      try { allAssets().forEach(a => { if(!candleHistory[a.id]) initCandles(a); }); } catch(e){}
+      try {
+        allAssets().forEach(a => { if(!candleHistory[a.id]) initCandles(a); });
+        // initCandles() genera CANDLE_COUNT (60) períodos de caminata
+        // aleatoria y, al terminar, sobreescribe currentPrice con el
+        // cierre de esa caminata — un comportamiento correcto quien
+        // inicializa un activo sin ancla real, pero que aquí
+        // literalmente borraba el precio real recién anclado, dejando
+        // el precio mostrado hasta 8-9% lejos del real (el bug
+        // reportado: MSFT mostraba $360 con $483 real). Se re-ancla
+        // explícitamente después, solo para los activos que sí
+        // recibieron un precio real esta ronda.
+        activosAnclados.forEach(a => {
+          a.currentPrice = a.price;
+          const hist = candleHistory[a.id];
+          if(hist && hist.length){
+            const dec = getDecimals(a);
+            hist[hist.length-1].c = +a.price.toFixed(dec);
+            hist[hist.length-1].h = Math.max(hist[hist.length-1].h, +a.price.toFixed(dec));
+            hist[hist.length-1].l = Math.min(hist[hist.length-1].l, +a.price.toFixed(dec));
+          }
+        });
+      } catch(e){}
       try { renderAssetList(); } catch(e){}
       try { renderWatchlist(); } catch(e){}
       try { if(selectedAsset) showAssetDetail(selectedAsset.id, selectedAsset.type); } catch(e){}
       try { actualizarIndicadorSincronizacion(actualizados); } catch(e){}
       // El aviso solo se muestra la primera vez de la sesión — con
-      // resincronización cada 45s, repetirlo cada vez sería un toast
+      // resincronización cada 10s, repetirlo cada vez sería un toast
       // constante y molesto en vez de una confirmación útil.
       if(esPrimeraSincronizacion){
-        try { notify(`${actualizados} precio(s) recalibrados con la cotización real de mercado ✓`); } catch(e){}
+        try { notify(`${actualizados} precio(s) anclados a la cotización real de mercado ✓`); } catch(e){}
       }
-    } else if(descartadosPorAntiguos > 0 && actualizados === 0){
-      // Todos los datos que llegaron están congelados (mercado
-      // cerrado ahora mismo) — se marca explícitamente para que el
-      // indicador en pantalla diga "mercado cerrado" en vez de
-      // simplemente no decir nada, que es ambiguo con "no se pudo
-      // conectar a Yahoo".
-      window.__mercadoRealAbierto = false;
     }
   } catch(e){
     clearTimeout(limiteTiempo);

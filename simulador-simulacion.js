@@ -866,12 +866,17 @@ function renderEnlaceYahooFinance(asset){
     // para decidir si pausar la simulación) — el aviso ya no puede
     // mentir sobre un activo mientras otro sí tiene datos frescos.
     marcaActualizacion = `<div style="font-size:10.5px;color:var(--green, #1e8e5a);margin-top:4px;"><i class="ti ti-circle-filled" style="font-size:7px;"></i> Precio real de mercado, actualizado ${new Date(asset.__ultimoRealMs).toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'})} (Yahoo Finance)</div>`;
-  } else if(asset.__ultimoRealMs){
-    // Este activo sí tuvo un ancla real en algún momento de la sesión,
-    // pero ya se enfrió (mercado real cerrado para este instrumento
-    // específico) — se usa ese último precio real conocido, y de ahí
-    // en adelante el motor de simulación continúa el movimiento.
-    marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Mercado real cerrado — último precio real conocido (${new Date(asset.__ultimoRealMs).toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'})}), la simulación continúa el movimiento desde ahí</div>`;
+  } else if(asset.__ultimoTiempoUTCAplicado){
+    // Este activo sí tiene un precio real como ancla — pero está
+    // congelado (mercado cerrado para este instrumento específico:
+    // fin de semana, feriado, fuera de horario). El precio ya se usó
+    // como punto de partida (ver sincronizarPreciosRealesSimulador en
+    // simulador-interfaz.js); de ahí en adelante el motor de
+    // simulación continúa el movimiento por su cuenta. Se muestra la
+    // hora real de ese cierre (no la hora en que se consultó), para
+    // no insinuar que acaba de pasar algo en este momento.
+    const horaCierreReal = new Date(asset.__ultimoTiempoUTCAplicado * 1000).toLocaleString('es-PA',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Mercado real cerrado — precio de partida: último cierre real (${horaCierreReal}), la simulación continúa el movimiento desde ahí</div>`;
   } else {
     marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Precio base del simulador — la sincronización con el mercado real no estuvo disponible en esta sesión</div>`;
   }
