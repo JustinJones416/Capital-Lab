@@ -288,12 +288,23 @@
          espacio con las funciones centrales de todos los días. -->
     <button class="wl-nav-btn"        id="nav-cartera"       onclick="goPage('cartera')"><i class="ti ti-briefcase"></i> Mi Cartera</button>
     <button class="wl-nav-btn"        id="nav-tesis"          onclick="goPage('tesis')"><i class="ti ti-notebook"></i> Mi Tesis de Inversión</button>
-    <button class="wl-nav-btn"        id="nav-p2p"           onclick="goPage('p2p')"><i class="ti ti-users-group"></i> Mercado entre Estudiantes<span class="nav-chat-dot" id="dot-p2p" style="display:none;"></span></button>
-    <button class="wl-nav-btn"        id="nav-chat"          onclick="goPage('chat')"><i class="ti ti-message-circle"></i> Chat de la Sesión<span class="nav-chat-dot" id="dot-chat" style="display:none;"></span></button>
+    <!-- Mercado entre Estudiantes, Chat de la Sesión, y Noticias ya
+         no ocupan cada una su propia fila permanente — compiten por
+         atención con Mercado, Análisis, Cartera, y Laboratorio, las
+         funciones que el estudiante usa todos los días. Ahora viven
+         dentro de un solo lanzador de herramientas, como un pequeño
+         workspace de apps, sin perder ninguna funcionalidad. -->
+    <button class="wl-nav-btn"        id="nav-herramientas-sim" onclick="abrirLanzadorHerramientas()"><i class="ti ti-apps"></i> Más herramientas<span class="nav-chat-dot" id="dot-herramientas-sim" style="display:none;"></span></button>
     <button class="wl-nav-btn"        id="nav-laboratorio"   onclick="goPage('laboratorio')"><i class="ti ti-flask"></i> Laboratorio</button>
     <button class="wl-nav-btn"        id="nav-resultados"    onclick="goPage('resultados')"><i class="ti ti-award"></i> Resultados</button>
     <button class="wl-nav-btn"        id="nav-resultados-lab" onclick="goPage('resultados-lab')"><i class="ti ti-report-analytics"></i> Resultados Lab</button>
-    <button class="wl-nav-btn"        id="nav-noticias"      onclick="goPage('noticias')"><i class="ti ti-news"></i> Noticias</button>
+    <!-- Los botones originales siguen existiendo, ocultos, para que
+         goPage() los siga encontrando sin ningún cambio en el resto
+         del código — el lanzador navega a las mismas páginas de
+         siempre, solo cambia desde dónde se accede a ellas. -->
+    <button class="wl-nav-btn" id="nav-p2p" onclick="goPage('p2p')" style="display:none;"><span class="nav-chat-dot" id="dot-p2p"></span></button>
+    <button class="wl-nav-btn" id="nav-chat" onclick="goPage('chat')" style="display:none;"><span class="nav-chat-dot" id="dot-chat"></span></button>
+    <button class="wl-nav-btn" id="nav-noticias" onclick="goPage('noticias')" style="display:none;"></button>
 
     <div class="wl-nav-section" onclick="alternarSeccionNav(this)"><i class="ti ti-chevron-down wl-nav-section-flecha"></i> Mi progreso</div>
     <button class="wl-nav-btn"        id="nav-calificaciones" onclick="goPage('calificaciones')"><i class="ti ti-certificate"></i> Calificaciones</button>
@@ -1231,6 +1242,31 @@
   </div>
 </div>
 <!-- ═══════════ TICKET DE SOPORTE TÉCNICO — docentes y superadmin ═══════════ -->
+<!-- ═══════════ LANZADOR DE HERRAMIENTAS — Chat, Mercado P2P, Noticias ═══════════ -->
+<div id="lanzador-herramientas-overlay" class="export-modal-overlay" style="display:none;">
+  <div class="export-modal" style="max-width:480px;">
+    <button class="modal-close" onclick="document.getElementById('lanzador-herramientas-overlay').style.display='none';"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-apps" style="color:var(--gold, #e8b94a);"></i> Más herramientas</h2>
+    <p style="font-size:12.5px;color:var(--t2, #b8c4dc);margin-bottom:16px;">Funciones complementarias del Simulador, fuera del flujo diario de Mercado, Análisis, Cartera, y Laboratorio.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <button onclick="document.getElementById('lanzador-herramientas-overlay').style.display='none';goPage('p2p');" style="background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:12px;padding:16px 12px;text-align:center;cursor:pointer;color:var(--t1, #e8edf8);position:relative;">
+        <i class="ti ti-users-group" style="font-size:26px;color:var(--accent2, #4a9eff);"></i>
+        <div style="font-size:12px;font-weight:600;margin-top:8px;">Mercado entre Estudiantes</div>
+        <span class="nav-chat-dot" id="dot-p2p-lanzador" style="display:none;position:absolute;top:10px;right:10px;"></span>
+      </button>
+      <button onclick="document.getElementById('lanzador-herramientas-overlay').style.display='none';goPage('chat');" style="background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:12px;padding:16px 12px;text-align:center;cursor:pointer;color:var(--t1, #e8edf8);position:relative;">
+        <i class="ti ti-message-circle" style="font-size:26px;color:var(--accent2, #4a9eff);"></i>
+        <div style="font-size:12px;font-weight:600;margin-top:8px;">Chat de la Sesión</div>
+        <span class="nav-chat-dot" id="dot-chat-lanzador" style="display:none;position:absolute;top:10px;right:10px;"></span>
+      </button>
+      <button onclick="document.getElementById('lanzador-herramientas-overlay').style.display='none';goPage('noticias');" style="background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:12px;padding:16px 12px;text-align:center;cursor:pointer;color:var(--t1, #e8edf8);">
+        <i class="ti ti-news" style="font-size:26px;color:var(--accent2, #4a9eff);"></i>
+        <div style="font-size:12px;font-weight:600;margin-top:8px;">Noticias</div>
+      </button>
+    </div>
+  </div>
+</div>
+
 <div id="ticket-soporte-overlay" class="export-modal-overlay" style="display:none;">
   <div class="export-modal" style="max-width:520px;">
     <button class="modal-close" onclick="document.getElementById('ticket-soporte-overlay').style.display='none';"><i class="ti ti-x"></i></button>

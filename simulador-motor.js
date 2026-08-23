@@ -1813,6 +1813,10 @@ function abrirReferenciaCalificaciones(){
   overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
 }
 
+function abrirLanzadorHerramientas(){
+  document.getElementById('lanzador-herramientas-overlay').style.display = 'flex';
+}
+
 function abrirTicketSoporte(){
   document.getElementById('ticket-soporte-overlay').style.display = 'flex';
   document.getElementById('ticket-soporte-msg').textContent = '';
