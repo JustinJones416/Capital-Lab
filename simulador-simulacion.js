@@ -124,6 +124,20 @@ document.addEventListener('click',e=>{
   function setVH(){
     const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--vh', vh + 'px');
+    // En iOS, la barra de herramientas del navegador aparece y
+    // desaparece varias veces DURANTE un solo gesto de desplazamiento,
+    // disparando "resize" repetidamente. Como dibujar el gráfico de
+    // velas primero borra el canvas (canvas.width=... siempre limpia
+    // el contenido), si ese resize ocurre mientras el gráfico está
+    // visible y nada lo vuelve a dibujar de inmediato, el estudiante
+    // se queda viendo el fondo oscuro del contenedor vacío hasta el
+    // siguiente tick de precios — hasta 5 segundos después. Se
+    // redibuja de inmediato para que nunca quede así ni un instante
+    // perceptible.
+    if(typeof selectedAsset!=='undefined' && selectedAsset && typeof drawCandlestickChart==='function'){
+      const mktActivo = document.getElementById('page-mercado')?.classList.contains('active');
+      if(mktActivo) requestAnimationFrame(() => drawCandlestickChart(selectedAsset));
+    }
   }
   setVH();
   window.addEventListener('resize',  setVH, {passive:true});
