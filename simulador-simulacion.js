@@ -774,14 +774,14 @@ function buildProfile(asset){
     const esGradoInversion = idxNivel <= 3; // AAA, AA, A, BBB
     return `
       <div style="margin-top:8px;padding:10px 12px;background:var(--c2);border-radius:var(--r);border:1px solid var(--c4);">
-        <div style="display:flex;gap:2px;margin-bottom:8px;">
-          ${escala.map((e,i)=>`<div style="flex:1;text-align:center;padding:4px 2px;font-size:9px;font-family:var(--font-mono);border-radius:3px;font-weight:${i===idxNivel?'700':'400'};background:${i===idxNivel?ratingColor(nivel):'var(--c3)'};color:${i===idxNivel?'#031320':'var(--t3)'};">${e}</div>`).join('')}
+        <div style="display:flex;gap:3px;margin-bottom:10px;">
+          ${escala.map((e,i)=>`<div style="flex:1;text-align:center;padding:7px 2px;font-size:${i===idxNivel?'13px':'11.5px'};font-family:var(--font-mono);border-radius:4px;font-weight:${i===idxNivel?'700':'500'};background:${i===idxNivel?ratingColor(nivel):'var(--c3)'};color:${i===idxNivel?'#031320':'var(--t2)'};">${e}</div>`).join('')}
         </div>
-        <div style="font-size:10.5px;color:var(--t2);line-height:1.5;">
+        <div style="font-size:12px;color:var(--t2);line-height:1.55;">
           <b style="color:${ratingColor(nivel)};">${rating} — ${esGradoInversion?'Grado de inversión':'Grado especulativo (high yield)'}:</b>
           ${explicaciones[nivel]}
         </div>
-        <div style="font-size:9.5px;color:var(--t3);margin-top:6px;">Escala de S&P/Fitch (Moody's usa una notación equivalente: Aaa/Aa/A/Baa/Ba/B/Caa/D). Mide la probabilidad de impago del emisor — no tiene relación con la calificación CapitalLab (A+ a E) que evalúa riesgo/retorno de la inversión.</div>
+        <div style="font-size:10.5px;color:var(--t3);margin-top:8px;line-height:1.5;">Escala de S&P/Fitch (Moody's usa una notación equivalente: Aaa/Aa/A/Baa/Ba/B/Caa/D). Mide la probabilidad de impago del emisor — no tiene relación con la calificación CapitalLab (A+ a E) que evalúa riesgo/retorno de la inversión.</div>
       </div>`;
   }
 

@@ -2540,12 +2540,17 @@ async function renderInicioPage(){
   try {
     if(esDocente){
       const sesionId = currentUser.sesion_id;
-      const [{data: estudiantes}, {data: ports}, {data: cuest}, {data: anuncios}] = await Promise.all([
+      // conTiempoLimite: si Supabase se cuelga sin responder NI fallar
+      // (bloqueador de anuncios, filtro de red institucional), estas
+      // consultas nunca terminarían y la página se quedaba en
+      // "Cargando tu resumen…" para siempre, sin llegar nunca al
+      // catch de abajo. Con el límite, el error sí se muestra.
+      const [{data: estudiantes}, {data: ports}, {data: cuest}, {data: anuncios}] = await conTiempoLimite(Promise.all([
         sb.from('usuarios').select('id').eq('sesion_id', sesionId).eq('rol','estudiante'),
         sb.from('portafolios').select('retorno_pct').eq('sesion_id', sesionId),
         sb.from('cuestionarios').select('id,titulo,activo').eq('sesion_id', sesionId).order('creado_en',{ascending:false}).limit(5),
         sb.from('anuncios').select('titulo,creado_en').eq('sesion_id', sesionId).order('creado_en',{ascending:false}).limit(3),
-      ]);
+      ]));
       const numEst = (estudiantes||[]).length;
       const retornos = (ports||[]).map(p=>p.retorno_pct).filter(r=>r!=null);
       const promedio = retornos.length ? (retornos.reduce((a,b)=>a+Number(b),0)/retornos.length).toFixed(1) : null;
@@ -2588,13 +2593,16 @@ async function renderInicioPage(){
       const valorTotal = capital + valorPosiciones;
       const retornoPct = ((valorTotal - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
 
-      const [{data: cuestActivos}, {data: misIntentos}, {data: anuncios}, {data: misCals}, {data: sesionInfo}] = await Promise.all([
+      // conTiempoLimite: mismo motivo que en la rama del docente arriba —
+      // sin esto, una conexión colgada dejaba "Cargando tu resumen…"
+      // indefinidamente en vez de mostrar el error.
+      const [{data: cuestActivos}, {data: misIntentos}, {data: anuncios}, {data: misCals}, {data: sesionInfo}] = await conTiempoLimite(Promise.all([
         sb.from('cuestionarios').select('id,titulo').eq('sesion_id', sesionId).eq('activo', true),
         sb.from('intentos_cuestionario').select('cuestionario_id').eq('usuario_id', currentUser.usuario_id),
         sb.from('anuncios').select('titulo,creado_en').eq('sesion_id', sesionId).order('creado_en',{ascending:false}).limit(3),
         sb.from('calificaciones').select('titulo,nota_general,creado_en').eq('usuario_id', currentUser.usuario_id).order('creado_en',{ascending:false}).limit(3),
         sb.from('sesiones_clase').select('mostrar_ranking').eq('id', sesionId).maybeSingle(),
-      ]);
+      ]));
       const idsResueltos = new Set((misIntentos||[]).map(i=>i.cuestionario_id));
       const pendientes = (cuestActivos||[]).filter(c=>!idsResueltos.has(c.id));
 
