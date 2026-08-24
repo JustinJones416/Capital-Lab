@@ -433,7 +433,11 @@
             <div class="trade-panel">
               <div class="tp-title"><i class="ti ti-arrows-exchange"></i> Ejecutar operación a precio de mercado</div>
               <div class="tp-row">
-                <input type="number" id="trade-qty" min="1" value="10" placeholder="Cantidad" oninput="updateTradeCalc()">
+                <div class="tp-qty-stepper">
+                  <button type="button" class="tp-qty-btn" onclick="ajustarCantidadOperacion(-1)" aria-label="Restar una unidad"><i class="ti ti-minus"></i></button>
+                  <input type="number" id="trade-qty" min="1" value="10" placeholder="Cantidad" oninput="updateTradeCalc()">
+                  <button type="button" class="tp-qty-btn" onclick="ajustarCantidadOperacion(1)" aria-label="Sumar una unidad"><i class="ti ti-plus"></i></button>
+                </div>
               </div>
               <div class="tp-info">
                 <div class="tp-kpi"><div class="tp-kpi-label">Precio de mercado</div><div class="tp-kpi-val mono" id="trade-price-show">—</div></div>

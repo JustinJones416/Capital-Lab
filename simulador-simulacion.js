@@ -1272,6 +1272,19 @@ function showAssetDetail(id,type){
   requestAnimationFrame(() => drawCandlestickChart(asset));
 }
 
+// Botones +/- del campo de cantidad — el patrón estándar en cualquier
+// plataforma de trading, ausente hasta ahora (solo había un input de
+// número plano). No duplica la validación: usa el mismo campo y
+// dispara el mismo recálculo que ya corría al escribir directamente.
+function ajustarCantidadOperacion(delta){
+  const input = document.getElementById('trade-qty');
+  if(!input) return;
+  const actual = +input.value || 0;
+  const minimo = +input.min || 1;
+  input.value = Math.max(minimo, actual + delta);
+  updateTradeCalc();
+}
+
 function updateTradeCalc(){
   if(!selectedAsset)return;
   const qty=+document.getElementById('trade-qty').value||0;
