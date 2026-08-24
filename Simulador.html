@@ -455,6 +455,15 @@
                 <button class="btn btn-buy" onclick="confirmarYEjecutar('buy')"><i class="ti ti-plus"></i> Comprar</button>
                 <button class="btn btn-sell" onclick="confirmarYEjecutar('sell')"><i class="ti ti-minus"></i> Vender</button>
               </div>
+              <!-- Diario de trading — antes era una ventana flotante que
+                   aparecía encima de todo y se autodestruía a los 12
+                   segundos, compitiendo por espacio con la notificación
+                   de la operación justo cuando el usuario más necesita
+                   ver ambas cosas con calma. Ahora vive aquí, como parte
+                   natural del panel de operación — sin flotar, sin
+                   apuro artificial de tiempo. Se llena y se muestra justo
+                   después de comprar o vender. -->
+              <div id="diario-inline-prompt" class="diario-inline" style="display:none;"></div>
               <button class="btn btn-ghost btn-xs" onclick="abrirCrearAlertaPrecio()" style="width:100%;margin-top:6px;"><i class="ti ti-bell-plus"></i> Avisarme cuando el precio cambie</button>
               <div class="tp-orders">
                 <div class="tp-orders-title"><i class="ti ti-clock-bolt"></i> Órdenes automáticas</div>

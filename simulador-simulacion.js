@@ -1224,6 +1224,12 @@ function showAssetDetail(id,type){
   renderAssetList();
   document.getElementById('mkt-no-selection').style.display='none';
   document.getElementById('mkt-detail').style.display='block';
+  // Si el diario de trading estaba abierto para un activo distinto (o
+  // el mismo, pero de antes), se cierra sin guardar — evita que quede
+  // una nota vieja pegada mientras el estudiante ya está mirando otra
+  // cosa completamente distinta.
+  const diarioAbierto = document.getElementById('diario-inline-prompt');
+  if(diarioAbierto){ diarioAbierto.style.display='none'; diarioAbierto.innerHTML=''; }
   const p=asset.currentPrice||asset.price;
   const chg=asset.change||0;
   const sharpe=computeSharpe(asset);
@@ -2123,26 +2129,19 @@ function abrirAsesorCartera(){
 let diarioTrading = [];
 
 function mostrarPromptDiarioTrading(accion, nombreActivo){
-  document.querySelectorAll('.diario-prompt').forEach(el=>el.remove());
-  const el = document.createElement('div');
-  el.className = 'diario-prompt';
-  // Se coloca arriba, no abajo — la parte inferior de la pantalla ya la
-  // usan al mismo tiempo la notificación de la operación y el aviso de
-  // "Deshacer", y apilar un tercer aviso justo ahí garantizaba que se
-  // taparan entre sí (el campo de texto quedaba cubierto y no se podía
-  // escribir). Arriba queda solo, sin nadie más compitiendo por ese
-  // espacio.
-  el.style.cssText = 'position:fixed;top:92px;left:50%;transform:translateX(-50%);z-index:3000;background:var(--c1);border:1px solid var(--c4);border-radius:var(--r2);padding:12px 16px;max-width:92vw;width:360px;box-shadow:0 10px 30px rgba(0,0,0,.4);';
+  const el = document.getElementById('diario-inline-prompt');
+  if(!el) return; // el panel de operación no está montado (no debería pasar, pero por seguridad)
   el.innerHTML = `
-    <div style="font-size:12px;color:var(--t3);margin-bottom:6px;"><i class="ti ti-notebook" style="color:var(--accent2);"></i> ¿Por qué hiciste esta ${accion.toLowerCase()} de ${nombreActivo}? <span style="color:var(--t3);">(opcional)</span></div>
+    <div style="font-size:12px;color:var(--t2);margin-bottom:6px;padding-top:10px;border-top:1px solid var(--c4);"><i class="ti ti-notebook" style="color:var(--accent2);"></i> ¿Por qué hiciste esta ${accion.toLowerCase()} de ${nombreActivo}? <span style="color:var(--t3);">(opcional)</span></div>
     <div style="display:flex;gap:6px;">
       <input type="text" id="diario-nota-input" placeholder="Ej. Creo que va a subir por..." maxlength="200" style="flex:1;padding:8px 10px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12.5px;">
       <button class="btn btn-sm" id="diario-nota-guardar">Guardar</button>
+      <button class="btn btn-ghost btn-sm" id="diario-nota-cerrar" title="Cerrar sin anotar" aria-label="Cerrar sin anotar"><i class="ti ti-x"></i></button>
     </div>`;
-  document.body.appendChild(el);
-  const timeoutId = setTimeout(()=>el.remove(), 12000);
+  el.style.display = 'block';
   const input = el.querySelector('#diario-nota-input');
   input.focus();
+  const cerrar = () => { el.style.display = 'none'; el.innerHTML = ''; };
   const guardar = () => {
     const texto = input.value.trim();
     if(texto){
@@ -2151,11 +2150,11 @@ function mostrarPromptDiarioTrading(accion, nombreActivo){
       autosave();
       notify('Nota guardada en tu Diario de Trading.', 'success');
     }
-    clearTimeout(timeoutId);
-    el.remove();
+    cerrar();
   };
   el.querySelector('#diario-nota-guardar').onclick = guardar;
-  input.onkeydown = (e) => { if(e.key==='Enter') guardar(); };
+  el.querySelector('#diario-nota-cerrar').onclick = cerrar;
+  input.onkeydown = (e) => { if(e.key==='Enter') guardar(); if(e.key==='Escape') cerrar(); };
 }
 
 // ══════════════════════════════════════════════════
