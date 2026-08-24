@@ -253,7 +253,14 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .page-sub{font-size:13px;color:var(--t2);}
 
 /* ── MARKET LAYOUT (TradingView-style) ── */
-.market-layout{display:grid;grid-template-columns:260px 1fr;gap:0;height:calc(100vh - 128px);overflow:hidden;}
+/* .market-layout se eliminó — no coincidía con ningún elemento del
+   HTML actual (confirmado: 0 usos en Simulador.html ni en el JS).
+   Era CSS de una versión anterior de la estructura de Mercado, ya
+   reemplazada por .market-with-news / .market-main / .market-body.
+   Se quita para no confundir a futuro con una regla que parecía
+   activa (incluso tenía su propio calc(100vh - 128px) fijo, el mismo
+   patrón frágil que causó bugs reales en otros lugares) pero nunca
+   se aplicaba a nada. */
 .market-sidebar{background:var(--c1);border-right:1px solid var(--c4);display:flex;flex-direction:column;overflow:hidden;}
 .market-filter{padding:10px 12px;border-bottom:1px solid var(--c4);}
 .market-search{width:100%;padding:7px 10px;background:var(--c3);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:12px;font-family:var(--font-body);}
@@ -366,7 +373,7 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .grid2-parejas-iguales{align-items:stretch;}
 .grid2-parejas-iguales>.profile-panel,.grid2-parejas-iguales>.trade-panel{display:flex;flex-direction:column;}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
-@media(max-width:900px){.grid2,.grid3,.market-layout{grid-template-columns:1fr;}}
+@media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr;}}
 
 /* ── METRIC GRID ── */
 .metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
