@@ -1418,7 +1418,7 @@ function drawCandlestickChart(asset) {
   }
 
   // Y-axis price labels
-  ctx.fillStyle = '#3d4d72';
+  ctx.fillStyle = '#6580b0';
   ctx.font      = '9px DM Mono';
   ctx.textAlign = 'right';
   for (let gi = 0; gi <= gridRows; gi++) {
@@ -1428,7 +1428,7 @@ function drawCandlestickChart(asset) {
   }
 
   // X-axis labels (every ~10 candles)
-  ctx.fillStyle = '#3d4d72';
+  ctx.fillStyle = '#6580b0';
   ctx.textAlign = 'center';
   ctx.font = '9px DM Mono';
   for (let i = 0; i < n; i += Math.floor(n / 6)) {
@@ -1475,18 +1475,116 @@ function drawCandlestickChart(asset) {
   ctx.font         = 'bold 10px DM Mono';
   ctx.fillText(formatPrice(lastClose, asset), W - pad.r, ly - 3);
 
-  // Update HUD
-  const last = candles[candles.length - 1];
-  const first = candles[0];
-  const pctChg = ((last.c - first.c) / first.c * 100).toFixed(2);
-  const pctColor = last.c >= first.c ? 'var(--green)' : 'var(--red)';
+  // Geometría guardada para el crosshair — se recalcula igual en cada
+  // movimiento del mouse, sin tener que rehacer todo drawCandlestickChart
+  // solo para saber a qué vela corresponde una posición X del cursor.
+  window.__candleLayout = { asset, candles, pad, cW, cH, W, H, lo, hi, n, toX, toY, bodyW };
+
+  // Actualiza la cabecera O/H/L/C — por defecto muestra la vela más
+  // reciente; con el cursor sobre el gráfico, muestra la vela bajo el
+  // mouse en su lugar (ver dibujarCrosshairVela más abajo).
+  actualizarHudVela(candles[candles.length - 1], candles[0], asset);
+
+  configurarInteraccionCandlestick();
+}
+
+// Cabecera O/H/L/C/Var — reutilizable para la vela más reciente (por
+// defecto) o la vela bajo el cursor (al pasar el mouse sobre el
+// gráfico). "primera" siempre es la primera vela de la sesión, para
+// que la variación mostrada sea siempre "desde el inicio de la
+// sesión hasta la vela indicada", consistente sin importar cuál vela
+// se esté mirando.
+function actualizarHudVela(vela, primera, asset){
+  const pctChg = ((vela.c - primera.c) / primera.c * 100).toFixed(2);
+  const pctColor = vela.c >= primera.c ? 'var(--green)' : 'var(--red)';
   const hud = document.getElementById('candle-hud');
-  if (hud) hud.innerHTML = `
-    <div class="chud-item"><div class="chud-lbl">O</div><div class="chud-val">${formatPrice(last.o,asset)}</div></div>
-    <div class="chud-item"><div class="chud-lbl">H</div><div class="chud-val" style="color:var(--green)">${formatPrice(last.h,asset)}</div></div>
-    <div class="chud-item"><div class="chud-lbl">L</div><div class="chud-val" style="color:var(--red)">${formatPrice(last.l,asset)}</div></div>
-    <div class="chud-item"><div class="chud-lbl">C</div><div class="chud-val">${formatPrice(last.c,asset)}</div></div>
-    <div class="chud-item"><div class="chud-lbl">Var.</div><div class="chud-val" style="color:${pctColor}">${last.c>=first.c?'+':''}${pctChg}%</div></div>`;
+  if (!hud) return;
+  hud.innerHTML = `
+    <div class="chud-item"><div class="chud-lbl">O</div><div class="chud-val">${formatPrice(vela.o,asset)}</div></div>
+    <div class="chud-item"><div class="chud-lbl">H</div><div class="chud-val" style="color:var(--green)">${formatPrice(vela.h,asset)}</div></div>
+    <div class="chud-item"><div class="chud-lbl">L</div><div class="chud-val" style="color:var(--red)">${formatPrice(vela.l,asset)}</div></div>
+    <div class="chud-item"><div class="chud-lbl">C</div><div class="chud-val">${formatPrice(vela.c,asset)}</div></div>
+    <div class="chud-item"><div class="chud-lbl">Var.</div><div class="chud-val" style="color:${pctColor}">${vela.c>=primera.c?'+':''}${pctChg}%</div></div>`;
+}
+
+// Crosshair interactivo — antes el gráfico de velas era completamente
+// estático, sin ninguna forma de ver el valor exacto de una vela
+// específica sin adivinar por posición en la pantalla. Ahora, al
+// pasar el mouse, se dibuja una cruz punteada en la vela más cercana
+// al cursor y la cabecera muestra sus valores exactos — el mismo
+// patrón que cualquier gráfico de trading real (TradingView, la app
+// de cualquier broker).
+let __candlestickListenersListos = false;
+function configurarInteraccionCandlestick(){
+  if (__candlestickListenersListos) return; // no duplicar listeners en cada redibujado
+  const canvas = document.getElementById('candle-canvas');
+  if (!canvas) return;
+  __candlestickListenersListos = true;
+
+  let cuadroPendiente = null;
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (cuadroPendiente) return; // ya hay un redibujado pedido para el siguiente frame
+    cuadroPendiente = requestAnimationFrame(() => {
+      cuadroPendiente = null;
+      const layout = window.__candleLayout;
+      if (!layout) return;
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      // Índice de la vela más cercana a la posición X del cursor.
+      const idx = Math.max(0, Math.min(layout.n - 1, Math.round((mouseX - layout.pad.l) / (layout.cW / layout.n) - 0.5)));
+      const vela = layout.candles[idx];
+      if (!vela) return;
+
+      dibujarCandlestickBase(layout);
+      dibujarCrosshairVela(layout, idx, vela);
+      actualizarHudVela(vela, layout.candles[0], layout.asset);
+    });
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    const layout = window.__candleLayout;
+    if (!layout) return;
+    dibujarCandlestickBase(layout);
+    actualizarHudVela(layout.candles[layout.candles.length - 1], layout.candles[0], layout.asset);
+  });
+}
+
+// Redibuja el gráfico completo desde la geometría ya calculada, sin
+// recalcular nada — usado para "limpiar" el crosshair anterior antes
+// de dibujar el nuevo, en cada movimiento del mouse.
+function dibujarCandlestickBase(layout){
+  drawCandlestickChart(layout.asset);
+}
+
+// Dibuja la cruz punteada (línea vertical + horizontal) sobre la vela
+// bajo el cursor, más un resaltado sutil de esa vela específica.
+function dibujarCrosshairVela(layout, idx, vela){
+  const canvas = document.getElementById('candle-canvas');
+  const ctx = canvas.getContext('2d');
+  const x = layout.toX(idx);
+  const yClose = layout.toY(vela.c);
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(122,138,176,.5)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  // Línea vertical, a todo lo alto del área de velas
+  ctx.beginPath();
+  ctx.moveTo(x, layout.pad.t);
+  ctx.lineTo(x, layout.H - layout.pad.b);
+  ctx.stroke();
+  // Línea horizontal, a la altura del cierre de la vela bajo el cursor
+  ctx.beginPath();
+  ctx.moveTo(layout.pad.l, yClose);
+  ctx.lineTo(layout.W - layout.pad.r, yClose);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Resaltado sutil de la vela bajo el cursor
+  ctx.fillStyle = 'rgba(122,138,176,.12)';
+  ctx.fillRect(x - layout.bodyW, layout.pad.t, layout.bodyW * 2, layout.cH);
+  ctx.restore();
 }
 
 function formatPrice(p, asset) {
