@@ -748,6 +748,43 @@ function buildProfile(asset){
   const badge=(txt,color)=>`<span class="badge" style="background:${color};font-size:9px;">${txt}</span>`;
   const ratingColor=r=>r.startsWith('AA')||r==='AAA'?'var(--green)':r.startsWith('A')?'var(--accent2)':r.startsWith('BB')?'var(--amber)':'var(--red)';
 
+  // Escala de calificación crediticia (S&P/Fitch — Moody's usa Aaa/Aa/A/Baa
+  // con la misma jerarquía) — esto NO es la calificación CapitalLab
+  // (A+ a E, que mide riesgo/retorno de una inversión); es la nota real
+  // que asignan las calificadoras sobre la probabilidad de que un
+  // emisor pague su deuda. Grado de inversión (AAA-BBB) vs. grado
+  // especulativo/"bono basura" (BB-D) es la línea más importante de
+  // toda la escala — muchos fondos institucionales tienen prohibido
+  // por mandato comprar cualquier cosa por debajo de BBB-.
+  function explicarCalificacionCrediticia(rating){
+    if(!rating || rating==='N/A') return '';
+    const escala = ['AAA','AA','A','BBB','BB','B','CCC','D'];
+    const explicaciones = {
+      AAA:'Máxima calidad crediticia. Riesgo de impago extremadamente bajo — reservado para emisores como el Tesoro de EE.UU. o un puñado de empresas.',
+      AA: 'Calidad muy alta. Riesgo de impago muy bajo, con una diferencia mínima frente a AAA.',
+      A:  'Calidad alta, pero algo más sensible a condiciones económicas adversas que AA.',
+      BBB:'El escalón más bajo de grado de inversión. Capacidad de pago adecuada, pero más vulnerable a un deterioro económico que las categorías superiores.',
+      BB: 'El escalón más alto de grado especulativo ("bono basura" / high yield). Enfrenta incertidumbre importante ante condiciones adversas.',
+      B:  'Grado especulativo. Vulnerable al incumplimiento, aunque actualmente tenga capacidad de pagar.',
+      CCC:'Grado altamente especulativo. Depende de condiciones favorables del negocio y la economía para poder pagar.',
+      D:  'En incumplimiento de pago (default) — el emisor ya no está pagando lo que debe.',
+    };
+    const nivel = escala.find(e => rating.toUpperCase().startsWith(e)) || 'B';
+    const idxNivel = escala.indexOf(nivel);
+    const esGradoInversion = idxNivel <= 3; // AAA, AA, A, BBB
+    return `
+      <div style="margin-top:8px;padding:10px 12px;background:var(--c2);border-radius:var(--r);border:1px solid var(--c4);">
+        <div style="display:flex;gap:2px;margin-bottom:8px;">
+          ${escala.map((e,i)=>`<div style="flex:1;text-align:center;padding:4px 2px;font-size:9px;font-family:var(--font-mono);border-radius:3px;font-weight:${i===idxNivel?'700':'400'};background:${i===idxNivel?ratingColor(nivel):'var(--c3)'};color:${i===idxNivel?'#031320':'var(--t3)'};">${e}</div>`).join('')}
+        </div>
+        <div style="font-size:10.5px;color:var(--t2);line-height:1.5;">
+          <b style="color:${ratingColor(nivel)};">${rating} — ${esGradoInversion?'Grado de inversión':'Grado especulativo (high yield)'}:</b>
+          ${explicaciones[nivel]}
+        </div>
+        <div style="font-size:9.5px;color:var(--t3);margin-top:6px;">Escala de S&P/Fitch (Moody's usa una notación equivalente: Aaa/Aa/A/Baa/Ba/B/Caa/D). Mide la probabilidad de impago del emisor — no tiene relación con la calificación CapitalLab (A+ a E) que evalúa riesgo/retorno de la inversión.</div>
+      </div>`;
+  }
+
   // Descripción completa del emisor — antes se recortaba a 220 caracteres,
   // perdiendo información real que sí existía en los datos.
   let desc=asset.profile||'';
@@ -765,6 +802,7 @@ function buildProfile(asset){
       ${row('Dividendo anual', asset.dividend>0?'$'+asset.dividend.toFixed(2):'Sin dividendo', asset.dividend>0?'g':'a')}
       ${row('Retorno esperado', asset.ret.toFixed(1)+'%','g')}
       ${row('Volatilidad σ', asset.sigma.toFixed(1)+'%','a')}`;
+    extra = explicarCalificacionCrediticia(asset.rating);
 
   }else if(asset.type==='bono'){
     const dur=(asset.maturity||0);
@@ -776,7 +814,8 @@ function buildProfile(asset){
       ${row('Rendimiento (YTM)', asset.ret.toFixed(2)+'%','g')}
       ${row('Riesgo país (EMBI)', (asset.rp||0)+'% spread', asset.rp>5?'r':asset.rp>2?'a':'g')}
       ${row('Volatilidad σ', asset.sigma.toFixed(1)+'%','a')}`;
-    if(asset.rp>2)extra=`<div class="info-box warn" style="margin-top:8px;font-size:11px;"><b>Riesgo soberano:</b> EMBI spread de ${asset.rp}% refleja riesgo de crédito elevado. Monitorear la evolución fiscal del emisor.</div>`;
+    extra = explicarCalificacionCrediticia(asset.rating);
+    if(asset.rp>2)extra+=`<div class="info-box warn" style="margin-top:8px;font-size:11px;"><b>Riesgo soberano:</b> EMBI spread de ${asset.rp}% refleja riesgo de crédito elevado. Monitorear la evolución fiscal del emisor.</div>`;
 
   }else if(asset.type==='divisa'){
     const g=asset.gdp||{};
@@ -789,6 +828,7 @@ function buildProfile(asset){
       ${row('Calificación S&P', badge(g.rating||'—', ratingColor(g.rating||'B')))}
       ${row('Volatilidad σ', asset.sigma.toFixed(1)+'%','a')}
       ${row('Riesgo país', asset.rp+'% EMBI', asset.rp>5?'r':asset.rp>2?'a':'g')}`;
+    extra = explicarCalificacionCrediticia(g.rating);
 
   }else if(asset.type==='futuro'){
     const sp=asset.specs||{};
@@ -813,7 +853,9 @@ function buildProfile(asset){
       ${row('Vencimiento / Plazo', sp.maturity||sp.expiry||'—')}
       ${row('Mercado', sp.market||sp.exchange||'OTC')}
       ${row('Retorno esperado', asset.ret.toFixed(1)+'%','g')}
-      ${row('Volatilidad σ', asset.sigma.toFixed(1)+'%','a')}`;
+      ${row('Volatilidad σ', asset.sigma.toFixed(1)+'%','a')}
+      ${asset.rating&&asset.rating!=='N/A'?row('Calificación crediticia (tramo)', badge(asset.rating, ratingColor(asset.rating))):''}`;
+    if(asset.rating&&asset.rating!=='N/A') extra = explicarCalificacionCrediticia(asset.rating);
   }
 
   return`
@@ -3797,8 +3839,8 @@ function renderAnalysis(id,type){
         </div>
         <div class="info-box ${asset.curveState==='Contango'?'warn':'success'}" style="margin:0;">
           <b>${asset.curveState}:</b> ${asset.curveState==='Contango'
-            ? 'El precio del futuro está por encima del spot. El mercado anticipa costos de almacenamiento o expectativas alcistas; mantener posiciones largas implica un costo de acarreo (roll negativo) al renovar el contrato.'
-            : 'El precio del futuro está por debajo del spot (backwardation). Suele indicar escasez actual del subyacente o fuerte demanda inmediata; favorece a los tenedores de posiciones largas al renovar (roll positivo).'}
+            ? 'El precio del futuro está por encima del spot. Esto refleja el costo de acarreo (cost of carry) — almacenamiento, seguro y el costo de financiamiento de mantener el activo hasta la entrega — no una predicción de que el precio vaya a subir. Es un error común confundir Contango con expectativas alcistas: son conceptos distintos. Mantener posiciones largas y renovar el contrato antes del vencimiento implica un costo (roll negativo), porque cada nuevo contrato se compra más caro que el spot.'
+            : 'El precio del futuro está por debajo del spot (backwardation). Suele reflejar un "rendimiento de conveniencia" alto — el valor de tener el activo físico disponible ahora mismo (por ejemplo, ante escasez o alta demanda inmediata) supera el costo de acarreo. Al igual que con Contango, no es en sí una predicción de hacia dónde irá el precio. Favorece a quienes mantienen posiciones largas al renovar el contrato (roll positivo), porque cada nuevo contrato se compra más barato que el spot.'}
         </div>
       </div>`;
     body.appendChild(fut);
