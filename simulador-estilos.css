@@ -2,7 +2,15 @@
 :root{
   --c0:#0b0e14;--c1:#10141d;--c2:#151a27;--c3:#1c2333;--c4:#242d42;--c5:#2d3a55;
   --accent:#2962ff;--accent2:#00c4ff;--green:#00d084;--red:#ff4757;--amber:#ffb400;--gold:#d4af37;
-  --t1:#e8edf8;--t2:#7a8ab0;--t3:#3d4d72;--t4:#2a3650;
+  --t1:#e8edf8;--t2:#7a8ab0;--t3:#6580b0;--t4:#2a3650;
+  /* --t3 (texto terciario: etiquetas pequeñas, metadatos) se subió de
+     #3d4d72 a #6580b0 — el valor anterior tenía un contraste de apenas
+     2.3:1 contra el fondo principal, muy por debajo del mínimo WCAG AA
+     (4.5:1 para texto normal). Con cientos de usos en toda la app
+     (etiquetas de tarjetas, metadatos, texto secundario), era la causa
+     más extendida y medible de "elementos difíciles de ver". El nuevo
+     valor pasa 4.85:1 y sigue siendo visualmente más apagado que --t2,
+     conservando la jerarquía de tres niveles. */
   --font-head:'Syne',sans-serif;--font-body:'Inter',sans-serif;--font-mono:'DM Mono',monospace;
   --r:8px;--r2:12px;--r3:16px;
   /* Sombras sutiles y reutilizables — profundidad real sin caer en
@@ -353,6 +361,13 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
 @media(max-width:900px){.metric-grid{grid-template-columns:repeat(2,1fr);}}
 .metric{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);padding:9px 12px;box-shadow:var(--sombra-sm);}
+/* Mismo tratamiento que .dk-primary en el detalle de un activo — un
+   número principal (Valor total, Retorno total) se distingue de los
+   secundarios (Capital disponible, Ganancia/Pérdida) con un acento a
+   la izquierda y un valor más grande, en vez de que las 4 tarjetas
+   pesen exactamente igual. */
+.metric.metric-primary{border-left:3px solid var(--accent2);background:var(--c3);}
+.metric.metric-primary .metric-val{font-size:21px;}
 .metric-label{font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;}
 .metric-val{font-family:var(--font-mono);font-size:17px;font-weight:500;}
 .g{color:var(--green);}.r{color:var(--red);}.a{color:var(--amber);}
@@ -369,9 +384,25 @@ select:focus,input:focus{border-color:var(--accent2);}
 input[type=number]{font-family:var(--font-mono);}
 
 /* ── BUTTONS ── */
-.btn{padding:8px 18px;border-radius:var(--r);font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
+.btn{padding:8px 18px;border-radius:var(--r);font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:6px;
+  /* Fondo por defecto para cualquier botón que use SOLO .btn sin
+     ninguna variante de color (.btn-primary/.btn-ghost/etc.) — antes
+     esos casos (confirmados reales: el botón principal "Elegir un
+     activo" de la pantalla de bienvenida, "Enviar" en el chat,
+     exportar rankings del docente) quedaban con el estilo nativo gris
+     claro del navegador, flotando fuera de lugar en una interfaz
+     oscura. Cualquier variante (.btn-primary, .btn-ghost, .btn-buy,
+     .btn-sell) sigue ganando porque redefine background explícitamente. */
+  background:var(--c3);color:var(--t1);
+}
 .btn:not(:disabled):hover{transform:translateY(-1px);box-shadow:var(--sombra-md);}
 .btn:not(:disabled):active{transform:translateY(0);}
+/* Foco visible para navegación por teclado — antes ningún botón de la
+   app mostraba ninguna indicación de foco al navegar con Tab, un
+   mínimo de accesibilidad que faltaba en toda la interfaz. Solo
+   aparece con teclado (:focus-visible), nunca al hacer clic con el
+   mouse, así que no añade ruido visual a la interacción normal. */
+.btn:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent2);outline-offset:2px;}
 /* El ícono dentro de un botón heredaba el line-height de la fuente de
    íconos (más alto que el del texto normal), lo que lo dejaba un poco
    "elevado" respecto al centro real del botón — casi imperceptible en

@@ -1501,7 +1501,9 @@ function updateMarketToolbar(asset) {
   const p   = asset.currentPrice || asset.price;
   const chg = asset.change || 0;
   document.getElementById('mkt-price').textContent = asset.type === 'divisa' && p > 100 ? '$' + Math.round(p).toLocaleString('es-PA') : (p > 10 ? '$' + p.toFixed(2) : '$' + p.toFixed(4));
+  document.getElementById('mkt-price').style.display = '';
   document.getElementById('mkt-change').textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+  document.getElementById('mkt-change').style.display = '';
   document.getElementById('mkt-change').className = 'mt-change ' + (chg >= 0 ? 'g' : 'r');
 
   // Fully refresh the KPI grid so every live value updates each tick
