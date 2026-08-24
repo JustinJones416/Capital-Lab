@@ -1223,6 +1223,57 @@
 <div class="notif" id="notif"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// CONFIGURACIÓN GLOBAL DE CHART.JS — modernización visual de los 12
+// gráficos del Simulador desde un único lugar, sin tocar la lógica de
+// ninguno. Chart.js aplica estos valores por defecto SOLO donde cada
+// gráfico no especifica su propio valor explícito — así que nada de
+// lo que cada gráfico ya calcula (colores por dataset, escalas,
+// datos) se ve afectado; esto solo llena huecos que hoy usan el
+// estilo genérico de fábrica de Chart.js.
+//
+// El hueco más notorio: NINGUNO de los 12 gráficos personalizaba el
+// tooltip — al pasar el mouse, todos mostraban la caja gris clara por
+// defecto de Chart.js, que choca fuerte contra el resto de la
+// interfaz oscura. Eso se corrige aquí una sola vez.
+// ═══════════════════════════════════════════════════════════════════
+if(typeof Chart !== 'undefined'){
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.color = '#7a8ab0';
+
+  // Tooltip: de la caja gris genérica de fábrica a algo que combina
+  // con el resto de la app (mismo fondo oscuro, mismo radio de
+  // esquina, mismo acento cian que ya usa el resto de la interfaz).
+  Chart.defaults.plugins.tooltip.backgroundColor = '#151a27';
+  Chart.defaults.plugins.tooltip.titleColor = '#e8edf8';
+  Chart.defaults.plugins.tooltip.bodyColor = '#c3cce0';
+  Chart.defaults.plugins.tooltip.borderColor = '#242d42';
+  Chart.defaults.plugins.tooltip.borderWidth = 1;
+  Chart.defaults.plugins.tooltip.padding = 10;
+  Chart.defaults.plugins.tooltip.cornerRadius = 8;
+  Chart.defaults.plugins.tooltip.titleFont = { family: "'Inter', sans-serif", size: 12, weight: '600' };
+  Chart.defaults.plugins.tooltip.bodyFont = { family: "'DM Mono', monospace", size: 11.5 };
+  Chart.defaults.plugins.tooltip.displayColors = false;
+
+  // Barras con esquinas ligeramente redondeadas — un detalle moderno
+  // que ningún gráfico de barras del Simulador tenía hasta ahora.
+  Chart.defaults.elements.bar.borderRadius = 3;
+  Chart.defaults.elements.bar.borderSkipped = false;
+
+  // Puntos y líneas: un poco más de vida al pasar el mouse, sin
+  // cambiar el grosor de línea que cada gráfico ya define.
+  Chart.defaults.elements.point.hoverRadius = 5;
+  Chart.defaults.elements.point.hoverBorderWidth = 2;
+  Chart.defaults.elements.line.capBezierPoints = true;
+
+  // Animación de entrada más suave (antes usaba la curva por defecto
+  // de Chart.js, más brusca) — se nota sobre todo al cambiar de
+  // activo o de pestaña, cuando los gráficos se redibujan.
+  Chart.defaults.animation.duration = 400;
+  Chart.defaults.animation.easing = 'easeOutQuart';
+}
+</script>
 <script src="simulador-motor.js"></script>
 <script src="simulador-simulacion.js"></script>
 <script src="simulador-interfaz.js"></script>
