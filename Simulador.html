@@ -369,7 +369,12 @@
       <div class="market-body">
         <!-- session control bar -->
         <div class="horizon-bar">
-          <span class="hb-label" style="font-size:11px;color:var(--t2);">Mercado en tiempo real</span>
+          <!-- El label genérico "Mercado en tiempo real" se quitó — era
+               redundante en triple: el título de la sección de abajo ya
+               dice "precios de mercado en tiempo real", y el badge de
+               aquí al lado ya comunica el estado real (abierto/cerrado)
+               con más claridad que un texto fijo que no cambia nunca. -->
+          <i class="ti ti-activity" style="color:var(--t3);font-size:15px;"></i>
           <div style="margin-left:auto;display:flex;align-items:center;gap:10px;">
             <!-- Market session status -->
             <div id="mkt-session-badge" style="display:flex;align-items:center;gap:7px;padding:5px 12px;border-radius:6px;border:1px solid;font-size:11px;font-family:var(--font-mono);">
@@ -563,7 +568,7 @@
       <button class="btn btn-sm" onclick="exportarHistorialPreciosCSV()" title="Exportar historial de precios a CSV"><i class="ti ti-file-spreadsheet"></i></button>
     </div>
     <div class="metric-grid">
-      <div class="metric"><div class="metric-label">Precio actual</div><div class="metric-val mono" id="an-price">—</div></div>
+      <div class="metric metric-primary"><div class="metric-label">Precio actual</div><div class="metric-val mono" id="an-price">—</div></div>
       <div class="metric"><div class="metric-label">Rentabilidad esp.</div><div class="metric-val g" id="an-ret">—</div></div>
       <div class="metric"><div class="metric-label">Riesgo (σ)</div><div class="metric-val a" id="an-risk">—</div></div>
       <div class="metric"><div class="metric-label">Ratio Sharpe</div><div class="metric-val" id="an-sharpe">—</div></div>
@@ -661,10 +666,10 @@
 
   <!-- KPI row -->
   <div class="metric-grid" style="margin-bottom:14px;">
-    <div class="metric"><div class="metric-label">Valor total</div><div class="metric-val mono" id="port-total">$0</div></div>
+    <div class="metric metric-primary"><div class="metric-label">Valor total</div><div class="metric-val mono" id="port-total">$0</div></div>
     <div class="metric"><div class="metric-label">Capital disponible</div><div class="metric-val g mono" id="port-cap">$50,000</div></div>
     <div class="metric"><div class="metric-label">Ganancia / Pérdida</div><div class="metric-val mono" id="port-pnl">$0</div></div>
-    <div class="metric"><div class="metric-label">Retorno total</div><div class="metric-val mono" id="port-ret-pct">0.00%</div></div>
+    <div class="metric metric-primary"><div class="metric-label">Retorno total</div><div class="metric-val mono" id="port-ret-pct">0.00%</div></div>
   </div>
 
   <!-- ── CHARTS GRID 2×2 ── -->
