@@ -2682,8 +2682,17 @@ function abrirLanzarEncuestaRapida(){
       // que devuelve usuarios.id. Enviar auth_id aquí hacía que la
       // comparación nunca coincidiera, y Supabase rechazaba la
       // inserción con "new row violates row-level security policy".
+      // docente_id debe ser el id de la tabla usuarios, no el auth_id —
+      // la política de seguridad (RLS) compara contra mi_usuario_id(),
+      // que devuelve usuarios.id. currentUser NUNCA tuvo una propiedad
+      // .id — se construye en authLoadProfileAndEnter() con el nombre
+      // usuario_id (currentUser.usuario_id = perfil.id). El intento
+      // anterior de arreglar esto usó currentUser.id por error, que es
+      // undefined — el insert mandaba docente_id: undefined, y por eso
+      // seguía fallando la política de seguridad incluso después de
+      // "corregirlo".
       const { error } = await conTiempoLimite(sb.from('encuestas_rapidas').insert({
-        sesion_id: currentUser.sesion_id, docente_id: currentUser.id, pregunta, opciones,
+        sesion_id: currentUser.sesion_id, docente_id: currentUser.usuario_id, pregunta, opciones,
       }));
       if(error) throw error;
       overlay.remove();
