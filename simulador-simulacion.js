@@ -395,7 +395,13 @@ function alternarSeccionNav(header, forzarEstado){
   header.classList.toggle('colapsada', colapsar);
   let el = header.nextElementSibling;
   while(el && !el.classList.contains('wl-nav-section')){
-    el.style.display = colapsar ? 'none' : '';
+    // Los botones marcados data-oculto-permanente nunca deben
+    // revelarse por esto — son anclas de navegación heredadas, no
+    // filas reales del menú (ver la nota junto a nav-p2p/nav-chat/
+    // nav-noticias en Simulador.html).
+    if(el.dataset.ocultoPermanente !== '1'){
+      el.style.display = colapsar ? 'none' : '';
+    }
     el = el.nextElementSibling;
   }
   const nombreSeccion = header.textContent.trim();
@@ -2671,8 +2677,13 @@ function abrirLanzarEncuestaRapida(){
       // Se desactiva cualquier encuesta anterior de esta sesión, para que
       // nunca haya dos "en vivo" compitiendo por la atención de la clase.
       await sb.from('encuestas_rapidas').update({ activa:false }).eq('sesion_id', currentUser.sesion_id).eq('activa', true);
+      // docente_id debe ser el id de la tabla usuarios, no el auth_id —
+      // la política de seguridad (RLS) compara contra mi_usuario_id(),
+      // que devuelve usuarios.id. Enviar auth_id aquí hacía que la
+      // comparación nunca coincidiera, y Supabase rechazaba la
+      // inserción con "new row violates row-level security policy".
       const { error } = await conTiempoLimite(sb.from('encuestas_rapidas').insert({
-        sesion_id: currentUser.sesion_id, docente_id: currentUser.auth_id, pregunta, opciones,
+        sesion_id: currentUser.sesion_id, docente_id: currentUser.id, pregunta, opciones,
       }));
       if(error) throw error;
       overlay.remove();

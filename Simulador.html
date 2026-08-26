@@ -301,10 +301,18 @@
     <!-- Los botones originales siguen existiendo, ocultos, para que
          goPage() los siga encontrando sin ningún cambio en el resto
          del código — el lanzador navega a las mismas páginas de
-         siempre, solo cambia desde dónde se accede a ellas. -->
-    <button class="wl-nav-btn" id="nav-p2p" onclick="goPage('p2p')" style="display:none;"><span class="nav-chat-dot" id="dot-p2p"></span></button>
-    <button class="wl-nav-btn" id="nav-chat" onclick="goPage('chat')" style="display:none;"><span class="nav-chat-dot" id="dot-chat"></span></button>
-    <button class="wl-nav-btn" id="nav-noticias" onclick="goPage('noticias')" style="display:none;"></button>
+         siempre, solo cambia desde dónde se accede a ellas.
+         data-oculto-permanente="1": alternarSeccionNav() (colapsar/
+         expandir una sección del menú) recorre TODOS los elementos
+         siguientes y les quita el display:none al expandir — sin esta
+         marca, estos tres botones (que solo tienen un puntito de
+         notificación adentro, sin ícono ni texto) se revelaban por
+         accidente cada vez que se expandía la sección "Simulador",
+         viéndose como un punto flotante sin título que sí navegaba a
+         Mercado P2P al hacer clic. -->
+    <button class="wl-nav-btn" id="nav-p2p" data-oculto-permanente="1" onclick="goPage('p2p')" style="display:none;"><span class="nav-chat-dot" id="dot-p2p"></span></button>
+    <button class="wl-nav-btn" id="nav-chat" data-oculto-permanente="1" onclick="goPage('chat')" style="display:none;"><span class="nav-chat-dot" id="dot-chat"></span></button>
+    <button class="wl-nav-btn" id="nav-noticias" data-oculto-permanente="1" onclick="goPage('noticias')" style="display:none;"></button>
 
     <div class="wl-nav-section" onclick="alternarSeccionNav(this)"><i class="ti ti-chevron-down wl-nav-section-flecha"></i> Mi progreso</div>
     <button class="wl-nav-btn"        id="nav-calificaciones" onclick="goPage('calificaciones')"><i class="ti ti-certificate"></i> Calificaciones</button>
