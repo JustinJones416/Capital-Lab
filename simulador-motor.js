@@ -2556,6 +2556,15 @@ async function renderInicioPage(){
       const promedio = retornos.length ? (retornos.reduce((a,b)=>a+Number(b),0)/retornos.length).toFixed(1) : null;
       const cuestActivos = (cuest||[]).filter(c=>c.activo!==false).length;
 
+      // Si la persona tiene datos de cuando era estudiante (portafolio
+      // propio con alguna operación registrada), se le ofrece un
+      // acceso directo — el dato en sí nunca estuvo bloqueado (Mi
+      // Cartera funciona igual para cualquier rol), pero quedaba fuera
+      // de la vista una vez que la pantalla de Inicio pasa a mostrar
+      // solo gestión de clase.
+      const { data: miPropioPortafolio } = await sb.from('portafolios').select('id').eq('usuario_id', currentUser.usuario_id).limit(1).maybeSingle();
+      const tieneHistorialEstudiante = !!miPropioPortafolio;
+
       cont.innerHTML = `
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;">
           <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
@@ -2578,6 +2587,7 @@ async function renderInicioPage(){
               <button class="btn" onclick="goPage('profesor')"><i class="ti ti-users-group"></i> Ver a mis estudiantes</button>
               <button class="btn" onclick="goPage('cuestionarios')"><i class="ti ti-list-check"></i> Cuestionarios</button>
               <button class="btn" onclick="mostrarNotificaciones()"><i class="ti ti-speakerphone"></i> Publicar un anuncio</button>
+              ${tieneHistorialEstudiante ? '<button class="btn btn-ghost" onclick="goPage(\'cartera\')"><i class="ti ti-briefcase"></i> Ver mi progreso de estudiante</button>' : ''}
             </div>
           </div>
           <div class="card">
@@ -3707,7 +3717,7 @@ async function renderAdminPage(){
 
     listaCont.innerHTML = torneoHtml + `<table style="width:100%;border-collapse:collapse;font-size:12.5px;">
       <thead><tr style="text-align:left;color:var(--t3);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--c4);">
-        <th style="padding:8px 10px;">Sesión</th><th style="padding:8px 10px;">Código</th><th style="padding:8px 10px;">Docente responsable</th><th style="padding:8px 10px;">Estudiantes</th><th style="padding:8px 10px;">Estado</th>
+        <th style="padding:8px 10px;">Sesión</th><th style="padding:8px 10px;">Código</th><th style="padding:8px 10px;">Docente responsable</th><th style="padding:8px 10px;">Estudiantes</th><th style="padding:8px 10px;">Estado</th><th style="padding:8px 10px;"></th>
       </tr></thead>
       <tbody>${sesiones.map(s => {
         return `<tr style="border-bottom:1px solid var(--c3);">
@@ -3716,12 +3726,121 @@ async function renderAdminPage(){
           <td style="padding:8px 10px;color:var(--t2);">${docenteMap[s.docente_id]?.nombre || '—'}</td>
           <td style="padding:8px 10px;">${conteoEstPorSesion[s.id]||0}</td>
           <td style="padding:8px 10px;">${s.activa===false ? '<span class="nav-badge">Archivada</span>' : '<span class="nav-badge" style="background:rgba(0,208,132,.15);color:var(--green);">Activa</span>'}</td>
+          <td style="padding:8px 10px;"><button class="btn btn-ghost btn-sm" onclick="abrirGestionSesion('${s.id}','${(s.nombre||'').replace(/'/g,"\\'")}')"><i class="ti ti-settings"></i> Gestionar</button></td>
         </tr>`;
       }).join('')}</tbody>
     </table>`;
   } catch(e){
     resumen.innerHTML = '';
     listaCont.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
+  }
+}
+
+// ── Gestión de co-docentes por sesión ──
+// Antes, la única forma de convertir a un estudiante en docente (para
+// que ayude a probar o co-administrar una sesión) era editando la
+// fila directo en el panel de Supabase — eso cambiaba el rol, pero
+// nunca agregaba a la persona como dueño adicional de la sesión, así
+// que terminaba sin poder ver a los demás estudiantes ni su propio
+// progreso anterior como estudiante. Este panel hace ambas cosas a la
+// vez, de forma correcta, sin salir de la app.
+async function abrirGestionSesion(sesionId, nombreSesion){
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:560px;">
+    <h3><i class="ti ti-users-group"></i> ${nombreSesion}</h3>
+    <div class="sub">Promover a un estudiante lo convierte en co-docente: puede ver y administrar esta sesión igual que tú, sin reemplazarte como dueño principal.</div>
+    <div id="gestion-sesion-lista" style="margin-top:12px;max-height:60vh;overflow-y:auto;"><div class="auth-hint">Cargando…</div></div>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button class="btn btn-ghost" id="gestion-sesion-cerrar" style="flex:1;">Cerrar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+  overlay.querySelector('#gestion-sesion-cerrar').onclick = () => overlay.remove();
+
+  await refrescarListaGestionSesion(sesionId);
+}
+
+async function refrescarListaGestionSesion(sesionId){
+  const cont = document.getElementById('gestion-sesion-lista');
+  if(!cont) return;
+  cont.innerHTML = '<div class="auth-hint">Cargando…</div>';
+  try {
+    const [{data: usuarios, error: e2}, {data: coDocentes, error: e3}] = await Promise.all([
+      sb.from('usuarios').select('id,nombre,correo,rol').eq('sesion_id', sesionId).order('nombre'),
+      sb.from('sesion_docentes').select('usuario_id').eq('sesion_id', sesionId),
+    ]);
+    if(e2) throw e2; if(e3) throw e3;
+
+    const idsCoDocentes = new Set((coDocentes||[]).map(c=>c.usuario_id));
+    const filas = (usuarios||[]).map(u => {
+      const esCoDocente = idsCoDocentes.has(u.id);
+      let etiqueta, acciones;
+      if(u.rol === 'docente' && esCoDocente){
+        etiqueta = '<span class="nav-badge" style="background:rgba(0,196,255,.15);color:var(--accent2);">Co-docente</span>';
+        acciones = `<button class="btn btn-ghost btn-sm" onclick="quitarCoDocente('${u.id}','${sesionId}')">Quitar como co-docente</button>
+                    <button class="btn btn-ghost btn-sm" onclick="revertirAEstudiante('${u.id}','${sesionId}')" style="color:var(--red);">Revertir a estudiante</button>`;
+      } else if(u.rol === 'docente'){
+        etiqueta = '<span class="nav-badge">Docente</span>';
+        acciones = '';
+      } else {
+        etiqueta = '<span class="nav-badge" style="color:var(--t3);">Estudiante</span>';
+        acciones = `<button class="btn btn-sm" onclick="promoverACoDocente('${u.id}','${sesionId}')"><i class="ti ti-arrow-up-circle"></i> Promover a co-docente</button>`;
+      }
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--c3);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;">${u.nombre||'—'}</div>
+          <div style="font-size:11px;color:var(--t3);">${u.correo||''}</div>
+        </div>
+        ${etiqueta}
+        <div style="display:flex;gap:6px;flex-shrink:0;">${acciones}</div>
+      </div>`;
+    }).join('');
+    cont.innerHTML = filas || '<div class="auth-hint">Todavía no hay nadie inscrito en esta sesión.</div>';
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: '+(e.message||e)+'</div>';
+  }
+}
+
+async function promoverACoDocente(usuarioId, sesionId){
+  try {
+    // Las dos partes que antes se hacían por separado (y casi siempre
+    // se olvidaba la segunda): cambiar el rol, y registrar a la
+    // persona como dueña adicional de la sesión.
+    const { error: e1 } = await sb.from('usuarios').update({ rol: 'docente' }).eq('id', usuarioId);
+    if(e1) throw e1;
+    const { error: e2 } = await sb.from('sesion_docentes').insert({ sesion_id: sesionId, usuario_id: usuarioId });
+    if(e2) throw e2;
+    notify('Ahora es co-docente de esta sesión.', 'success');
+    refrescarListaGestionSesion(sesionId);
+  } catch(e){
+    notify('No se pudo promover: ' + (e.message||e), 'error');
+  }
+}
+
+async function quitarCoDocente(usuarioId, sesionId){
+  try {
+    const { error } = await sb.from('sesion_docentes').delete().eq('sesion_id', sesionId).eq('usuario_id', usuarioId);
+    if(error) throw error;
+    notify('Ya no es co-docente de esta sesión (conserva el rol de docente).', 'success');
+    refrescarListaGestionSesion(sesionId);
+  } catch(e){
+    notify('No se pudo quitar: ' + (e.message||e), 'error');
+  }
+}
+
+async function revertirAEstudiante(usuarioId, sesionId){
+  if(!confirm('¿Revertir a estudiante? Deja de ser co-docente y su cuenta vuelve a comportarse como estudiante en toda la app.')) return;
+  try {
+    const { error: e1 } = await sb.from('sesion_docentes').delete().eq('sesion_id', sesionId).eq('usuario_id', usuarioId);
+    if(e1) throw e1;
+    const { error: e2 } = await sb.from('usuarios').update({ rol: 'estudiante' }).eq('id', usuarioId);
+    if(e2) throw e2;
+    notify('Revertido a estudiante.', 'success');
+    refrescarListaGestionSesion(sesionId);
+  } catch(e){
+    notify('No se pudo revertir: ' + (e.message||e), 'error');
   }
 }
 
