@@ -3564,14 +3564,25 @@ async function cargarTicketsSoporte(){
 
     cont.innerHTML = tabsHtml + filtrados.map(t => {
       const hilo = mensajesPorTicket[t.id] || [];
-      const hiloHtml = hilo.map(m => `
-        <div style="font-size:11.5px;color:var(--t2);margin-top:6px;padding:8px 10px;background:var(--c2);border-left:3px solid var(--accent2);border-radius:4px;">
-          <b style="color:var(--accent2);font-size:10.5px;text-transform:uppercase;">Tu respuesta</b><br>
+      const hiloHtml = hilo.map(m => {
+        const esSoporte = m.autor === 'superadmin';
+        // Antes esta etiqueta decía "Tu respuesta" fija para TODOS los
+        // mensajes del hilo, sin importar quién los escribió — tenía
+        // sentido cuando el único que podía escribir en el hilo eras
+        // tú, pero ahora que los estudiantes y docentes pueden
+        // responder por correo o desde la app, mostraba tus propios
+        // mensajes de vuelta como si el usuario se hubiera respondido
+        // a sí mismo.
+        const etiqueta = esSoporte ? 'Tú (equipo de soporte)' : (t.nombre_usuario || 'Usuario');
+        return `
+        <div style="font-size:11.5px;color:var(--t2);margin-top:6px;padding:8px 10px;background:var(--c2);border-left:3px solid ${esSoporte?'var(--accent2)':'var(--gold, #e8b94a)'};border-radius:4px;">
+          <b style="color:${esSoporte?'var(--accent2)':'var(--gold, #e8b94a)'};font-size:10.5px;text-transform:uppercase;">${etiqueta}</b><br>
           ${m.mensaje.replace(/\n/g,'<br>')}
           ${(m.imagenes&&m.imagenes.length)?`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">${m.imagenes.map(url=>`<a href="${url}" target="_blank"><img src="${url}" style="width:70px;height:70px;object-fit:cover;border-radius:4px;border:1px solid var(--c4);"></a>`).join('')}</div>`:''}
           <div style="font-size:10px;color:var(--t3);margin-top:5px;">${new Date(m.creado_en).toLocaleString('es-PA')}</div>
         </div>
-      `).join('');
+      `;
+      }).join('');
       return `
       <div style="border:1px solid var(--c4);border-left:3px solid ${t.estado==='resuelto'?'var(--green)':'var(--amber)'};border-radius:8px;padding:10px 12px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;">
@@ -3595,7 +3606,8 @@ async function cargarTicketsSoporte(){
             </label>
             <div id="respuesta-img-preview-${t.id}" style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;"></div>
           </div>
-          <div style="display:flex;gap:6px;margin-top:6px;">
+          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" onclick="generarBorradorRespuestaTicket('${t.id}')" id="btn-ia-borrador-${t.id}"><i class="ti ti-sparkles"></i> Generar con IA</button>
             <button class="btn btn-primary btn-sm" onclick="enviarRespuestaTicket('${t.id}')"><i class="ti ti-send"></i> Enviar respuesta</button>
             <button class="btn btn-ghost btn-sm" onclick="document.getElementById('respuesta-box-${t.id}').style.display='none';">Cancelar</button>
           </div>
@@ -3661,6 +3673,40 @@ async function subirImagenesTicket(id){
 // Resend vive del lado del servidor, nunca en el navegador). El mensaje
 // se agrega al hilo del ticket (no sobreescribe respuestas anteriores),
 // así que se puede hacer seguimiento con varios mensajes.
+// Genera un BORRADOR de respuesta con IA para un ticket — nunca lo
+// envía directo. Solo llena el cuadro de texto, exactamente como si
+// lo hubieras escrito a mano, para que lo revises y edites antes de
+// darle a "Enviar respuesta" (ese botón sigue siendo un paso aparte,
+// deliberado).
+async function generarBorradorRespuestaTicket(id){
+  const boton = document.getElementById(`btn-ia-borrador-${id}`);
+  const textarea = document.getElementById(`respuesta-txt-${id}`);
+  const original = boton.innerHTML;
+  boton.disabled = true;
+  boton.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Generando…';
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json', 'apikey': SIM_IA_ANON_KEY,
+        'Authorization': `Bearer ${session?.access_token || SIM_IA_ANON_KEY}`,
+      },
+      body: JSON.stringify({ modo: 'soporte_respuesta', ticketId: id }),
+    });
+    const d = await respuesta.json();
+    if(!d.ok) throw new Error(d.error || 'Error desconocido.');
+    textarea.value = d.borrador;
+    textarea.focus();
+    notify('Borrador generado — revísalo antes de enviar.', 'success');
+  } catch(e){
+    notify('No se pudo generar el borrador: ' + (e.message||e), 'error');
+  } finally {
+    boton.disabled = false;
+    boton.innerHTML = original;
+  }
+}
+
 async function enviarRespuestaTicket(id){
   const txt = document.getElementById('respuesta-txt-'+id);
   const msg = document.getElementById('respuesta-msg-'+id);
