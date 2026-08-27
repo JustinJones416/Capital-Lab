@@ -34,7 +34,14 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 
 /* ── TOPBAR ── */
 .topbar{grid-column:1/-1;background:var(--c1);border-bottom:1px solid var(--c4);display:flex;align-items:center;padding:0 16px;gap:16px;z-index:100;}
-.topbar-brand{font-family:var(--font-head);font-size:17px;font-weight:700;color:var(--t1);letter-spacing:-.3px;white-space:nowrap;}
+.topbar-brand{font-family:var(--font-head);font-size:17px;font-weight:700;color:var(--t1);letter-spacing:-.3px;white-space:nowrap;display:flex;align-items:center;gap:8px;}
+/* El fondo del logo (RGB 16,20,29) coincide exacto con --c1, el mismo
+   fondo real de la barra superior — se integra sin ningún borde
+   visible, sin necesitar transparencia. 26px dentro de una barra de
+   48px de alto deja aire arriba y abajo sin apretar. flex-shrink:0
+   evita que se comprima si el resto de la barra queda justo de
+   espacio en pantallas angostas. */
+.topbar-logo{width:26px;height:26px;border-radius:6px;flex-shrink:0;}
 .topbar-brand span{color:var(--accent2);}
 .topbar-sep{width:1px;height:20px;background:var(--c4);}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
@@ -888,8 +895,12 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 #auth-gate.hidden{display:none;}
 .auth-bg-glow{position:absolute;inset:0;background:radial-gradient(circle at 20% 15%, rgba(41,98,255,.14), transparent 45%),radial-gradient(circle at 85% 85%, rgba(0,196,255,.10), transparent 40%);pointer-events:none;}
 .auth-box{position:relative;width:100%;max-width:400px;max-height:88vh;overflow-y:auto;background:var(--c1);border:1px solid var(--c4);border-radius:var(--r3);padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,.45);}
-.auth-brand{font-family:var(--font-head);font-size:22px;font-weight:700;color:var(--t1);text-align:center;margin-bottom:4px;}
-.auth-brand span{color:var(--accent2);}
+.auth-brand{font-family:var(--font-head);font-size:22px;font-weight:700;color:var(--t1);text-align:center;margin-bottom:4px;display:flex;flex-direction:column;align-items:center;gap:10px;}
+/* Mismo fondo exacto que .auth-box (--c1) — se integra sin borde. Más
+   grande que en la barra superior porque aquí sí tiene espacio propio
+   de sobra, es la primera pantalla que ve cualquiera. */
+.auth-logo{width:56px;height:56px;border-radius:12px;}
+.auth-brand > span > span{color:var(--accent2);}
 .auth-sub{text-align:center;font-size:12px;color:var(--t2);margin-bottom:22px;}
 .auth-tabs{display:flex;background:var(--c2);border-radius:var(--r2);padding:3px;margin-bottom:20px;}
 .auth-tab{flex:1;text-align:center;padding:8px 0;font-size:12.5px;font-weight:600;color:var(--t2);border-radius:8px;cursor:pointer;transition:all .15s;}
