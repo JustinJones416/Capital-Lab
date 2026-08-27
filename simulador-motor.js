@@ -1931,6 +1931,82 @@ async function enviarTicketSoporte(){
   }
 }
 
+// ── Seguimiento de tickets propios ──
+// Antes, después de reportar un problema, no había ninguna forma de
+// volver a ver ese reporte ni sus respuestas dentro de la app — el
+// único lugar donde se podía revisar era el panel del superadmin, y
+// la única forma de que le llegara algo nuevo a quien reportó era el
+// correo. Esto se busca por correo de contacto, ya que los tickets no
+// están atados a una cuenta específica (se puede reportar sin haber
+// iniciado sesión).
+async function abrirMisTickets(){
+  document.getElementById('mis-tickets-overlay').style.display = 'flex';
+  const cont = document.getElementById('mis-tickets-lista');
+  cont.innerHTML = '<div class="auth-hint">Cargando…</div>';
+
+  const correo = currentUser?.correo;
+  if(!correo){
+    cont.innerHTML = '<div class="auth-hint">Necesitas haber iniciado sesión con el mismo correo que usaste al reportar, para poder ver tus tickets aquí. Si reportaste sin cuenta, revisa el correo que recibiste — puedes responderlo directamente y se une igual al hilo.</div>';
+    return;
+  }
+
+  try {
+    const { data: tickets, error } = await sb.from('tickets_soporte')
+      .select('id, error_descripcion, estado, created_at, tickets_soporte_mensajes(id, autor, mensaje, creado_en)')
+      .eq('email_contacto', correo)
+      .order('created_at', { ascending: false });
+    if(error) throw error;
+
+    if(!tickets || !tickets.length){
+      cont.innerHTML = '<div class="auth-hint">Todavía no has reportado ningún problema con este correo.</div>';
+      return;
+    }
+
+    const coloresEstado = { abierto:'var(--amber)', respondido:'var(--accent2)', resuelto:'var(--green)' };
+    cont.innerHTML = tickets.map(t => {
+      const mensajes = (t.tickets_soporte_mensajes||[]).sort((a,b)=>new Date(a.creado_en)-new Date(b.creado_en));
+      const hilo = mensajes.map(m => `
+        <div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:${m.autor==='superadmin'?'rgba(74,158,255,.08)':'var(--c3, #1c2333)'};border-left:3px solid ${m.autor==='superadmin'?'var(--accent2, #4a9eff)':'var(--c5, #3a4560)'};">
+          <div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-bottom:3px;">${m.autor==='superadmin'?'Equipo de soporte':'Tú'} · ${new Date(m.creado_en).toLocaleString('es-PA')}</div>
+          <div style="font-size:12.5px;white-space:pre-wrap;">${(m.mensaje||'').replace(/</g,'&lt;')}</div>
+        </div>`).join('');
+
+      return `<div style="background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:10px;padding:14px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+          <div style="font-size:13px;font-weight:600;flex:1;">${(t.error_descripcion||'').replace(/</g,'&lt;')}</div>
+          <span class="nav-badge" style="background:${coloresEstado[t.estado]||'var(--t3)'}22;color:${coloresEstado[t.estado]||'var(--t3)'};flex-shrink:0;">${t.estado}</span>
+        </div>
+        <div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:2px;">Ticket #${t.id} · ${new Date(t.created_at).toLocaleDateString('es-PA')}</div>
+        ${hilo}
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <input type="text" id="seguimiento-input-${t.id}" placeholder="Agregar algo a este ticket…" style="flex:1;padding:7px 10px;background:var(--c1, #0d1015);border:1px solid var(--c4, #242d42);border-radius:6px;color:var(--t1, #e8edf8);font-size:12px;">
+          <button class="btn btn-sm" onclick="agregarSeguimientoTicket(${t.id})">Enviar</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
+  }
+}
+
+async function agregarSeguimientoTicket(ticketId){
+  const input = document.getElementById(`seguimiento-input-${ticketId}`);
+  const texto = input.value.trim();
+  if(!texto) return;
+  input.disabled = true;
+  try {
+    const { error } = await sb.from('tickets_soporte_mensajes').insert({
+      ticket_id: ticketId, autor: 'usuario', mensaje: texto,
+    });
+    if(error) throw error;
+    notify('Agregado a tu ticket.', 'success');
+    abrirMisTickets(); // recarga la lista completa, para mostrar el mensaje nuevo en su hilo
+  } catch(e){
+    notify('No se pudo enviar: ' + (e.message||e), 'error');
+    input.disabled = false;
+  }
+}
+
 function alternarMentorIA(){
   const panel = document.getElementById('mentor-ia-panel');
   const abriendo = panel.style.display === 'none';

@@ -1344,7 +1344,24 @@ if(typeof Chart !== 'undefined'){
         <i class="ti ti-message-chatbot" style="font-size:26px;color:var(--gold, #e8b94a);"></i>
         <div style="font-size:12px;font-weight:600;margin-top:8px;">Mentor IA</div>
       </button>
+      <button onclick="document.getElementById('lanzador-herramientas-overlay').style.display='none';abrirTicketSoporte();" style="background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:12px;padding:16px 12px;text-align:center;cursor:pointer;color:var(--t1, #e8edf8);">
+        <i class="ti ti-message-report" style="font-size:26px;color:var(--gold, #e8b94a);"></i>
+        <div style="font-size:12px;font-weight:600;margin-top:8px;">Reportar un problema</div>
+      </button>
+      <button onclick="document.getElementById('lanzador-herramientas-overlay').style.display='none';abrirMisTickets();" style="background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:12px;padding:16px 12px;text-align:center;cursor:pointer;color:var(--t1, #e8edf8);">
+        <i class="ti ti-ticket" style="font-size:26px;color:var(--accent2, #4a9eff);"></i>
+        <div style="font-size:12px;font-weight:600;margin-top:8px;">Mis tickets de soporte</div>
+      </button>
     </div>
+  </div>
+</div>
+
+<div id="mis-tickets-overlay" class="export-modal-overlay" style="display:none;">
+  <div class="export-modal" style="max-width:600px;">
+    <button class="modal-close" onclick="document.getElementById('mis-tickets-overlay').style.display='none';"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-ticket" style="color:var(--accent2, #4a9eff);"></i> Mis tickets de soporte</h2>
+    <p style="font-size:12.5px;color:var(--t2, #b8c4dc);margin-bottom:16px;">El estado y las respuestas de los problemas que has reportado, buscados por tu correo de contacto.</p>
+    <div id="mis-tickets-lista" style="max-height:60vh;overflow-y:auto;"></div>
   </div>
 </div>
 
