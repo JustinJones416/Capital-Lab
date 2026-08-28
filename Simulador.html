@@ -481,29 +481,29 @@
                      vivo mientras el estudiante escribe, no un número
                      aislado sin contexto. -->
                 <div class="orden-pedagogica" style="border:1px solid var(--red, #ff4757);border-left-width:3px;border-radius:8px;padding:10px 12px;margin-bottom:10px;">
-                  <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--red, #ff4757);margin-bottom:6px;"><i class="ti ti-shield-x"></i> Stop Loss — limita una pérdida</div>
+                  <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--red, #ff4757);margin-bottom:6px;"><i class="ti ti-shield-x"></i> Límite de pérdida (Stop Loss) — limita una pérdida</div>
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                     <input type="number" id="sl-precio" class="tp-order-inp" placeholder="Precio de salida $" step="0.01" min="0" oninput="calcularStopLoss()" style="flex:1;">
                     <button class="btn btn-ghost btn-sm" onclick="placeStopLoss()">Colocar</button>
                   </div>
                   <div id="sl-resultado" style="font-size:11.5px;color:var(--t3);display:none;">
-                    Precio actual <b id="sl-precio-actual" class="mono"></b> → Stop Loss <b id="sl-precio-destino" class="mono"></b> → pérdida potencial <b id="sl-perdida" class="mono r"></b> (<b id="sl-pct" class="r"></b> de riesgo)
+                    Precio actual <b id="sl-precio-actual" class="mono"></b> → precio del límite de pérdida <b id="sl-precio-destino" class="mono"></b> → pérdida potencial <b id="sl-perdida" class="mono r"></b> (<b id="sl-pct" class="r"></b> de riesgo)
                   </div>
-                  <div style="font-size:10.5px;color:var(--t3);margin-top:5px;font-style:italic;">El stop loss establece un precio de salida destinado a limitar una pérdida si el activo se mueve en tu contra.</div>
+                  <div style="font-size:10.5px;color:var(--t3);margin-top:5px;font-style:italic;">El límite de pérdida (conocido internacionalmente como stop loss) establece un precio de salida destinado a limitar una pérdida si el activo se mueve en tu contra.</div>
                 </div>
 
                 <!-- TAKE PROFIT — mismo principio, en espejo: ganancia
                      potencial y % esperado, no solo "límite de venta". -->
                 <div class="orden-pedagogica" style="border:1px solid var(--green, #1e8e5a);border-left-width:3px;border-radius:8px;padding:10px 12px;margin-bottom:10px;">
-                  <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--green, #1e8e5a);margin-bottom:6px;"><i class="ti ti-target-arrow"></i> Take Profit — asegura una ganancia</div>
+                  <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--green, #1e8e5a);margin-bottom:6px;"><i class="ti ti-target-arrow"></i> Asegurar ganancia (Take Profit)</div>
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                     <input type="number" id="tp-precio" class="tp-order-inp" placeholder="Precio de salida $" step="0.01" min="0" oninput="calcularTakeProfit()" style="flex:1;">
                     <button class="btn btn-ghost btn-sm" onclick="placeTakeProfit()">Colocar</button>
                   </div>
                   <div id="tp-resultado" style="font-size:11.5px;color:var(--t3);display:none;">
-                    Precio actual <b id="tp-precio-actual" class="mono"></b> → Take Profit <b id="tp-precio-destino" class="mono"></b> → ganancia potencial <b id="tp-ganancia" class="mono g"></b> (<b id="tp-pct" class="g"></b> esperado)
+                    Precio actual <b id="tp-precio-actual" class="mono"></b> → precio para asegurar ganancia <b id="tp-precio-destino" class="mono"></b> → ganancia potencial <b id="tp-ganancia" class="mono g"></b> (<b id="tp-pct" class="g"></b> esperado)
                   </div>
-                  <div style="font-size:10.5px;color:var(--t3);margin-top:5px;font-style:italic;">El take profit establece un precio de salida destinado a asegurar una ganancia si el activo se mueve a tu favor.</div>
+                  <div style="font-size:10.5px;color:var(--t3);margin-top:5px;font-style:italic;">Asegurar ganancia (conocido internacionalmente como take profit) establece un precio de salida destinado a asegurar una ganancia si el activo se mueve a tu favor.</div>
                 </div>
 
                 <!-- Orden límite — más simple, sin el mismo tratamiento
