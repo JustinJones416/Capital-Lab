@@ -2133,6 +2133,23 @@ function pdfStyles(){
   ${p} .badge-buy { background: #E3F6EC; color: #00875A; }
   ${p} .badge-sell { background: #EEF2FF; color: #2962FF; }
   ${p} .badge-liq { background: #FDEAEA; color: #D32F2F; }
+  /* Clases que usa exportPDF (Reporte de Progreso — posiciones,
+     transacciones y tarjetas de sesiones de Laboratorio) — antes
+     vivían en su propia copia completa y aislada de estilos (un
+     tercer sistema paralelo); ahora comparte este mismo. */
+  ${p} .lab-card { border: 1px solid #E0E4ED; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; break-inside: avoid; }
+  ${p} .lab-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #eee; }
+  ${p} .lab-num { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9pt; font-weight: 700; flex-shrink: 0; }
+  ${p} .lab-strat { font-size: 10pt; font-weight: 700; flex: 1; color: #1a2233 !important; }
+  ${p} .lab-meta { font-size: 7.5pt; color: #666 !important; }
+  ${p} .lab-kpis { display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; margin-bottom: 8px; }
+  ${p} .lab-kpi { background: #F5F7FA; border-radius: 4px; padding: 5px 7px; }
+  ${p} .lab-kpi .lbl { font-size: 7pt; color: #777 !important; margin-bottom: 1px; }
+  ${p} .lab-kpi .val { font-size: 9pt; font-weight: 700; font-family: 'DM Mono', 'Courier New', monospace; color: #1a2233 !important; }
+  ${p} .alloc-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  ${p} .alloc-item { font-size: 7.5pt; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  ${p} .asset-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  ${p} .asset-chip { font-size: 7pt; padding: 2px 7px; border-radius: 10px; border: 1px solid; }
   `;
 }
 
@@ -2263,93 +2280,7 @@ function exportPDF(){
   // ─────────────────────────────────────────────────
   // BUILD HTML DOCUMENT
   // ─────────────────────────────────────────────────
-  const html = `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>CapitalLab — Reporte de Progreso</title>
-<style>
-  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111; background: #fff; }
-
-  /* ── Header ── */
-  .hdr { display: flex; align-items: flex-end; justify-content: space-between; padding-bottom: 10px; border-bottom: 3px solid #0b0e14; margin-bottom: 16px; }
-  .brand { font-size: 28pt; font-weight: 900; letter-spacing: -1px; line-height: 1; }
-  .brand span { color: #0077cc; }
-  .hdr-meta { text-align: right; font-size: 8pt; color: #555; line-height: 1.6; }
-  .hdr-meta b { color: #111; }
-
-  /* ── Section titles ── */
-  .section { margin-top: 18px; margin-bottom: 8px; }
-  .section-title { font-size: 11pt; font-weight: 700; color: #0b0e14; border-left: 4px solid #0077cc; padding-left: 8px; line-height: 1.2; }
-  .section-sub { font-size: 8pt; color: #666; margin-left: 12px; margin-top: 2px; }
-
-  /* ── KPI grid ── */
-  .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin: 10px 0; }
-  .kpi { background: #f5f7fa; border: 1px solid #e0e4ed; border-radius: 6px; padding: 8px 10px; }
-  .kpi-lbl { font-size: 7.5pt; color: #666; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
-  .kpi-val { font-size: 15pt; font-weight: 700; font-family: 'Courier New', monospace; color: #111; line-height: 1.1; }
-
-  /* ── Tables ── */
-  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 8.5pt; }
-  th { background: #0b0e14; color: #fff; font-weight: 600; padding: 5px 7px; text-align: left; font-size: 8pt; }
-  td { padding: 5px 7px; border-bottom: 1px solid #eee; vertical-align: middle; }
-  tr:nth-child(even) td { background: #f9fafb; }
-  .mono { font-family: 'Courier New', monospace; }
-  .g { color: #00a86b; font-weight: 700; }
-  .r { color: #e02d2d; font-weight: 700; }
-  .a { color: #c87000; font-weight: 700; }
-
-  /* ── Badge ── */
-  .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 7pt; font-weight: 700; color: #fff; }
-
-  /* ── Lab session card ── */
-  .lab-card { border: 1px solid #e0e4ed; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; break-inside: avoid; }
-  .lab-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #eee; }
-  .lab-num { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9pt; font-weight: 700; flex-shrink: 0; }
-  .lab-strat { font-size: 10pt; font-weight: 700; flex: 1; }
-  .lab-meta { font-size: 7.5pt; color: #666; }
-  .lab-kpis { display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; margin-bottom: 8px; }
-  .lab-kpi { background: #f5f7fa; border-radius: 4px; padding: 5px 7px; }
-  .lab-kpi .lbl { font-size: 7pt; color: #777; margin-bottom: 1px; }
-  .lab-kpi .val { font-size: 9pt; font-weight: 700; font-family: 'Courier New', monospace; }
-  .alloc-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-  .alloc-item { font-size: 7.5pt; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
-  .asset-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-  .asset-chip { font-size: 7pt; padding: 2px 7px; border-radius: 10px; border: 1px solid; }
-
-  /* ── Info box ── */
-  .info-box { background: #f0f7ff; border-left: 3px solid #0077cc; padding: 7px 10px; border-radius: 0 4px 4px 0; font-size: 8.5pt; margin: 8px 0; line-height: 1.5; }
-  .info-box.success { background: #f0fff6; border-left-color: #00a86b; }
-  .info-box.danger  { background: #fff5f5; border-left-color: #e02d2d; }
-
-  /* ── Footer ── */
-  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 7.5pt; color: #999; display: flex; justify-content: space-between; }
-
-  /* ── Empty state ── */
-  .empty { text-align: center; padding: 14px; color: #aaa; font-size: 9pt; border: 1px dashed #ddd; border-radius: 6px; }
-
-  /* ── Print ── */
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .no-print { display: none !important; }
-  }
-</style>
-</head>
-<body>
-
-<!-- ══ HEADER ══ -->
-<div class="hdr">
-  <div class="brand">Capital<span>Lab</span></div>
-  <div class="hdr-meta">
-    <b>Reporte de Progreso</b><br>
-    Facultad de Economía / Finanzas y Banca<br>
-    Universidad de Panamá<br>
-    Generado: ${date}
-  </div>
-</div>
-
+  const inner = `
 <!-- ══ RESUMEN GLOBAL ══ -->
 <div class="section">
   <div class="section-title">Resumen general</div>
@@ -2536,26 +2467,9 @@ ${labSessions===0
     }).join('')}`
 }
 
-<!-- ══ FOOTER ══ -->
-<div class="footer">
-  <span>CapitalLab · Simulador de Mercados Financieros · Facultad de Economía / Finanzas y Banca · Universidad de Panamá</span>
-  <span>Reporte generado: ${dateShort}</span>
-</div>
+  `;
 
-<script>
-  window.onload = () => {
-    window.print();
-  };
-<\/script>
-</body>
-</html>`;
-
-  // Open in new window and print
-  const win = window.open('', '_blank', 'width=900,height=700');
-  if(!win){ notify('El navegador bloqueó la ventana emergente. Permite ventanas emergentes para este archivo.','error'); return; }
-  win.document.write(html);
-  win.document.close();
-  notify('PDF listo — selecciona "Guardar como PDF" en el diálogo de impresión ✓');
+  return openPrintableDoc('Reporte de Progreso', inner);
 }
 
 
@@ -3885,7 +3799,7 @@ function exportStudentPDF(){
   }
 
   if(openPrintableDoc('Análisis Individual — '+r.student, inner))
-    notify('PDF del análisis individual listo — selecciona "Guardar como PDF" ✓');
+    notify('PDF del análisis individual descargado.', 'success');
 }
 
 // ── HELPER: documento imprimible con la identidad visual de CapitalLab ──
