@@ -2579,6 +2579,38 @@ function miniSparklineSVG(valores){
   return `<svg viewBox="0 0 ${w} ${h}" style="width:70px;height:20px;display:block;margin-top:4px;"><path d="${linea}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
+// Captura una fila en portafolios_historial con el valor real de la
+// cartera de hoy — misma fórmula exacta que usa Mi Cartera (capital +
+// valor de mercado de las posiciones), para que el gráfico de
+// crecimiento nunca contradiga lo que el estudiante ve en su propia
+// cartera. silencioso a propósito: si falla (sin conexión, por
+// ejemplo), no debe interrumpir ni avisar nada — es una captura de
+// fondo, no una acción que el usuario pidió.
+async function capturarHistorialCartera(valorTotalParam, retornoPctParam){
+  if(!currentUser?.usuario_id || !currentUser?.sesion_id || guestMode) return;
+  try {
+    let valorTotal = valorTotalParam, retornoPct = retornoPctParam, totalInv;
+    if(valorTotal === undefined){
+      totalInv = portfolio.reduce((s,p)=>s+p.invested,0);
+      const curVal = portfolio.reduce((s,p)=>s+(p.currentPrice||p.buyPrice)*p.qty,0);
+      valorTotal = capital + curVal;
+      retornoPct = totalInv > 0 ? ((curVal - totalInv) / totalInv * 100) : 0;
+    } else {
+      totalInv = portfolio.reduce((s,p)=>s+p.invested,0);
+    }
+
+    await sb.from('portafolios_historial').upsert({
+      usuario_id: currentUser.usuario_id,
+      sesion_id: currentUser.sesion_id,
+      valor_total: valorTotal,
+      capital_invertido: totalInv,
+      retorno_pct: retornoPct,
+    }, { onConflict: 'usuario_id,dia' });
+  } catch(e){
+    console.log('No se pudo capturar el historial de cartera (silencioso):', e.message||e);
+  }
+}
+
 async function renderInicioPage(){
   const titulo = document.getElementById('inicio-titulo');
   const sub = document.getElementById('inicio-sub');
@@ -2609,6 +2641,13 @@ async function renderInicioPage(){
     renderMiCuenta(document.getElementById('mi-cuenta-card'));
     return;
   }
+
+  // Captura del historial de cartera para el seguimiento de
+  // crecimiento — como máximo una fila por día (la tabla lo obliga a
+  // nivel de base de datos), así que llamarlo cada vez que se entra a
+  // Inicio es seguro y no genera duplicados. No bloquea el resto de
+  // la carga de la página (no lleva await aquí).
+  capturarHistorialCartera();
 
   sub.textContent = currentUser.sesion_nombre ? `Sesión: ${currentUser.sesion_nombre}` : '';
   cont.innerHTML = '<div class="auth-hint">Cargando tu resumen…</div>';
