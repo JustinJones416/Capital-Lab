@@ -472,10 +472,45 @@ function exportarHistorialPreciosCSV(){
   const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `precios_${asset.ticker||asset.id}.csv`;
+  a.href = url; a.download = `precios-${asset.ticker||asset.id}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   notify('Historial de precios exportado.', 'success');
+}
+
+function exportarHistorialPreciosPDF(){
+  const asset = allAssets().find(a=>a.id===anSelectedId);
+  if(!asset){ notify('Selecciona primero un activo en Análisis.', 'error'); return; }
+  const velas = candleHistory[asset.id];
+  if(!velas || !velas.length){ notify('Todavía no hay historial de precios para este activo.', 'error'); return; }
+  const primero = velas[0], ultimo = velas[velas.length-1];
+  const varPct = ((ultimo.c - primero.o) / primero.o * 100);
+  // Gráfico de líneas simple con los precios de cierre, mismo estilo
+  // visual que el resto de gráficos de la app.
+  const w=640, h=140, pad=10;
+  const cierres = velas.map(v=>v.c);
+  const min = Math.min(...cierres), max = Math.max(...cierres);
+  const rango = (max-min)||1;
+  const xStep = (w-pad*2)/(velas.length-1||1);
+  const coords = velas.map((v,i)=>[pad+i*xStep, h-pad-((v.c-min)/rango)*(h-pad*2)]);
+  const linea = coords.map(([x,y],i)=>(i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)).join(' ');
+  const svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px;"><path d="${linea}" fill="none" stroke="${varPct>=0?'#00A86B':'#E02D2D'}" stroke-width="2"></path></svg>`;
+
+  const inner = pdfHeader(`Historial de precios — ${asset.name} (${asset.ticker})`)
+    + `<div class="kpi-grid">
+        <div class="kpi"><div class="kpi-lbl">Precio actual</div><div class="kpi-val">$${ultimo.c.toFixed(2)}</div></div>
+        <div class="kpi"><div class="kpi-lbl">Variación del periodo</div><div class="kpi-val ${varPct>=0?'g':'r'}">${varPct>=0?'+':''}${varPct.toFixed(2)}%</div></div>
+        <div class="kpi"><div class="kpi-lbl">Máximo</div><div class="kpi-val">$${Math.max(...velas.map(v=>v.h)).toFixed(2)}</div></div>
+        <div class="kpi"><div class="kpi-lbl">Mínimo</div><div class="kpi-val">$${Math.min(...velas.map(v=>v.l)).toFixed(2)}</div></div>
+       </div>
+       <div class="section-title">Evolución del precio de cierre</div>
+       ${svg}
+       <div class="section-title">Historial completo por periodo</div>
+       <table><tr><th>#</th><th class="right">Apertura</th><th class="right">Máximo</th><th class="right">Mínimo</th><th class="right">Cierre</th></tr>
+       ${velas.map((v,i)=>`<tr><td class="mono">${i+1}</td><td class="right mono">$${v.o.toFixed(2)}</td><td class="right mono g">$${v.h.toFixed(2)}</td><td class="right mono r">$${v.l.toFixed(2)}</td><td class="right mono">$${v.c.toFixed(2)}</td></tr>`).join('')}
+       </table>`
+    + pdfFooter();
+  openPrintWindow(inner, `Historial de precios — ${asset.ticker}`);
 }
 
 function alternarModoEnfoque(){
@@ -2319,7 +2354,7 @@ function abrirInsigniaDesempeno(){
     overlay.querySelector('#cert-canvas').toBlob((blob) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = `tarjeta-desempeno-capitallab-${(currentUser.nombre||'estudiante').replace(/\s+/g,'_')}.png`;
+      a.href = url; a.download = `tarjeta-desempeno-capitallab-${(currentUser.nombre||'estudiante').replace(/\s+/g,'-')}.png`;
       a.click();
       URL.revokeObjectURL(url);
     }, 'image/png');

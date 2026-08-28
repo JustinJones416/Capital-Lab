@@ -1890,7 +1890,7 @@ function exportProgress() {
     const a    = document.createElement('a');
     const date = new Date().toISOString().slice(0,10);
     a.href = url;
-    a.download = `CapitalLab_progreso_${date}.json`;
+    a.download = `CapitalLab progreso ${date}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1953,12 +1953,37 @@ function exportTransactionsCSV() {
   const a    = document.createElement('a');
   const date = new Date().toISOString().slice(0,10);
   a.href = url;
-  a.download = `CapitalLab_operaciones_${date}.csv`;
+  a.download = `CapitalLab operaciones ${date}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   notify('Libro de operaciones exportado a CSV ✓');
+}
+
+function exportTransactionsPDF(){
+  const operacionesReales = txHistory.filter(t=>t.action==='Compra'||t.action==='Venta');
+  if(operacionesReales.length === 0){ notify('No hay operaciones de compra o venta para exportar', 'error'); return; }
+  const compras = operacionesReales.filter(t=>t.action==='Compra').length;
+  const ventas  = operacionesReales.filter(t=>t.action==='Venta').length;
+  const totalFees = operacionesReales.reduce((s,t)=>s+(t.fee||0),0);
+  const inner = pdfHeader('Libro de operaciones')
+    + `<div class="kpi-grid">
+        <div class="kpi"><div class="kpi-lbl">Total operaciones</div><div class="kpi-val">${operacionesReales.length}</div></div>
+        <div class="kpi"><div class="kpi-lbl">Compras</div><div class="kpi-val">${compras}</div></div>
+        <div class="kpi"><div class="kpi-lbl">Ventas</div><div class="kpi-val">${ventas}</div></div>
+        <div class="kpi"><div class="kpi-lbl">Costos de transacción</div><div class="kpi-val">$${totalFees.toFixed(2)}</div></div>
+       </div>
+       <div class="section-title">Historial completo</div>
+       <table><tr><th>Fecha</th><th>Operación</th><th>Activo</th><th class="right">Cantidad</th><th class="right">Precio</th><th class="right">Efecto neto</th></tr>
+       ${operacionesReales.map(t=>{
+         const fee = t.fee || 0;
+         const effect = t.action === 'Compra' ? -(t.total+fee) : (t.total-fee);
+         return `<tr><td>${t.date}</td><td><span class="badge ${t.action==='Compra'?'badge-buy':'badge-sell'}">${t.action}</span></td><td>${t.name}</td><td class="right mono">${(t.qty===''||t.qty==null)?'—':t.qty}</td><td class="right mono">${t.price>0?'$'+t.price.toFixed(2):'—'}</td><td class="right mono ${effect>=0?'g':'r'}">${effect>=0?'+':''}$${Math.abs(effect).toFixed(2)}</td></tr>`;
+       }).join('')}
+       </table>`
+    + pdfFooter();
+  openPrintWindow(inner, 'Libro de operaciones — CapitalLab');
 }
 
 function importProgress(event) {
@@ -2049,35 +2074,41 @@ function autosave() { saveProgress(); }
 // ══════════════════════════════════════════════════
 function pdfStyles(){
   return `
-  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  @page { size: A4; margin: 16mm 15mm 18mm 15mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111; background: #fff; }
-  .hdr { display: flex; align-items: flex-end; justify-content: space-between; padding-bottom: 10px; border-bottom: 3px solid #0b0e14; margin-bottom: 16px; }
-  .brand { font-size: 28pt; font-weight: 900; letter-spacing: -1px; line-height: 1; }
-  .brand span { color: #0077cc; }
-  .hdr-meta { text-align: right; font-size: 8pt; color: #555; line-height: 1.6; }
-  .hdr-meta b { color: #111; }
+  body { font-family: 'Inter', Arial, Helvetica, sans-serif; font-size: 10pt; color: #1a2233; background: #fff; }
+  /* Identidad visual de CapitalLab (navy/cian/oro) — antes estos
+     reportes usaban un azul genérico (#0077cc) que no coincidía con
+     la marca real de la app ni con el resto de exportaciones
+     recientes (el guion y la presentación del servicio social ya
+     usan esta misma paleta). */
+  .hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #0F1420; border-radius: 8px; margin-bottom: 18px; }
+  .brand { font-size: 22pt; font-weight: 800; letter-spacing: -.5px; line-height: 1; color: #fff; }
+  .brand span { color: #00C4FF; }
+  .hdr-meta { text-align: right; font-size: 8pt; color: #9FB0CC; line-height: 1.6; }
+  .hdr-meta b { color: #fff; font-size: 9pt; }
   .section { margin-top: 18px; margin-bottom: 8px; }
-  .section-title { font-size: 11pt; font-weight: 700; color: #0b0e14; border-left: 4px solid #0077cc; padding-left: 8px; line-height: 1.2; }
+  .section-title { font-size: 11.5pt; font-weight: 700; color: #0F1420; border-left: 4px solid #00C4FF; padding-left: 8px; line-height: 1.2; margin: 18px 0 8px; }
   .section-sub { font-size: 8pt; color: #666; margin-left: 12px; margin-top: 2px; }
   .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin: 10px 0; }
-  .kpi { background: #f5f7fa; border: 1px solid #e0e4ed; border-radius: 6px; padding: 8px 10px; }
+  .kpi { background: #F5F7FA; border: 1px solid #E0E4ED; border-top: 3px solid #00C4FF; border-radius: 6px; padding: 9px 11px; }
   .kpi-lbl { font-size: 7.5pt; color: #666; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
-  .kpi-val { font-size: 15pt; font-weight: 700; font-family: 'Courier New', monospace; color: #111; line-height: 1.1; }
+  .kpi-val { font-size: 15pt; font-weight: 700; font-family: 'DM Mono', 'Courier New', monospace; color: #0F1420; line-height: 1.1; }
   table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 8.5pt; }
-  th { background: #0b0e14; color: #fff; font-weight: 600; padding: 5px 7px; text-align: left; font-size: 8pt; }
+  th { background: #0F1420; color: #fff; font-weight: 600; padding: 6px 8px; text-align: left; font-size: 8pt; }
   td { padding: 5px 7px; border-bottom: 1px solid #eee; vertical-align: middle; }
   tr:nth-child(even) td { background: #f9fafb; }
-  .mono { font-family: 'Courier New', monospace; }
-  .g { color: #00a86b; font-weight: 700; }
-  .r { color: #e02d2d; font-weight: 700; }
-  .a { color: #c87000; font-weight: 700; }
+  .mono { font-family: 'DM Mono', 'Courier New', monospace; }
+  .g { color: #00A86B; font-weight: 700; }
+  .r { color: #E02D2D; font-weight: 700; }
+  .a { color: #C87000; font-weight: 700; }
   .right { text-align: right; }
   .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 7pt; font-weight: 700; color: #fff; }
   .rank-medal { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; font-size:8pt; font-weight:700; }
-  .info-box { background: #f0f7ff; border-left: 3px solid #0077cc; padding: 7px 10px; border-radius: 0 4px 4px 0; font-size: 8.5pt; margin: 8px 0; line-height: 1.5; }
-  .info-box.success { background: #f0fff6; border-left-color: #00a86b; }
-  .info-box.danger  { background: #fff5f5; border-left-color: #e02d2d; }
+  .info-box { background: #EEF7FF; border-left: 3px solid #00C4FF; padding: 8px 11px; border-radius: 0 4px 4px 0; font-size: 8.5pt; margin: 10px 0; line-height: 1.55; }
+  .info-box.success { background: #EFFAF3; border-left-color: #00A86B; }
+  .info-box.danger  { background: #FDF0F0; border-left-color: #E02D2D; }
+  .info-box.gold  { background: #FBF6E9; border-left-color: #D4AF37; }
   .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 7.5pt; color: #999; display: flex; justify-content: space-between; }
   .empty { text-align: center; padding: 14px; color: #aaa; font-size: 9pt; border: 1px dashed #ddd; border-radius: 6px; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none !important; } }
@@ -3350,7 +3381,7 @@ function exportForTeacher(){
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const safe = student.replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,40);
-    a.href = url; a.download = `CapitalLab_estudiante_${safe}.json`;
+    a.href = url; a.download = `CapitalLab estudiante ${safe}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
     notify('Desempeño exportado para el profesor ✓');
@@ -3863,38 +3894,42 @@ function openPrintableDoc(title, innerHtml){
   const date = new Date().toLocaleString('es-PA');
   const css = `
     *{margin:0;padding:0;box-sizing:border-box;}
-    body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;padding:28px 34px;font-size:10pt;line-height:1.4;}
-    .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2.5px solid #0b1220;padding-bottom:12px;margin-bottom:18px;}
-    .brand{font-size:22pt;font-weight:800;color:#0b1220;letter-spacing:-.5px;}
-    .brand span{color:#0091c2;}
-    .hdr-meta{text-align:right;font-size:8.5pt;color:#555;line-height:1.5;}
-    .section-title{font-size:12pt;font-weight:700;color:#0b1220;margin:20px 0 10px;padding-bottom:5px;border-bottom:1px solid #e2e2e2;}
+    body{font-family:'Inter','Segoe UI',Arial,sans-serif;color:#1a2233;padding:0;font-size:10pt;line-height:1.4;}
+    .page{padding:0 34px 28px;}
+    .hdr{display:flex;justify-content:space-between;align-items:center;background:#0F1420;padding:16px 20px;margin-bottom:18px;}
+    .brand{font-size:20pt;font-weight:800;color:#fff;letter-spacing:-.5px;}
+    .brand span{color:#00C4FF;}
+    .hdr-meta{text-align:right;font-size:8.5pt;color:#9FB0CC;line-height:1.5;}
+    .hdr-meta b{color:#fff;font-size:9.5pt;}
+    .section-title{font-size:12pt;font-weight:700;color:#0F1420;margin:20px 0 10px;padding-left:8px;border-left:4px solid #00C4FF;}
     .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:8px;}
-    .kpi{background:#f6f8fa;border:1px solid #e6e9ee;border-radius:5px;padding:9px 11px;}
+    .kpi{background:#F6F8FA;border:1px solid #E6E9EE;border-top:3px solid #00C4FF;border-radius:5px;padding:9px 11px;}
     .kpi-lbl{font-size:7.5pt;color:#777;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;}
-    .kpi-val{font-size:13pt;font-weight:700;font-family:'Courier New',monospace;}
+    .kpi-val{font-size:13pt;font-weight:700;font-family:'DM Mono','Courier New',monospace;color:#0F1420;}
     table{width:100%;border-collapse:collapse;margin:8px 0;font-size:8.5pt;}
-    th{background:#0b1220;color:#fff;text-align:left;padding:6px 8px;font-size:7.5pt;text-transform:uppercase;letter-spacing:.03em;}
+    th{background:#0F1420;color:#fff;text-align:left;padding:6px 8px;font-size:7.5pt;text-transform:uppercase;letter-spacing:.03em;}
     th.r,td.r{text-align:right;}
-    td{padding:5px 8px;border-bottom:1px solid #eee;font-family:'Courier New',monospace;}
-    td.txt{font-family:'Segoe UI',Arial,sans-serif;}
+    td{padding:5px 8px;border-bottom:1px solid #eee;font-family:'DM Mono','Courier New',monospace;}
+    td.txt{font-family:'Inter','Segoe UI',Arial,sans-serif;}
     tr:nth-child(even) td{background:#fafbfc;}
-    .g{color:#00875a;} .r-clr{color:#d32f2f;} .a{color:#c77700;}
+    .g{color:#00875A;} .r-clr{color:#D32F2F;} .a{color:#C77700;}
     .medal{font-weight:700;}
-    .rank-1{color:#c79100;} .rank-2{color:#7a8694;} .rank-3{color:#a96a28;}
+    .rank-1{color:#D4AF37;} .rank-2{color:#7A8694;} .rank-3{color:#A96A28;}
     .badge{display:inline-block;font-size:7pt;padding:2px 7px;border-radius:10px;font-weight:600;}
-    .badge-buy{background:#e3f6ec;color:#00875a;} .badge-sell{background:#eef2ff;color:#2962ff;} .badge-liq{background:#fdeaea;color:#d32f2f;}
-    .info-box{background:#f0f7ff;border-left:3px solid #0077cc;padding:8px 11px;border-radius:0 4px 4px 0;font-size:9pt;margin:10px 0;line-height:1.5;}
+    .badge-buy{background:#E3F6EC;color:#00875A;} .badge-sell{background:#EEF2FF;color:#2962FF;} .badge-liq{background:#FDEAEA;color:#D32F2F;}
+    .info-box{background:#EEF7FF;border-left:3px solid #00C4FF;padding:8px 11px;border-radius:0 4px 4px 0;font-size:9pt;margin:10px 0;line-height:1.55;}
     .footer{margin-top:24px;padding-top:9px;border-top:1px solid #ddd;font-size:7.5pt;color:#999;display:flex;justify-content:space-between;}
-    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{margin:1.2cm;}}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{margin:0 0 1.2cm;}.hdr{margin-left:-34px;margin-right:-34px;padding-left:34px;padding-right:34px;}}
   `;
   const doc = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${title}</title><style>${css}</style></head><body>
     <div class="hdr">
       <div class="brand">Capital<span>Lab</span></div>
       <div class="hdr-meta"><b>${title}</b><br>Facultad de Economía / Finanzas y Banca<br>Universidad de Panamá<br>Generado: ${date}</div>
     </div>
+    <div class="page">
     ${innerHtml}
     <div class="footer"><span>CapitalLab · Modo Profesor · Universidad de Panamá</span><span>${date}</span></div>
+    </div>
     <script>window.onload=function(){window.print();};<\/script>
   </body></html>`;
   const w = window.open('', '_blank');
@@ -3964,7 +3999,7 @@ function exportTeacherCSV(){
   const blob = new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `CapitalLab_ranking_${new Date().toISOString().slice(0,10)}.csv`;
+  a.href = url; a.download = `CapitalLab ranking ${new Date().toISOString().slice(0,10)}.csv`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   notify('Ranking exportado a CSV ✓');

@@ -583,6 +583,7 @@
       <button class="btn btn-sm" onclick="copiarResumenActivo()" title="Copiar resumen al portapapeles"><i class="ti ti-clipboard-text"></i></button>
       <button class="btn btn-sm" onclick="alternarTodasLasTarjetas('analysis-body')" title="Expandir o colapsar todas las tarjetas"><i class="ti ti-arrows-vertical"></i></button>
       <button class="btn btn-sm" onclick="exportarHistorialPreciosCSV()" title="Exportar historial de precios a CSV"><i class="ti ti-file-spreadsheet"></i></button>
+      <button class="btn btn-sm" onclick="exportarHistorialPreciosPDF()" title="Exportar historial de precios a PDF"><i class="ti ti-file-type-pdf"></i></button>
     </div>
     <div class="metric-grid">
       <div class="metric metric-primary"><div class="metric-label">Precio actual</div><div class="metric-val mono" id="an-price">—</div></div>
@@ -729,6 +730,7 @@
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
       <span><i class="ti ti-history" style="color:var(--accent2);"></i> Historial completo de transacciones</span>
       <button class="btn btn-ghost btn-xs" onclick="exportTransactionsCSV()" title="Exportar libro de operaciones a CSV"><i class="ti ti-file-spreadsheet"></i> CSV</button>
+      <button class="btn btn-ghost btn-xs" onclick="exportTransactionsPDF()" title="Exportar libro de operaciones a PDF"><i class="ti ti-file-type-pdf"></i> PDF</button>
     </div>
     <input type="text" id="tx-buscar" placeholder="Buscar por activo o tipo de operación…" oninput="filtrarHistorialTx(this.value)" style="width:100%;margin:10px 0;padding:8px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:12.5px;">
     <div id="port-history"></div>
@@ -1078,6 +1080,7 @@
         Mostrar a mis estudiantes
       </label>
       <button class="btn btn-sm" id="pos-btn-exportar" style="display:none;" onclick="exportarRankingCSV()"><i class="ti ti-file-spreadsheet"></i> Exportar CSV</button>
+      <button class="btn btn-sm btn-ghost" id="pos-btn-exportar-pdf" style="display:none;" onclick="exportarRankingPDF()"><i class="ti ti-file-type-pdf"></i> Exportar PDF</button>
     </div>
   </div>
 

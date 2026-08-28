@@ -1628,6 +1628,10 @@ async function recopilarResumenActividades(){
 
   // Subastas del Mercado P2P en las que participó (ganadas o vendidas), si existen.
   let subastas = [];
+  // Crecimiento personal a través del tiempo — desde portafolios_historial,
+  // que no recorta datos viejos (a diferencia del historial de 60 puntos
+  // usado para el gráfico rápido de Mi Cartera).
+  let crecimiento = [];
   if(sb && currentUser && currentUser.usuario_id && !guestMode){
     try {
       const { data } = await sb.from('ofertas_p2p').select('*')
@@ -1636,12 +1640,29 @@ async function recopilarResumenActividades(){
         .order('creado_en',{ascending:false}).limit(10);
       subastas = data || [];
     } catch(e){ subastas = []; }
+    try {
+      const { data: hist } = await sb.from('portafolios_historial').select('valor_total, retorno_pct, dia')
+        .eq('usuario_id', currentUser.usuario_id).order('dia');
+      crecimiento = (hist||[]).map(h => ({ fecha: h.dia, valor: Number(h.valor_total), retorno: Number(h.retorno_pct) }));
+    } catch(e){ crecimiento = []; }
   }
 
   // Órdenes — las operaciones más recientes registradas en esta cartera.
   const ordenes = txHistory.slice(0, 10);
 
-  return { valorTotal, retornoPct, pm, topPosiciones, labSesiones, subastas, ordenes };
+  // Explicaciones pedagógicas breves — para que el resumen enseñe algo,
+  // no solo reporte números. Se calibran según los valores reales del
+  // estudiante, no son un texto genérico fijo.
+  const explicaciones = {
+    sharpe: pm.sharpe >= 1
+      ? `Tu Ratio Sharpe de ${pm.sharpe.toFixed(2)} es sólido: estás siendo compensado de forma razonable por el riesgo que asumes.`
+      : `Tu Ratio Sharpe de ${pm.sharpe.toFixed(2)} indica que el retorno obtenido no compensa del todo el riesgo asumido — vale la pena revisar si la volatilidad de tu cartera está justificada por el retorno esperado.`,
+    diversificacion: portfolio.length >= 4
+      ? `Con ${portfolio.length} posiciones distintas, tu cartera está razonablemente diversificada — el riesgo no depende de un solo activo.`
+      : `Con solo ${portfolio.length} posición(es), tu cartera depende mucho de pocos activos — diversificar reduce el impacto de que a uno solo le vaya mal.`,
+  };
+
+  return { valorTotal, retornoPct, pm, topPosiciones, labSesiones, subastas, ordenes, crecimiento, explicaciones };
 }
 
 async function abrirResumenParaPresentar(){
@@ -2124,6 +2145,18 @@ function renderResumenActividadesHTML(d){
       <div style="font-size:15px;font-weight:600;color:${gan?'var(--green)':'var(--red)'};">${gan?'+':''}${d.retornoPct.toFixed(2)}% desde el capital inicial</div>
     </div>`;
 
+  if(d.crecimiento && d.crecimiento.length >= 2){
+    html += `<div style="font-weight:700;font-size:13px;margin-bottom:6px;">Mi crecimiento a través del tiempo</div>`;
+    html += `<div style="background:var(--c2);border-radius:var(--r2);padding:12px;margin-bottom:14px;">${graficaEvolucionSVG(d.crecimiento)}</div>`;
+  }
+
+  if(d.explicaciones){
+    html += `<div style="background:rgba(0,196,255,.08);border-left:3px solid var(--accent2);border-radius:0 6px 6px 0;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--t2);line-height:1.5;">
+      <div style="margin-bottom:6px;"><b style="color:var(--accent2);">Ratio Sharpe (${d.pm.sharpe.toFixed(2)}):</b> ${d.explicaciones.sharpe}</div>
+      <div><b style="color:var(--accent2);">Diversificación:</b> ${d.explicaciones.diversificacion}</div>
+    </div>`;
+  }
+
   if(d.topPosiciones.length){
     html += `<div style="font-weight:700;font-size:13px;margin-bottom:6px;">Principales posiciones</div>`;
     html += d.topPosiciones.map(p => `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--c3);">
@@ -2160,9 +2193,20 @@ function renderResumenActividadesHTML(d){
 
 function exportarResumenActividadesPDF(d){
   const gan = d.retornoPct >= 0;
+  const graficoCrecimiento = (d.crecimiento && d.crecimiento.length >= 2)
+    ? `<div class="section"><div class="section-title">Crecimiento a través del tiempo</div></div>${graficaEvolucionSVGImpresion(d.crecimiento)}`
+    : '';
+  const cajaPedagogica = d.explicaciones
+    ? `<div class="info-box">
+        <b>Ratio Sharpe (${d.pm.sharpe.toFixed(2)}):</b> ${d.explicaciones.sharpe}<br><br>
+        <b>Diversificación:</b> ${d.explicaciones.diversificacion}
+       </div>`
+    : '';
   const body = pdfHeader(`Resumen de actividades — ${currentUser.nombre}`)
     + `<div class="section"><div class="section-title">Mi cartera</div>
        <div class="section-sub">Valor total: $${d.valorTotal.toLocaleString('es-PA',{maximumFractionDigits:0})} · Retorno: ${gan?'+':''}${d.retornoPct.toFixed(2)}%</div></div>`
+    + graficoCrecimiento
+    + cajaPedagogica
     + (d.topPosiciones.length ? `<table><tr><th>Posición</th><th class="right">Valor</th></tr>${d.topPosiciones.map(p=>`<tr><td>${p.name}</td><td class="right">$${(p.qty*(p.currentPrice||p.buyPrice)).toLocaleString('es-PA',{maximumFractionDigits:0})}</td></tr>`).join('')}</table>` : '')
     + (d.labSesiones.length ? `<div class="section"><div class="section-title">Laboratorio</div></div><table><tr><th>Horizonte</th><th>Meta</th><th>Resultado</th></tr>${d.labSesiones.map(h=>`<tr><td>${h.horizon||'—'} meses</td><td>${h.target||0}%</td><td>${h.passed?'Meta cumplida':'No alcanzada'}</td></tr>`).join('')}</table>` : '')
     + (d.subastas.length ? `<div class="section"><div class="section-title">Subastas del Mercado entre Estudiantes</div></div><table><tr><th>Activo</th><th>Cantidad</th><th class="right">Valor</th></tr>${d.subastas.map(s=>`<tr><td>${s.activo_nombre}</td><td>${s.cantidad}u</td><td class="right">$${(s.cantidad*s.precio_actual).toLocaleString('es-PA',{maximumFractionDigits:0})}</td></tr>`).join('')}</table>` : '')
@@ -2196,6 +2240,38 @@ async function exportarResumenActividadesPPT(d){
     s.addTable(filas, { x:0.6, y:3.3, w:9, fontSize:14, color:WHITE, border:{type:'solid',color:'242D42',pt:1}, fill:{color:'1C2333'} });
   }
 
+  // Gráfico de crecimiento — nativo de PowerPoint (editable con datos
+  // reales adentro, no una imagen plana), lo más "interactivo" que
+  // permite el formato .pptx en sí. Solo aparece si hay suficiente
+  // historial real — nunca se inventan puntos.
+  if(d.crecimiento && d.crecimiento.length >= 2){
+    s = pptx.addSlide(); s.background = { color: NAVY };
+    s.addText('Mi Crecimiento a Través del Tiempo', { x:0.6, y:0.4, w:12, h:0.7, fontSize:28, bold:true, color:WHITE, fontFace:'Arial' });
+    s.addChart(pptx.ChartType.line, [{
+      name: 'Valor de la cartera',
+      labels: d.crecimiento.map(p => new Date(p.fecha).toLocaleDateString('es-PA', {month:'short', day:'numeric'})),
+      values: d.crecimiento.map(p => Math.round(p.valor)),
+    }], {
+      x:0.6, y:1.3, w:12, h:5,
+      chartColors:[CYAN], lineSize:3, lineDataSymbol:'circle', lineDataSymbolSize:6,
+      catAxisLabelColor:'9FB0CC', valAxisLabelColor:'9FB0CC', catAxisLineColor:'242D42', valAxisLineColor:'242D42',
+      valGridLine:{color:'1C2333'}, chartArea:{fill:{color:NAVY}}, plotArea:{fill:{color:NAVY}},
+      showLegend:false, dataLabelColor:WHITE,
+    });
+  }
+
+  // Explicación pedagógica — el objetivo de la presentación no es solo
+  // mostrar números, sino que el estudiante pueda explicar qué
+  // significan frente a la clase.
+  if(d.explicaciones){
+    s = pptx.addSlide(); s.background = { color: NAVY };
+    s.addText('¿Qué dicen estos números?', { x:0.6, y:0.4, w:12, h:0.7, fontSize:28, bold:true, color:WHITE, fontFace:'Arial' });
+    s.addText(`Ratio Sharpe: ${d.pm.sharpe.toFixed(2)}`, { x:0.6, y:1.6, w:12, h:0.5, fontSize:18, bold:true, color:CYAN, fontFace:'Arial' });
+    s.addText(d.explicaciones.sharpe, { x:0.6, y:2.15, w:11.5, h:1.1, fontSize:15, color:'D6DEEC', fontFace:'Arial' });
+    s.addText('Diversificación', { x:0.6, y:3.5, w:12, h:0.5, fontSize:18, bold:true, color:CYAN, fontFace:'Arial' });
+    s.addText(d.explicaciones.diversificacion, { x:0.6, y:4.05, w:11.5, h:1.1, fontSize:15, color:'D6DEEC', fontFace:'Arial' });
+  }
+
   if(d.labSesiones.length){
     s = pptx.addSlide(); s.background = { color: NAVY };
     s.addText('Laboratorio', { x:0.6, y:0.4, w:12, h:0.7, fontSize:28, bold:true, color:WHITE, fontFace:'Arial' });
@@ -2220,7 +2296,7 @@ async function exportarResumenActividadesPPT(d){
     s.addTable(filas, { x:0.4, y:1.3, w:12.5, fontSize:12, color:WHITE, border:{type:'solid',color:'242D42',pt:1}, fill:{color:'1C2333'} });
   }
 
-  await pptx.writeFile({ fileName: `resumen-actividades-${(currentUser.nombre||'estudiante').replace(/\s+/g,'_')}.pptx` });
+  await pptx.writeFile({ fileName: `resumen-actividades-${(currentUser.nombre||'estudiante').replace(/\s+/g,'-')}.pptx` });
   notify('PowerPoint generado.', 'success');
 }
 
@@ -3313,6 +3389,7 @@ async function renderPosicionesPage(){
       toggleWrap.style.display = 'flex';
       document.getElementById('pos-toggle-visible').checked = !!sesion?.mostrar_ranking;
       document.getElementById('pos-btn-exportar').style.display = '';
+      document.getElementById('pos-btn-exportar-pdf').style.display = '';
     } else {
       toggleWrap.style.display = 'none';
       if(!sesion?.mostrar_ranking){
@@ -3375,10 +3452,27 @@ function exportarRankingCSV(){
   const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `ranking_${(currentUser?.sesion_nombre||'sesion').replace(/[^a-z0-9]/gi,'_')}.csv`;
+  a.href = url; a.download = `ranking-${(currentUser?.sesion_nombre||'sesion').replace(/[^a-z0-9]/gi,'-')}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   notify('Ranking exportado.', 'success');
+}
+
+function exportarRankingPDF(){
+  if(!rankingPosicionesCache || !rankingPosicionesCache.length){ notify('Todavía no hay datos del ranking para exportar.', 'error'); return; }
+  const n = rankingPosicionesCache.length;
+  const promedio = rankingPosicionesCache.reduce((s,p)=>s+p.retorno,0) / n;
+  const inner = pdfHeader(`Tabla de posiciones — ${currentUser?.sesion_nombre||'Sesión'}`)
+    + `<div class="kpi-grid">
+        <div class="kpi"><div class="kpi-lbl">Estudiantes</div><div class="kpi-val">${n}</div></div>
+        <div class="kpi"><div class="kpi-lbl">Retorno promedio</div><div class="kpi-val ${promedio>=0?'g':'r'}">${promedio>=0?'+':''}${promedio.toFixed(2)}%</div></div>
+       </div>
+       <div class="section-title">Clasificación completa</div>
+       <table><tr><th>#</th><th>Estudiante</th><th class="right">Retorno</th><th class="right">Valor de cartera</th></tr>
+       ${rankingPosicionesCache.map((p,i)=>`<tr><td class="mono">${i+1}</td><td>${p.nombre}</td><td class="right ${p.retorno>=0?'g':'r'} mono">${p.retorno>=0?'+':''}${p.retorno.toFixed(2)}%</td><td class="right mono">$${(p.valor||0).toLocaleString('es-PA',{maximumFractionDigits:0})}</td></tr>`).join('')}
+       </table>`
+    + pdfFooter();
+  openPrintWindow(inner, `Tabla de posiciones — ${currentUser?.sesion_nombre||'Sesión'}`);
 }
 
 async function alternarVisibilidadRanking(visible){
