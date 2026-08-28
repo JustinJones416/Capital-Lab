@@ -1543,6 +1543,7 @@ function bloqueEstudiantePDF(estNombre, estCorreo, port, calificaciones, labHist
   const bloqueCrecimiento = (historial && historial.length >= 2) ? `
     <div class="section"><div class="section-title" style="font-size:10pt;">Crecimiento de la cartera a través del tiempo</div></div>
     ${graficaEvolucionSVGImpresion(historial.map(h=>({fecha:h.dia, valor:Number(h.valor_total)})))}
+    ${tablaSeguimientoPDF(historial.map(h=>({fecha:h.dia, valor:Number(h.valor_total)})), 'Valor de cartera', v => '$'+v.toLocaleString('es-PA',{maximumFractionDigits:0}))}
   ` : '';
 
   // Explicación pedagógica del riesgo — calibrada al retorno real de
@@ -1631,6 +1632,21 @@ function graficaEvolucionSVGImpresion(puntos){
     <path d="${area}" fill="${color}" opacity="0.1"></path>
     <path d="${linea}" fill="none" stroke="${color}" stroke-width="2"></path>
   </svg>`;
+}
+
+// Tabla con etiquetas para acompañar cada gráfico de seguimiento —
+// antes solo había una línea sin números concretos al lado; ahora
+// cada punto trae su fecha y su valor exacto, en una tabla normal,
+// para que el informe se pueda leer sin tener que interpretar la
+// forma de la curva. formatearValor recibe el valor crudo del punto
+// y decide cómo mostrarlo (porcentaje, dinero, cantidad entera, etc.)
+function tablaSeguimientoPDF(puntos, etiquetaColumna, formatearValor){
+  if(!puntos || puntos.length < 2) return '';
+  return `
+    <table style="margin-top:6px;">
+      <tr><th>Fecha</th><th class="right">${etiquetaColumna}</th></tr>
+      ${puntos.map(p => `<tr><td>${new Date(p.fecha).toLocaleDateString('es-PA',{day:'2-digit',month:'short',year:'numeric'})}</td><td class="right mono">${formatearValor(p.valor)}</td></tr>`).join('')}
+    </table>`;
 }
 
 // ══════════════════════════════════════════════════
@@ -2537,9 +2553,9 @@ async function exportarInformeSalonPDF(){
         <div class="section"><div class="section-title">Seguimiento del grupo a través del tiempo</div>
         <div class="section-sub">${totalConHistorial} de ${estudiantes.length} estudiante(s) con historial de cartera registrado</div></div>
         <div class="section" style="margin-top:14px;"><div class="section-title" style="font-size:10pt;">Crecimiento promedio de la cartera</div></div>
-        ${puntosCrecimiento.length>=2 ? graficaEvolucionSVGImpresion(puntosCrecimiento) : '<div class="empty">Todavía no hay suficientes días con actividad para graficar.</div>'}
-        ${puntosAdopcion.length>=2 ? `<div class="section" style="margin-top:14px;"><div class="section-title" style="font-size:10pt;">Adopción — estudiantes inscritos, acumulado</div></div>${graficaEvolucionSVGImpresion(puntosAdopcion)}` : ''}
-        ${puntosActividad.length>=2 ? `<div class="section" style="margin-top:14px;"><div class="section-title" style="font-size:10pt;">Actividad — operaciones registradas, acumulado</div></div>${graficaEvolucionSVGImpresion(puntosActividad)}` : ''}
+        ${puntosCrecimiento.length>=2 ? graficaEvolucionSVGImpresion(puntosCrecimiento) + tablaSeguimientoPDF(puntosCrecimiento, 'Retorno promedio', v => (v>=0?'+':'')+v.toFixed(2)+'%') : '<div class="empty">Todavía no hay suficientes días con actividad para graficar.</div>'}
+        ${puntosAdopcion.length>=2 ? `<div class="section" style="margin-top:14px;"><div class="section-title" style="font-size:10pt;">Adopción — estudiantes inscritos, acumulado</div></div>${graficaEvolucionSVGImpresion(puntosAdopcion)}${tablaSeguimientoPDF(puntosAdopcion, 'Estudiantes inscritos', v => Math.round(v))}` : ''}
+        ${puntosActividad.length>=2 ? `<div class="section" style="margin-top:14px;"><div class="section-title" style="font-size:10pt;">Actividad — operaciones registradas, acumulado</div></div>${graficaEvolucionSVGImpresion(puntosActividad)}${tablaSeguimientoPDF(puntosActividad, 'Operaciones acumuladas', v => Math.round(v))}` : ''}
         <div class="info-box">El crecimiento promedio se calcula únicamente con los días en los que al menos un estudiante usó el simulador, sin rellenar días sin actividad, para no sugerir una precisión que los datos no tienen.</div>
         <div style="page-break-before:always;"></div>
       `;
