@@ -1528,13 +1528,32 @@ function agregarAlFeedSalaVivo(op){
 // Reutiliza el motor de PDF ya usado en el resto de la app
 // (pdfStyles / pdfHeader / pdfFooter / openPrintWindow).
 
-function bloqueEstudiantePDF(estNombre, estCorreo, port, calificaciones, labHist, asistencia){
+function bloqueEstudiantePDF(estNombre, estCorreo, port, calificaciones, labHist, asistencia, historial){
   const retorno = port?.retorno_pct!=null ? Number(port.retorno_pct) : null;
   const retornoClass = retorno===null ? '' : (retorno>=0 ? 'g' : 'r');
   const retornoTxt = retorno!==null ? (retorno>=0?'+':'')+retorno.toFixed(2)+'%' : '—';
   const fmtMoney = v => v!=null ? '$'+Number(v).toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
   const asistPresentes = (asistencia||[]).filter(a=>a.presente).length;
   const asistTotal = (asistencia||[]).length;
+
+  // Crecimiento real a través del tiempo — de portafolios_historial,
+  // que no recorta datos viejos (a diferencia del historial de 60
+  // puntos usado para el gráfico rápido de Mi Cartera). Solo se
+  // muestra si de verdad hay suficientes puntos.
+  const bloqueCrecimiento = (historial && historial.length >= 2) ? `
+    <div class="section"><div class="section-title" style="font-size:10pt;">Crecimiento de la cartera a través del tiempo</div></div>
+    ${graficaEvolucionSVGImpresion(historial.map(h=>({fecha:h.dia, valor:Number(h.valor_total)})))}
+  ` : '';
+
+  // Explicación pedagógica del riesgo — calibrada al retorno real de
+  // este estudiante, no un texto genérico fijo.
+  const bloqueExplicacion = retorno!==null ? `
+    <div class="info-box${retorno>=0?' success':' danger'}">
+      <b>Qué dice el retorno de ${retornoTxt}:</b> ${retorno>=0
+        ? 'La cartera ha ganado valor desde el capital inicial. Esto no significa que cada decisión individual haya sido acertada — vale la pena revisar qué posiciones específicas impulsaron ese resultado, y si el riesgo asumido para llegar ahí fue razonable.'
+        : 'La cartera vale menos que el capital inicial en este momento. En un simulador, esto es parte del aprendizaje — lo importante es identificar qué decisiones contribuyeron más a esa pérdida, y si el riesgo asumido estaba justificado por el retorno esperado.'}
+    </div>
+  ` : '';
 
   return `
     <div class="section">
@@ -1548,6 +1567,8 @@ function bloqueEstudiantePDF(estNombre, estCorreo, port, calificaciones, labHist
       <div class="kpi"><div class="kpi-lbl">Operaciones</div><div class="kpi-val">${port?.num_operaciones ?? 0}</div></div>
       <div class="kpi"><div class="kpi-lbl">Asistencia</div><div class="kpi-val">${asistTotal?`${asistPresentes}/${asistTotal}`:'—'}</div></div>
     </div>
+    ${bloqueCrecimiento}
+    ${bloqueExplicacion}
 
     <div class="section"><div class="section-title" style="font-size:10pt;">Sesiones de Laboratorio</div></div>
     ${(labHist&&labHist.length) ? `
@@ -1602,7 +1623,11 @@ function graficaEvolucionSVGImpresion(puntos){
   const area = linea + ` L${coords[coords.length-1][0].toFixed(1)},${h-pad} L${coords[0][0].toFixed(1)},${h-pad} Z`;
   const subio = puntos[puntos.length-1].valor >= puntos[0].valor;
   const color = subio ? '#00a86b' : '#d81d34';
-  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:120px;">
+  // xmlns explícito y medidas fijas en px (no porcentaje) — html2canvas
+  // (el motor que usa la descarga de PDF) es más estricto que un
+  // navegador normal mostrando la app: sin esto, el gráfico salía
+  // completamente en blanco en el PDF, aunque se veía bien en pantalla.
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="650" height="120">
     <path d="${area}" fill="${color}" opacity="0.1"></path>
     <path d="${linea}" fill="none" stroke="${color}" stroke-width="2"></path>
   </svg>`;
@@ -2010,6 +2035,77 @@ async function abrirMisTickets(){
   }
 }
 
+// ── Centro de Exportación ──
+// Antes, cada exportación vivía escondida en su propia sección (el
+// ranking en Posiciones, el libro de operaciones en Cartera, el
+// informe del salón en Modo Profesor...) — había que saber de
+// antemano en qué pantalla estaba cada cosa. Esto las junta todas en
+// un solo lugar, con una casilla por cada una, para que se puedan
+// escoger varias y descargarlas de una sola vez, sin ir sección por
+// sección. La lista cambia según el rol: un docente ve los informes
+// de grupo, un estudiante ve los suyos propios.
+function definirExportacionesDisponibles(){
+  const esDocente = currentUser?.rol === 'docente' || currentUser?.rol === 'superadmin';
+  const items = [];
+
+  if(esDocente){
+    items.push(
+      { id:'ranking-csv', titulo:'Ranking de estudiantes', formato:'CSV', icono:'ti-file-spreadsheet', accion: () => exportTeacherCSV() },
+      { id:'ranking-pdf', titulo:'Ranking de estudiantes', formato:'PDF', icono:'ti-file-type-pdf', accion: () => exportTeacherPDF() },
+      { id:'salon-pdf', titulo:'Informe del salón — cartera, seguimiento y calificaciones', formato:'PDF', icono:'ti-file-type-pdf', accion: () => exportarInformeSalonPDF(), destacado:true },
+    );
+  } else {
+    items.push(
+      { id:'operaciones-csv', titulo:'Libro de operaciones', formato:'CSV', icono:'ti-file-spreadsheet', accion: () => exportTransactionsCSV() },
+      { id:'operaciones-pdf', titulo:'Libro de operaciones', formato:'PDF', icono:'ti-file-type-pdf', accion: () => exportTransactionsPDF() },
+      { id:'resumen-pdf', titulo:'Resumen de actividades — cartera, crecimiento y explicaciones', formato:'PDF', icono:'ti-file-type-pdf', accion: async () => exportarResumenActividadesPDF(await recopilarResumenActividades()), destacado:true },
+      { id:'resumen-ppt', titulo:'Resumen de actividades para presentar', formato:'PPTX', icono:'ti-presentation', accion: async () => exportarResumenActividadesPPT(await recopilarResumenActividades()) },
+    );
+  }
+  return items;
+}
+
+function abrirCentroExportacion(){
+  document.getElementById('centro-exportacion-overlay').style.display = 'flex';
+  const items = definirExportacionesDisponibles();
+  const cont = document.getElementById('centro-exportacion-lista');
+  cont.innerHTML = items.map(it => `
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${it.destacado?'rgba(0,196,255,.06)':'var(--c2, #161b26)'};border:1px solid ${it.destacado?'var(--accent2, #4a9eff)':'var(--c4, #242d42)'};border-radius:8px;margin-bottom:8px;cursor:pointer;">
+      <input type="checkbox" class="centro-export-check" value="${it.id}" ${it.destacado?'checked':''} style="width:16px;height:16px;flex-shrink:0;">
+      <i class="ti ${it.icono}" style="font-size:18px;color:var(--accent2, #4a9eff);flex-shrink:0;"></i>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12.5px;font-weight:600;">${it.titulo}</div>
+      </div>
+      <span class="nav-badge" style="flex-shrink:0;">${it.formato}</span>
+    </label>
+  `).join('');
+  document.getElementById('centro-exportacion-progreso').textContent = '';
+  window.__exportacionesDisponiblesCache = items;
+}
+
+async function ejecutarExportacionesSeleccionadas(){
+  const items = window.__exportacionesDisponiblesCache || [];
+  const seleccionados = [...document.querySelectorAll('.centro-export-check:checked')].map(c => c.value);
+  if(!seleccionados.length){ notify('Marca al menos una exportación.', 'error'); return; }
+
+  const progreso = document.getElementById('centro-exportacion-progreso');
+  // Se ejecutan una por una, no todas a la vez — cada descarga muestra
+  // su propia capa de "Generando…" mientras arma el archivo, y
+  // lanzarlas todas juntas las haría pisarse entre sí.
+  for(let i=0; i<seleccionados.length; i++){
+    const item = items.find(it => it.id === seleccionados[i]);
+    if(!item) continue;
+    progreso.textContent = `Generando ${i+1} de ${seleccionados.length}: ${item.titulo}…`;
+    try {
+      await item.accion();
+    } catch(e){
+      notify(`No se pudo generar "${item.titulo}": ` + (e.message||e), 'error');
+    }
+    await new Promise(r => setTimeout(r, 500)); // pausa breve entre descargas, para que el navegador no las descarte por venir demasiado juntas
+  }
+  progreso.textContent = `Listo — ${seleccionados.length} exportación(es) generada(s).`;
+}
+
 async function agregarSeguimientoTicket(ticketId){
   const input = document.getElementById(`seguimiento-input-${ticketId}`);
   const texto = input.value.trim();
@@ -2212,7 +2308,7 @@ function exportarResumenActividadesPDF(d){
     + (d.subastas.length ? `<div class="section"><div class="section-title">Subastas del Mercado entre Estudiantes</div></div><table><tr><th>Activo</th><th>Cantidad</th><th class="right">Valor</th></tr>${d.subastas.map(s=>`<tr><td>${s.activo_nombre}</td><td>${s.cantidad}u</td><td class="right">$${(s.cantidad*s.precio_actual).toLocaleString('es-PA',{maximumFractionDigits:0})}</td></tr>`).join('')}</table>` : '')
     + (d.ordenes.length ? `<div class="section"><div class="section-title">Órdenes recientes</div></div><table><tr><th>Operación</th><th>Activo</th><th class="right">Cantidad</th><th class="right">Precio</th></tr>${d.ordenes.map(o=>`<tr><td>${o.action}</td><td>${o.name}</td><td class="right">${o.qty}u</td><td class="right">$${fmt(o.price)}</td></tr>`).join('')}</table>` : '')
     + pdfFooter();
-  openPrintWindow(body, `Resumen de actividades — ${currentUser.nombre}`);
+  return openPrintWindow(body, `Resumen de actividades — ${currentUser.nombre}`);
 }
 
 async function exportarResumenActividadesPPT(d){
@@ -2225,6 +2321,7 @@ async function exportarResumenActividadesPPT(d){
 
   let s = pptx.addSlide();
   s.background = { color: NAVY };
+  s.addImage({ path: 'logo-capitallab.png', x:0.6, y:1.3, w:0.9, h:0.9 });
   s.addText('Resumen de Actividades', { x:0.6, y:2.6, w:12, h:1, fontSize:40, bold:true, color:WHITE, fontFace:'Arial' });
   s.addText(currentUser.nombre, { x:0.6, y:3.5, w:12, h:0.6, fontSize:22, color:CYAN, fontFace:'Arial' });
   s.addText('CapitalLab · Simulador de Mercados Financieros · Universidad de Panamá', { x:0.6, y:6.6, w:12, h:0.4, fontSize:12, color:'7A8AB0', fontFace:'Arial' });
@@ -2304,7 +2401,7 @@ async function exportarPortafolioEvidenciasPDF(usuarioId, nombre, sesionId){
   if(!sb){ notify('No hay conexión con la nube para exportar.', 'error'); return; }
   notify('Generando Portafolio de Evidencias…', 'success');
   try {
-    const [{data:usr},{data:port},{data:cals},{data:sesion},{data:asist},{data:intentos},{data:logros},{data:retosPart}] = await Promise.all([
+    const [{data:usr},{data:port},{data:cals},{data:sesion},{data:asist},{data:intentos},{data:logros},{data:retosPart},{data:historialCartera}] = await Promise.all([
       sb.from('usuarios').select('nombre,correo').eq('id', usuarioId).maybeSingle(),
       sb.from('portafolios').select('*').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).maybeSingle(),
       sb.from('calificaciones').select('*').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).order('creado_en',{ascending:false}),
@@ -2313,12 +2410,13 @@ async function exportarPortafolioEvidenciasPDF(usuarioId, nombre, sesionId){
       sb.from('intentos_cuestionario').select('nota,completado_en,cuestionarios(titulo)').eq('usuario_id', usuarioId).eq('sesion_id', sesionId),
       sb.from('logros_desbloqueados').select('codigo_logro,desbloqueado_en').eq('usuario_id', usuarioId).eq('sesion_id', sesionId),
       sb.from('retos_participantes').select('valor_inicial,retos(titulo,meta_retorno,fecha_fin)').eq('usuario_id', usuarioId),
+      sb.from('portafolios_historial').select('dia,valor_total').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).order('dia'),
     ]);
 
     const nombreFinal = usr?.nombre || nombre;
     const valorActual = port?.valor_total;
 
-    const bloqueBase = bloqueEstudiantePDF(nombreFinal, usr?.correo, port, cals||[], port?.lab_historial||[], asist||[]);
+    const bloqueBase = bloqueEstudiantePDF(nombreFinal, usr?.correo, port, cals||[], port?.lab_historial||[], asist||[], historialCartera||[]);
 
     const bloqueCuestionarios = `
       <div class="section"><div class="section-title" style="font-size:10pt;">Cuestionarios resueltos</div></div>
@@ -2344,19 +2442,14 @@ async function exportarPortafolioEvidenciasPDF(usuarioId, nombre, sesionId){
           }).join('')}
         </table>` : `<div class="empty">No ha participado en ningún reto todavía.</div>`}`;
 
-    const bloqueEvolucion = `
-      <div class="section"><div class="section-title" style="font-size:10pt;">Evolución del valor de cartera</div></div>
-      ${graficaEvolucionSVGImpresion(port?.valor_historial)}`;
-
     const body = pdfHeader('Portafolio de Evidencias — ' + (sesion?.nombre||''))
       + bloqueBase
       + `<div style="page-break-before:always;"></div>`
-      + bloqueEvolucion
       + bloqueCuestionarios
       + bloqueLogros
       + bloqueRetos
       + pdfFooter();
-    openPrintWindow(body, `Portafolio de Evidencias — ${nombreFinal}`);
+    return openPrintWindow(body, `Portafolio de Evidencias — ${nombreFinal}`);
   } catch(e){
     notify('No se pudo generar el portafolio: ' + (e.message||e), 'error');
   }
@@ -2366,18 +2459,19 @@ async function exportarInformeEstudiantePDF(usuarioId, nombre, sesionId){
   if(!sb){ notify('No hay conexión con la nube para exportar.', 'error'); return; }
   notify('Generando informe…', 'success');
   try {
-    const [{data: usr}, {data: port}, {data: cals}, {data: sesion}, {data: asist}] = await Promise.all([
+    const [{data: usr}, {data: port}, {data: cals}, {data: sesion}, {data: asist}, {data: historialCartera}] = await Promise.all([
       sb.from('usuarios').select('nombre,correo').eq('id', usuarioId).maybeSingle(),
       sb.from('portafolios').select('*').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).maybeSingle(),
       sb.from('calificaciones').select('*').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).order('creado_en',{ascending:false}),
       sb.from('sesiones_clase').select('nombre').eq('id', sesionId).maybeSingle(),
       sb.from('asistencia').select('fecha,presente').eq('usuario_id', usuarioId).eq('sesion_id', sesionId),
+      sb.from('portafolios_historial').select('dia,valor_total').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).order('dia'),
     ]);
     const nombreFinal = usr?.nombre || nombre;
     const body = pdfHeader(sesion?.nombre || 'Informe del estudiante')
-      + bloqueEstudiantePDF(nombreFinal, usr?.correo, port, cals||[], port?.lab_historial||[], asist||[])
+      + bloqueEstudiantePDF(nombreFinal, usr?.correo, port, cals||[], port?.lab_historial||[], asist||[], historialCartera||[])
       + pdfFooter();
-    openPrintWindow(body, `Informe — ${nombreFinal}`);
+    return openPrintWindow(body, `Informe — ${nombreFinal}`);
   } catch(e){
     notify('No se pudo generar el informe: ' + (e.message||e), 'error');
   }
@@ -2390,18 +2484,21 @@ async function exportarInformeSalonPDF(){
   notify('Generando informe del salón…', 'success');
   try {
     const sesionId = currentUser.sesion_id;
-    const [{data: sesion}, {data: estudiantes}, {data: ports}, {data: cals}, {data: asistRows}] = await Promise.all([
+    const [{data: sesion}, {data: estudiantes}, {data: ports}, {data: cals}, {data: asistRows}, {data: historialTodos}, {data: operacionesLista}] = await Promise.all([
       sb.from('sesiones_clase').select('nombre,codigo').eq('id', sesionId).maybeSingle(),
-      sb.from('usuarios').select('id,nombre,correo').eq('sesion_id', sesionId).eq('rol','estudiante').order('nombre'),
+      sb.from('usuarios').select('id,nombre,correo,creado_en').eq('sesion_id', sesionId).eq('rol','estudiante').order('nombre'),
       sb.from('portafolios').select('*').eq('sesion_id', sesionId),
       sb.from('calificaciones').select('*').eq('sesion_id', sesionId).order('creado_en',{ascending:false}),
       sb.from('asistencia').select('usuario_id,fecha,presente').eq('sesion_id', sesionId),
+      sb.from('portafolios_historial').select('usuario_id,dia,valor_total,retorno_pct').eq('sesion_id', sesionId).order('dia'),
+      sb.from('operaciones').select('id,fecha').eq('sesion_id', sesionId).order('fecha'),
     ]);
     if(!estudiantes || !estudiantes.length){ notify('Todavía no hay estudiantes registrados en esta sesión.', 'error'); return; }
 
     const portMap = {}; (ports||[]).forEach(p=>{ portMap[p.usuario_id]=p; });
     const calMap = {}; (cals||[]).forEach(c=>{ (calMap[c.usuario_id]=calMap[c.usuario_id]||[]).push(c); });
     const asistMap = {}; (asistRows||[]).forEach(a=>{ (asistMap[a.usuario_id]=asistMap[a.usuario_id]||[]).push(a); });
+    const historialMap = {}; (historialTodos||[]).forEach(h=>{ (historialMap[h.usuario_id]=historialMap[h.usuario_id]||[]).push(h); });
 
     const resumenFilas = estudiantes.map(e=>{
       const p = portMap[e.id];
@@ -2418,9 +2515,39 @@ async function exportarInformeSalonPDF(){
       </tr>`;
     }).join('');
 
+    // ── Seguimiento del grupo a través del tiempo — antes vivía en un
+    // botón aparte ("Informe de seguimiento"); ahora es parte del
+    // informe estándar del salón, tal como corresponde. Mismo cálculo
+    // exacto: promedio diario de retorno (solo días con actividad
+    // real, sin rellenar huecos), adopción acumulada, actividad
+    // acumulada. ──
+    let bloqueSeguimiento = '';
+    if(historialTodos && historialTodos.length >= 2){
+      const porDia = {};
+      historialTodos.forEach(h => { (porDia[h.dia] ||= []).push(Number(h.retorno_pct)); });
+      const diasCrecimiento = Object.keys(porDia).sort();
+      const puntosCrecimiento = diasCrecimiento.map(dia => ({
+        fecha: dia, valor: porDia[dia].reduce((s,v)=>s+v,0) / porDia[dia].length,
+      }));
+      const puntosAdopcion = estudiantes.map((u,i) => ({ fecha: u.creado_en, valor: i+1 }));
+      const puntosActividad = (operacionesLista||[]).map((o,i) => ({ fecha: o.fecha, valor: i+1 }));
+      const totalConHistorial = new Set(historialTodos.map(h=>h.usuario_id)).size;
+
+      bloqueSeguimiento = `
+        <div class="section"><div class="section-title">Seguimiento del grupo a través del tiempo</div>
+        <div class="section-sub">${totalConHistorial} de ${estudiantes.length} estudiante(s) con historial de cartera registrado</div></div>
+        <div class="section" style="margin-top:14px;"><div class="section-title" style="font-size:10pt;">Crecimiento promedio de la cartera</div></div>
+        ${puntosCrecimiento.length>=2 ? graficaEvolucionSVGImpresion(puntosCrecimiento) : '<div class="empty">Todavía no hay suficientes días con actividad para graficar.</div>'}
+        ${puntosAdopcion.length>=2 ? `<div class="section" style="margin-top:14px;"><div class="section-title" style="font-size:10pt;">Adopción — estudiantes inscritos, acumulado</div></div>${graficaEvolucionSVGImpresion(puntosAdopcion)}` : ''}
+        ${puntosActividad.length>=2 ? `<div class="section" style="margin-top:14px;"><div class="section-title" style="font-size:10pt;">Actividad — operaciones registradas, acumulado</div></div>${graficaEvolucionSVGImpresion(puntosActividad)}` : ''}
+        <div class="info-box">El crecimiento promedio se calcula únicamente con los días en los que al menos un estudiante usó el simulador, sin rellenar días sin actividad, para no sugerir una precisión que los datos no tienen.</div>
+        <div style="page-break-before:always;"></div>
+      `;
+    }
+
     const detalle = estudiantes.map((e,i)=>
       `<div style="${i>0?'page-break-before:always;':''}">` +
-      bloqueEstudiantePDF(e.nombre, e.correo, portMap[e.id], calMap[e.id]||[], portMap[e.id]?.lab_historial||[], asistMap[e.id]||[]) +
+      bloqueEstudiantePDF(e.nombre, e.correo, portMap[e.id], calMap[e.id]||[], portMap[e.id]?.lab_historial||[], asistMap[e.id]||[], historialMap[e.id]||[]) +
       `</div>`
     ).join('');
 
@@ -2428,9 +2555,10 @@ async function exportarInformeSalonPDF(){
       + `<div class="section"><div class="section-title">Resumen general</div><div class="section-sub">${estudiantes.length} estudiante(s) · Código de sesión: ${sesion?.codigo||'—'}</div></div>`
       + `<table><tr><th>Estudiante</th><th class="right">Valor cartera</th><th class="right">Retorno</th><th class="right">Operac.</th><th class="right">Asistencia</th><th class="right">Calificaciones</th></tr>${resumenFilas}</table>`
       + `<div style="page-break-before:always;"></div>`
+      + bloqueSeguimiento
       + detalle
       + pdfFooter();
-    openPrintWindow(body, `Informe del salón — ${sesion?.nombre||''}`);
+    return openPrintWindow(body, `Informe del salón — ${sesion?.nombre||''}`);
   } catch(e){
     notify('No se pudo generar el informe: ' + (e.message||e), 'error');
   }
@@ -3472,7 +3600,7 @@ function exportarRankingPDF(){
        ${rankingPosicionesCache.map((p,i)=>`<tr><td class="mono">${i+1}</td><td>${p.nombre}</td><td class="right ${p.retorno>=0?'g':'r'} mono">${p.retorno>=0?'+':''}${p.retorno.toFixed(2)}%</td><td class="right mono">$${(p.valor||0).toLocaleString('es-PA',{maximumFractionDigits:0})}</td></tr>`).join('')}
        </table>`
     + pdfFooter();
-  openPrintWindow(inner, `Tabla de posiciones — ${currentUser?.sesion_nombre||'Sesión'}`);
+  return openPrintWindow(inner, `Tabla de posiciones — ${currentUser?.sesion_nombre||'Sesión'}`);
 }
 
 async function alternarVisibilidadRanking(visible){
@@ -4543,7 +4671,8 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
       <div style="font-size:11px;color:var(--t3);margin-bottom:14px;">Última actividad: ${port.ultima_actividad ? formatearFechaHora(port.ultima_actividad) : 'Sin actividad registrada'}</div>
 
       <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Evolución del valor de cartera</div>
-      ${graficaEvolucionSVG(port.valor_historial)}
+      <div id="det-crecimiento-durable">${graficaEvolucionSVG(port.valor_historial)}</div>
+      <div id="det-explicacion-retorno"></div>
 
       <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px;border-top:1px solid var(--c4);padding-top:14px;">Asistencia</div>
       <div id="det-asistencia"><div class="auth-hint">Cargando…</div></div>
@@ -4594,6 +4723,27 @@ function abrirDetalleEstudiante(usuarioId, nombre, sesionId){
   overlay.querySelector('#det-exportar').onclick = () => exportarInformeEstudiantePDF(usuarioId, nombreEsc, sesionId);
   overlay.querySelector('#det-portafolio').onclick = () => exportarPortafolioEvidenciasPDF(usuarioId, nombreEsc, sesionId);
   overlay.querySelector('#det-calificar').onclick = () => { overlay.remove(); abrirModalCalificar(usuarioId, nombre, sesionId); };
+
+  // Carga progresiva: el modal abre al instante con el gráfico rápido
+  // (datos ya en memoria), y en cuanto llega el historial durable de
+  // verdad (portafolios_historial, que no recorta datos viejos), se
+  // reemplaza por el real y se agrega la explicación pedagógica.
+  if(sb){
+    sb.from('portafolios_historial').select('dia,valor_total').eq('usuario_id', usuarioId).eq('sesion_id', sesionId).order('dia')
+      .then(({data}) => {
+        if(!overlay.isConnected || !data || data.length < 2) return;
+        const contGrafico = overlay.querySelector('#det-crecimiento-durable');
+        if(contGrafico) contGrafico.innerHTML = graficaEvolucionSVG(data.map(h=>({fecha:h.dia, valor:Number(h.valor_total)})));
+        const contExplicacion = overlay.querySelector('#det-explicacion-retorno');
+        if(contExplicacion && retorno!==null) contExplicacion.innerHTML = `
+          <div style="background:rgba(0,196,255,.08);border-left:3px solid var(--accent2);border-radius:0 6px 6px 0;padding:9px 11px;margin-top:8px;font-size:11.5px;color:var(--t2);line-height:1.5;">
+            ${retorno>=0
+              ? 'La cartera ha ganado valor desde el capital inicial — vale la pena revisar con el estudiante qué posiciones específicas impulsaron ese resultado.'
+              : 'La cartera vale menos que el capital inicial en este momento — es un buen punto de partida para conversar sobre qué decisiones contribuyeron más a esa pérdida.'}
+          </div>`;
+      })
+      .catch(()=>{});
+  }
 
   (async () => {
     const cont = overlay.querySelector('#det-asistencia');

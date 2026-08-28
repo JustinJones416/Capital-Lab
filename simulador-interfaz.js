@@ -2073,52 +2073,76 @@ function autosave() { saveProgress(); }
 // Usadas por el PDF del estudiante (exportPDF) y los del modo profesor.
 // ══════════════════════════════════════════════════
 function pdfStyles(){
+  // Cada regla va prefijada con .capitallab-pdf-render — sin esto, los
+  // nombres de clase (.kpi, .info-box, .badge, .mono) chocarían con
+  // clases que la app YA usa para su propia interfaz, y por el
+  // momento en que se genera el PDF se vería la app real corrompida
+  // visualmente. Con el prefijo, estas reglas solo aplican dentro del
+  // contenedor oculto que arma el PDF, nunca fuera de él.
+  const p = '.capitallab-pdf-render';
   return `
-  @page { size: A4; margin: 16mm 15mm 18mm 15mm; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Inter', Arial, Helvetica, sans-serif; font-size: 10pt; color: #1a2233; background: #fff; }
-  /* Identidad visual de CapitalLab (navy/cian/oro) — antes estos
-     reportes usaban un azul genérico (#0077cc) que no coincidía con
-     la marca real de la app ni con el resto de exportaciones
-     recientes (el guion y la presentación del servicio social ya
-     usan esta misma paleta). */
-  .hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #0F1420; border-radius: 8px; margin-bottom: 18px; }
-  .brand { font-size: 22pt; font-weight: 800; letter-spacing: -.5px; line-height: 1; color: #fff; }
-  .brand span { color: #00C4FF; }
-  .hdr-meta { text-align: right; font-size: 8pt; color: #9FB0CC; line-height: 1.6; }
-  .hdr-meta b { color: #fff; font-size: 9pt; }
-  .section { margin-top: 18px; margin-bottom: 8px; }
-  .section-title { font-size: 11.5pt; font-weight: 700; color: #0F1420; border-left: 4px solid #00C4FF; padding-left: 8px; line-height: 1.2; margin: 18px 0 8px; }
-  .section-sub { font-size: 8pt; color: #666; margin-left: 12px; margin-top: 2px; }
-  .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin: 10px 0; }
-  .kpi { background: #F5F7FA; border: 1px solid #E0E4ED; border-top: 3px solid #00C4FF; border-radius: 6px; padding: 9px 11px; }
-  .kpi-lbl { font-size: 7.5pt; color: #666; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
-  .kpi-val { font-size: 15pt; font-weight: 700; font-family: 'DM Mono', 'Courier New', monospace; color: #0F1420; line-height: 1.1; }
-  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 8.5pt; }
-  th { background: #0F1420; color: #fff; font-weight: 600; padding: 6px 8px; text-align: left; font-size: 8pt; }
-  td { padding: 5px 7px; border-bottom: 1px solid #eee; vertical-align: middle; }
-  tr:nth-child(even) td { background: #f9fafb; }
-  .mono { font-family: 'DM Mono', 'Courier New', monospace; }
-  .g { color: #00A86B; font-weight: 700; }
-  .r { color: #E02D2D; font-weight: 700; }
-  .a { color: #C87000; font-weight: 700; }
-  .right { text-align: right; }
-  .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 7pt; font-weight: 700; color: #fff; }
-  .rank-medal { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; font-size:8pt; font-weight:700; }
-  .info-box { background: #EEF7FF; border-left: 3px solid #00C4FF; padding: 8px 11px; border-radius: 0 4px 4px 0; font-size: 8.5pt; margin: 10px 0; line-height: 1.55; }
-  .info-box.success { background: #EFFAF3; border-left-color: #00A86B; }
-  .info-box.danger  { background: #FDF0F0; border-left-color: #E02D2D; }
-  .info-box.gold  { background: #FBF6E9; border-left-color: #D4AF37; }
-  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 7.5pt; color: #999; display: flex; justify-content: space-between; }
-  .empty { text-align: center; padding: 14px; color: #aaa; font-size: 9pt; border: 1px dashed #ddd; border-radius: 6px; }
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none !important; } }
+  ${p} { font-family: 'Inter', Arial, Helvetica, sans-serif; font-size: 10pt; color: #1a2233 !important; background: #fff; width: 700px; padding: 20px 24px; }
+  ${p} * { box-sizing: border-box; }
+  ${p} .hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #0F1420; border-radius: 8px; margin-bottom: 18px; gap: 14px; }
+  ${p} .hdr-left { display: flex; align-items: center; gap: 12px; }
+  ${p} .hdr-logo { width: 42px; height: 42px; border-radius: 9px; flex-shrink: 0; }
+  ${p} .brand { font-size: 20pt; font-weight: 800; letter-spacing: -.5px; line-height: 1; color: #fff; }
+  ${p} .brand span { color: #00C4FF; }
+  ${p} .hdr-meta { text-align: right; font-size: 8pt; color: #9FB0CC; line-height: 1.6; }
+  ${p} .hdr-meta b { color: #fff; font-size: 9pt; }
+  ${p} .section { margin-top: 18px; margin-bottom: 8px; }
+  ${p} .section-title { font-size: 11.5pt; font-weight: 700; color: #0F1420; border-left: 4px solid #00C4FF; padding-left: 8px; line-height: 1.2; margin: 18px 0 8px; }
+  ${p} .section-sub { font-size: 8pt; color: #666; margin-left: 12px; margin-top: 2px; }
+  ${p} .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin: 10px 0; }
+  ${p} .kpi { background: #F5F7FA; border: 1px solid #E0E4ED; border-top: 3px solid #00C4FF; border-radius: 6px; padding: 9px 11px; }
+  ${p} .kpi-lbl { font-size: 7.5pt; color: #666; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+  ${p} .kpi-val { font-size: 15pt; font-weight: 700; font-family: 'DM Mono', 'Courier New', monospace; color: #0F1420; line-height: 1.1; }
+  ${p} table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 8.5pt; }
+  ${p} th { background: #0F1420; color: #fff !important; font-weight: 600; padding: 6px 8px; text-align: left; font-size: 8pt; }
+  ${p} td { padding: 5px 7px; border-bottom: 1px solid #eee; vertical-align: middle; color: #1a2233 !important; }
+  ${p} tr:nth-child(even) td { background: #f9fafb; }
+  ${p} .mono { font-family: 'DM Mono', 'Courier New', monospace; }
+  ${p} .g { color: #00A86B !important; font-weight: 700; }
+  ${p} .r { color: #E02D2D !important; font-weight: 700; }
+  ${p} .a { color: #C87000 !important; font-weight: 700; }
+  ${p} .right { text-align: right; }
+  ${p} .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 7pt; font-weight: 700; color: #fff; }
+  ${p} .rank-medal { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; font-size:8pt; font-weight:700; }
+  ${p} .info-box { background: #EEF7FF; border-left: 3px solid #00C4FF; padding: 8px 11px; border-radius: 0 4px 4px 0; font-size: 8.5pt; margin: 10px 0; line-height: 1.55; color: #1a2233 !important; }
+  ${p} .info-box b, ${p} .info-box strong, ${p} .info-box i, ${p} .info-box span { color: inherit !important; }
+  ${p} .info-box.success { background: #EFFAF3; border-left-color: #00A86B; }
+  ${p} .info-box.danger  { background: #FDF0F0; border-left-color: #E02D2D; }
+  ${p} .info-box.gold  { background: #FBF6E9; border-left-color: #D4AF37; }
+  ${p} .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 7.5pt; color: #999; display: flex; justify-content: space-between; }
+  ${p} .empty { text-align: center; padding: 14px; color: #aaa; font-size: 9pt; border: 1px dashed #ddd; border-radius: 6px; }
+  /* Protección general — cualquier <b>/<span>/<div> genérico dentro
+     del contenedor hereda el color del texto normal, sin importar si
+     el CSS real de la app (que sigue activo en el mismo documento)
+     trae su propia regla para esos mismos elementos. Las clases de
+     color con más especificidad (.g/.r/.a, etc.) siguen ganando por
+     encima de esto. */
+  ${p} b, ${p} strong, ${p} i, ${p} em, ${p} span, ${p} div, ${p} p, ${p} li { color: inherit; }
+  /* Clases que también usa exportTeacherPDF (ranking de estudiantes) —
+     antes vivían en la copia separada de estilos de openPrintableDoc;
+     ahora que ambos sistemas comparten uno solo, se agregan aquí. */
+  ${p} .medal { font-weight: 700; }
+  ${p} .rank-1 { color: #D4AF37; } ${p} .rank-2 { color: #7A8694; } ${p} .rank-3 { color: #A96A28; }
+  ${p} .r-clr { color: #D32F2F !important; }
+  ${p} th.r, ${p} td.r { text-align: right; }
+  ${p} td.txt { font-family: 'Inter', 'Segoe UI', Arial, sans-serif; }
+  ${p} .badge-buy { background: #E3F6EC; color: #00875A; }
+  ${p} .badge-sell { background: #EEF2FF; color: #2962FF; }
+  ${p} .badge-liq { background: #FDEAEA; color: #D32F2F; }
   `;
 }
 
 function pdfHeader(subtitle){
   const date = new Date().toLocaleString('es-PA');
   return `<div class="hdr">
-    <div class="brand">Capital<span>Lab</span></div>
+    <div class="hdr-left">
+      <img class="hdr-logo" src="logo-capitallab.png" alt="CapitalLab">
+      <div class="brand">Capital<span>Lab</span></div>
+    </div>
     <div class="hdr-meta">
       <b>${subtitle}</b><br>
       Facultad de Economía / Finanzas y Banca<br>
@@ -2136,16 +2160,77 @@ function pdfFooter(){
   </div>`;
 }
 
-// Abre un documento HTML en una ventana nueva y dispara la impresión (Guardar como PDF).
+// ── Descarga real de PDF, sin ventana emergente ──
+// Antes, exportar a PDF abría una ventana nueva y disparaba
+// window.print(), dejando que la persona eligiera "Guardar como PDF"
+// del propio diálogo de impresión del sistema. En computadora
+// funciona razonable, pero en celular es donde realmente falla: las
+// ventanas emergentes suelen bloquearse, y el diálogo de impresión
+// del navegador en móvil no siempre ofrece una forma clara de
+// terminar con un archivo PDF descargado — a veces ni aparece la
+// opción. Ahora se genera un archivo PDF real en el propio dispositivo
+// (con html2pdf.js) y se descarga directo, exactamente igual que ya
+// funcionan las exportaciones a CSV — mismo comportamiento confiable
+// en computadora y en celular, sin depender de ningún diálogo del
+// sistema operativo.
+async function descargarPDFDesdeHTML(bodyHtml, nombreArchivo){
+  if(typeof html2pdf === 'undefined'){
+    notify('No se pudo cargar el generador de PDF. Revisa tu conexión a internet.', 'error');
+    return false;
+  }
+  // El motor de captura (html2canvas, usado por dentro de html2pdf.js)
+  // mide mal la altura de cualquier elemento con position:fixed o
+  // position:absolute — sin importar si está fuera de pantalla o con
+  // z-index negativo, el PDF salía completamente en blanco (0 de
+  // altura detectada). La solución que sí funciona: dejar el
+  // contenedor en flujo normal del documento (sin position especial),
+  // y taparlo de la vista con una capa de carga a pantalla completa
+  // en su lugar — nunca se ve, pero se captura bien.
+  const capa = document.createElement('div');
+  capa.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0F1420;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;font-family:Inter,Arial,sans-serif;';
+  capa.innerHTML = `<div class="auth-spinner" style="width:32px;height:32px;"></div><div style="font-size:13px;color:#9FB0CC;">Generando PDF…</div>`;
+
+  const contenedor = document.createElement('div');
+  contenedor.className = 'capitallab-pdf-render';
+  contenedor.innerHTML = bodyHtml;
+
+  const estilo = document.createElement('style');
+  estilo.id = 'capitallab-pdf-estilos-temp';
+  estilo.textContent = pdfStyles();
+
+  document.head.appendChild(estilo);
+  document.body.appendChild(contenedor);
+  document.body.appendChild(capa);
+
+  try {
+    await html2pdf().set({
+      margin: [10, 10, 12, 10],
+      filename: nombreArchivo.endsWith('.pdf') ? nombreArchivo : nombreArchivo + '.pdf',
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] },
+    }).from(contenedor).save();
+    return true;
+  } catch(e){
+    notify('No se pudo generar el PDF: ' + (e.message||e), 'error');
+    return false;
+  } finally {
+    contenedor.remove();
+    estilo.remove();
+    capa.remove();
+  }
+}
+
+// Mantiene el mismo nombre y firma que antes (bodyHtml, title) para no
+// tener que tocar cada uno de los más de 10 lugares que ya llaman a
+// esta función — solo cambió cómo entrega el resultado por dentro.
+// Retorna la promesa real (no solo `true` de inmediato) para que quien
+// sí necesite esperar a que el PDF termine de generarse (como el
+// Centro de Exportación, al encadenar varias descargas seguidas)
+// pueda hacerlo con un await normal.
 function openPrintWindow(bodyHtml, title){
-  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${title}</title>
-    <style>${pdfStyles()}</style></head><body>${bodyHtml}
-    <script>window.onload=()=>{window.print();};<\/script></body></html>`;
-  const win = window.open('', '_blank', 'width=900,height=700');
-  if(!win){ notify('El navegador bloqueó la ventana emergente. Permite ventanas emergentes para este archivo.','error'); return false; }
-  win.document.write(html);
-  win.document.close();
-  return true;
+  return descargarPDFDesdeHTML(bodyHtml, title || 'CapitalLab');
 }
 
 function exportPDF(){
@@ -3810,132 +3895,14 @@ function exportStudentPDF(){
 // este informe muestra la tendencia real desde que arrancó la
 // sesión, usando portafolios_historial (que nunca recorta datos
 // viejos, a diferencia del historial de 60 puntos de cada estudiante).
-async function exportarInformeSeguimiento(){
-  const sesionId = currentUser?.sesion_id;
-  if(!sesionId){ notify('No hay una sesión activa para generar el informe.', 'error'); return; }
-
-  try {
-    const [{ data: historial, error: e1 }, { data: estudiantes, error: e2 }, { data: operacionesLista, error: e3 }] = await Promise.all([
-      sb.from('portafolios_historial').select('usuario_id, valor_total, retorno_pct, dia').eq('sesion_id', sesionId).order('dia'),
-      sb.from('usuarios').select('id, nombre, creado_en').eq('sesion_id', sesionId).eq('rol','estudiante').order('creado_en'),
-      sb.from('operaciones').select('id, fecha').eq('sesion_id', sesionId).order('fecha'),
-    ]);
-    if(e1) throw e1; if(e2) throw e2; if(e3) throw e3;
-
-    if(!historial || historial.length === 0){
-      notify('Todavía no hay suficiente historial de cartera para graficar el crecimiento — vuelve a intentarlo en unos días, a medida que los estudiantes usen el simulador.', 'error');
-      return;
-    }
-
-    // Crecimiento del grupo — promedio de retorno % de todos los
-    // estudiantes que tienen al menos un punto ese día específico
-    // (no se rellenan los días sin datos, para no inventar precisión
-    // que no existe).
-    const porDia = {};
-    historial.forEach(h => { (porDia[h.dia] ||= []).push(Number(h.retorno_pct)); });
-    const diasCrecimiento = Object.keys(porDia).sort();
-    const puntosCrecimiento = diasCrecimiento.map(dia => ({
-      fecha: dia, valor: porDia[dia].reduce((s,v)=>s+v,0) / porDia[dia].length,
-    }));
-
-    // Adopción — estudiantes acumulados a lo largo del tiempo, según
-    // cuándo se creó su cuenta.
-    const puntosAdopcion = (estudiantes||[]).map((u,i) => ({ fecha: u.creado_en, valor: i+1 }));
-
-    // Actividad — operaciones acumuladas a lo largo del tiempo.
-    const puntosActividad = (operacionesLista||[]).map((o,i) => ({ fecha: o.fecha, valor: i+1 }));
-
-    const primerDia = diasCrecimiento[0], ultimoDia = diasCrecimiento[diasCrecimiento.length-1];
-    const totalEstudiantesConHistorial = new Set(historial.map(h=>h.usuario_id)).size;
-
-    const graficaLineaGenerica = (puntos, etiquetaValor, formatearValor) => {
-      if(!puntos || puntos.length < 2) return '<div class="auth-hint" style="padding:20px 0;">Todavía no hay suficientes puntos para graficar.</div>';
-      const w = 640, h = 160, pad = 12;
-      const valores = puntos.map(p=>p.valor);
-      const min = Math.min(...valores), max = Math.max(...valores);
-      const rango = (max-min) || 1;
-      const xStep = (w-pad*2) / (puntos.length-1);
-      const coords = puntos.map((p,i) => [pad+i*xStep, h-pad-((p.valor-min)/rango)*(h-pad*2)]);
-      const linea = coords.map(([x,y],i) => (i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)).join(' ');
-      const area = linea + ` L${coords[coords.length-1][0].toFixed(1)},${h-pad} L${coords[0][0].toFixed(1)},${h-pad} Z`;
-      return `
-        <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px;display:block;">
-          <path d="${area}" fill="#2962ff" opacity="0.08"></path>
-          <path d="${linea}" fill="none" stroke="#2962ff" stroke-width="2"></path>
-        </svg>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;margin-top:4px;">
-          <span>${new Date(puntos[0].fecha).toLocaleDateString('es-PA')} · ${formatearValor(puntos[0].valor)}</span>
-          <span>${new Date(puntos[puntos.length-1].fecha).toLocaleDateString('es-PA')} · ${formatearValor(puntos[puntos.length-1].valor)} ${etiquetaValor}</span>
-        </div>`;
-    };
-
-    const inner = `
-      <div class="section-title">Periodo cubierto por este informe</div>
-      <div class="info-box">Del ${new Date(primerDia).toLocaleDateString('es-PA')} al ${new Date(ultimoDia).toLocaleDateString('es-PA')} — ${totalEstudiantesConHistorial} estudiante(s) con historial de cartera registrado, de ${(estudiantes||[]).length} inscritos en la sesión.</div>
-
-      <div class="section-title">Crecimiento promedio de la cartera del grupo</div>
-      ${graficaLineaGenerica(puntosCrecimiento, '% de retorno promedio', v => (v>=0?'+':'')+v.toFixed(2)+'%')}
-
-      <div class="section-title">Adopción — estudiantes inscritos, acumulado</div>
-      ${graficaLineaGenerica(puntosAdopcion, 'estudiantes', v => Math.round(v)+' estudiantes')}
-
-      <div class="section-title">Actividad — operaciones registradas, acumulado</div>
-      ${graficaLineaGenerica(puntosActividad, 'operaciones', v => Math.round(v)+' operaciones')}
-
-      <div class="info-box" style="margin-top:16px;">El crecimiento promedio se calcula únicamente con los días en los que al menos un estudiante usó el simulador — no se rellenan los días sin actividad, para no sugerir una precisión que los datos no tienen. El seguimiento de cartera empezó a registrarse el ${new Date(primerDia).toLocaleDateString('es-PA')}; los datos previos a esa fecha, si existieron, no se conservaron con el detalle necesario para incluirlos aquí.</div>`;
-
-    if(openPrintableDoc('Informe de Seguimiento — CapitalLab', inner)) notify('Generando informe de seguimiento…');
-  } catch(e){
-    notify('No se pudo generar el informe: ' + (e.message||e), 'error');
-  }
-}
-
+// estilos de pdfStyles() — dos sistemas que había que actualizar por
+// separado cada vez (y que ya se habían empezado a desalinear). Ahora
+// reutiliza exactamente las mismas piezas compartidas (pdfHeader,
+// pdfFooter, descargarPDFDesdeHTML) — un solo sistema, una sola vez
+// que mantener.
 function openPrintableDoc(title, innerHtml){
-  const date = new Date().toLocaleString('es-PA');
-  const css = `
-    *{margin:0;padding:0;box-sizing:border-box;}
-    body{font-family:'Inter','Segoe UI',Arial,sans-serif;color:#1a2233;padding:0;font-size:10pt;line-height:1.4;}
-    .page{padding:0 34px 28px;}
-    .hdr{display:flex;justify-content:space-between;align-items:center;background:#0F1420;padding:16px 20px;margin-bottom:18px;}
-    .brand{font-size:20pt;font-weight:800;color:#fff;letter-spacing:-.5px;}
-    .brand span{color:#00C4FF;}
-    .hdr-meta{text-align:right;font-size:8.5pt;color:#9FB0CC;line-height:1.5;}
-    .hdr-meta b{color:#fff;font-size:9.5pt;}
-    .section-title{font-size:12pt;font-weight:700;color:#0F1420;margin:20px 0 10px;padding-left:8px;border-left:4px solid #00C4FF;}
-    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:8px;}
-    .kpi{background:#F6F8FA;border:1px solid #E6E9EE;border-top:3px solid #00C4FF;border-radius:5px;padding:9px 11px;}
-    .kpi-lbl{font-size:7.5pt;color:#777;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;}
-    .kpi-val{font-size:13pt;font-weight:700;font-family:'DM Mono','Courier New',monospace;color:#0F1420;}
-    table{width:100%;border-collapse:collapse;margin:8px 0;font-size:8.5pt;}
-    th{background:#0F1420;color:#fff;text-align:left;padding:6px 8px;font-size:7.5pt;text-transform:uppercase;letter-spacing:.03em;}
-    th.r,td.r{text-align:right;}
-    td{padding:5px 8px;border-bottom:1px solid #eee;font-family:'DM Mono','Courier New',monospace;}
-    td.txt{font-family:'Inter','Segoe UI',Arial,sans-serif;}
-    tr:nth-child(even) td{background:#fafbfc;}
-    .g{color:#00875A;} .r-clr{color:#D32F2F;} .a{color:#C77700;}
-    .medal{font-weight:700;}
-    .rank-1{color:#D4AF37;} .rank-2{color:#7A8694;} .rank-3{color:#A96A28;}
-    .badge{display:inline-block;font-size:7pt;padding:2px 7px;border-radius:10px;font-weight:600;}
-    .badge-buy{background:#E3F6EC;color:#00875A;} .badge-sell{background:#EEF2FF;color:#2962FF;} .badge-liq{background:#FDEAEA;color:#D32F2F;}
-    .info-box{background:#EEF7FF;border-left:3px solid #00C4FF;padding:8px 11px;border-radius:0 4px 4px 0;font-size:9pt;margin:10px 0;line-height:1.55;}
-    .footer{margin-top:24px;padding-top:9px;border-top:1px solid #ddd;font-size:7.5pt;color:#999;display:flex;justify-content:space-between;}
-    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{margin:0 0 1.2cm;}.hdr{margin-left:-34px;margin-right:-34px;padding-left:34px;padding-right:34px;}}
-  `;
-  const doc = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${title}</title><style>${css}</style></head><body>
-    <div class="hdr">
-      <div class="brand">Capital<span>Lab</span></div>
-      <div class="hdr-meta"><b>${title}</b><br>Facultad de Economía / Finanzas y Banca<br>Universidad de Panamá<br>Generado: ${date}</div>
-    </div>
-    <div class="page">
-    ${innerHtml}
-    <div class="footer"><span>CapitalLab · Modo Profesor · Universidad de Panamá</span><span>${date}</span></div>
-    </div>
-    <script>window.onload=function(){window.print();};<\/script>
-  </body></html>`;
-  const w = window.open('', '_blank');
-  if(!w){ notify('Permite las ventanas emergentes para exportar el PDF','error'); return false; }
-  w.document.write(doc); w.document.close();
-  return true;
+  const cuerpo = pdfHeader(title) + innerHtml + pdfFooter();
+  return descargarPDFDesdeHTML(cuerpo, title || 'CapitalLab');
 }
 
 // Exporta el RANKING COMPLETO del modo profesor a PDF.
