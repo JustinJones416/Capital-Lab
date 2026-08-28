@@ -298,7 +298,6 @@
     <button class="wl-nav-btn"        id="nav-herramientas-sim" onclick="abrirLanzadorHerramientas()"><i class="ti ti-apps"></i> Más herramientas<span class="nav-chat-dot" id="dot-herramientas-sim" style="display:none;"></span></button>
     <button class="wl-nav-btn"        id="nav-laboratorio"   onclick="goPage('laboratorio')"><i class="ti ti-flask"></i> Laboratorio</button>
     <button class="wl-nav-btn"        id="nav-resultados"    onclick="goPage('resultados')"><i class="ti ti-award"></i> Resultados</button>
-    <button class="wl-nav-btn"        id="nav-resultados-lab" onclick="goPage('resultados-lab')"><i class="ti ti-report-analytics"></i> Resultados Lab</button>
     <!-- Los botones originales siguen existiendo, ocultos, para que
          goPage() los siga encontrando sin ningún cambio en el resto
          del código — el lanzador navega a las mismas páginas de
@@ -890,10 +889,24 @@
 <!-- ════════ RESULTADOS ════════ -->
 <div id="page-resultados" class="page">
   <div class="page-header">
-    <div class="page-title">Resultados Generales</div>
-    <div class="page-sub">Evaluación completa de rentabilidad, riesgo, eficiencia de gestión y actividad de sesiones de mercado</div>
+    <div class="page-title">Resultados</div>
+    <div class="page-sub">Evaluación completa de rentabilidad, riesgo, eficiencia de gestión, actividad de sesiones, y desempeño en el Laboratorio</div>
   </div>
 
+  <!-- Antes "Resultados" y "Resultados Lab" eran dos secciones
+       separadas en el menú lateral, aunque conceptualmente son la
+       misma idea (evaluar el desempeño del estudiante) en dos
+       mercados distintos — se unieron en una sola página con
+       pestañas, mismo patrón visual que ya usan Noticias y Análisis,
+       para no agregar un componente nuevo. Ningún contenido ni
+       función se perdió, solo cambió dónde vive dentro de la
+       navegación. -->
+  <div class="news-classes" id="res-tabs">
+    <button class="news-class-btn active" data-tab="mercado" onclick="alternarPestanaResultados('mercado')"><i class="ti ti-chart-candle"></i> Mercado</button>
+    <button class="news-class-btn" data-tab="laboratorio" onclick="alternarPestanaResultados('laboratorio')"><i class="ti ti-flask"></i> Laboratorio</button>
+  </div>
+
+  <div id="res-tab-mercado">
   <!-- Row 1: portfolio metrics -->
   <div class="metric-grid" style="margin-bottom:10px;">
     <div class="metric"><div class="metric-label">Rentabilidad total</div><div class="metric-val g mono" id="res-ret">—</div></div>
@@ -947,15 +960,11 @@
   </div>
 
   <div class="card"><div class="card-title"><i class="ti ti-award" style="color:var(--gold);"></i> Evaluación final</div><div id="res-evaluation"></div></div>
-</div>
-
-<!-- ════════ RESULTADOS LAB ════════ -->
-<div id="page-resultados-lab" class="page">
-  <div class="page-header">
-    <div class="page-title">Resultados del Laboratorio</div>
-    <div class="page-sub">Historial completo de sesiones · Activos seleccionados · Métricas de desempeño por simulación</div>
   </div>
-  <div id="rlab-content"></div>
+
+  <div id="res-tab-laboratorio" style="display:none;">
+    <div id="rlab-content"></div>
+  </div>
 </div>
 
 <!-- ════════ NOTICIAS ════════ -->

@@ -160,7 +160,7 @@ const CMDK_PAGINAS = [
   { pagina:'cartera', texto:'Mi Cartera', icono:'ti-briefcase' },
   { pagina:'laboratorio', texto:'Laboratorio', icono:'ti-flask' },
   { pagina:'resultados', texto:'Resultados', icono:'ti-award' },
-  { pagina:'resultados-lab', texto:'Resultados Lab', icono:'ti-report-analytics' },
+  { pagina:'resultados-lab', texto:'Resultados · Laboratorio', icono:'ti-report-analytics' },
   { pagina:'noticias', texto:'Noticias', icono:'ti-news' },
   { pagina:'calificaciones', texto:'Calificaciones', icono:'ti-certificate' },
   { pagina:'cuestionarios', texto:'Cuestionarios', icono:'ti-list-check' },
@@ -559,7 +559,33 @@ function closeMobileSidebar(){
 const _origGoPage = typeof goPage !== 'undefined' ? goPage : null;
 
 // ═══════════════════ NAVIGATION ═══════════════════
+// Alterna entre las dos pestañas de la página unificada de
+// Resultados — "Mercado" (retorno, riesgo, tabla de posiciones,
+// índice sintético) y "Laboratorio" (historial de simulaciones).
+// Antes vivían en dos páginas separadas del menú; ahora es una sola
+// entrada de navegación con pestañas, mismo patrón visual que ya usan
+// Noticias y Análisis.
+function alternarPestanaResultados(pestana){
+  document.querySelectorAll('#res-tabs .news-class-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === pestana);
+  });
+  const tabMercado = document.getElementById('res-tab-mercado');
+  const tabLab = document.getElementById('res-tab-laboratorio');
+  if(tabMercado) tabMercado.style.display = pestana === 'mercado' ? '' : 'none';
+  if(tabLab) tabLab.style.display = pestana === 'laboratorio' ? '' : 'none';
+  if(pestana === 'mercado'){ try { renderResults(); } catch(e){ console.error(e); } }
+  else { try { renderResultsLab(); } catch(e){ console.error(e); } }
+}
+
 function goPage(p){
+  // "resultados-lab" ya no es una página aparte — se unió dentro de
+  // "resultados" como una pestaña. Este alias evita que cualquier
+  // llamada existente a la página vieja (el comando de búsqueda
+  // rápida, por ejemplo) rompa goPage() buscando un elemento que ya
+  // no existe.
+  let pestanaResultadosAActivar = null;
+  if(p === 'resultados-lab'){ p = 'resultados'; pestanaResultadosAActivar = 'laboratorio'; }
+
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.wl-nav-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
@@ -595,10 +621,11 @@ function goPage(p){
     // para el gráfico de velas arriba.
     requestAnimationFrame(()=>requestAnimationFrame(()=>intentar(renderPortfolio)));
   }
-  if(p==='resultados')intentar(renderResults);
+  if(p==='resultados'){
+    intentar(() => alternarPestanaResultados(pestanaResultadosAActivar || 'mercado'));
+  }
   if(p==='analisis')intentar(populateAnalysisSelect);
   if(p==='laboratorio'){intentar(renderLabHistory);intentar(renderLabPicker);}
-  if(p==='resultados-lab')intentar(renderResultsLab);
   if(p==='profesor'){ intentar(renderTeacher); intentar(cargarRosterProfesor); intentar(iniciarRealtimeProfesor); }
   else { intentar(detenerRealtimeProfesor); intentar(detenerSalaEnVivo); }
   if(p==='inicio') intentar(renderInicioPage);
@@ -3049,6 +3076,15 @@ function executeDirect(op){
     const pos=portfolio.find(x=>x.id===selectedAsset.id&&x.type===selectedAsset.type);
     if(!pos||pos.qty<qty){notify('No tienes suficientes unidades','error');return;}
     const cashIn = gross - fee;                                  // efectivo neto que entra (descuenta costos)
+    // El costo invertido se reduce en la misma proporción de
+    // unidades que se venden — antes se quedaba fijo en el monto
+    // total de la compra original, así que después de vender solo
+    // una parte, la ganancia/pérdida de las unidades que quedaban
+    // se calculaba contra el costo de TODAS las unidades originales
+    // (incluidas las ya vendidas), mostrando una pérdida donde en
+    // realidad había ganancia, o viceversa.
+    const costoProporcional = pos.invested * (qty / pos.qty);
+    pos.invested -= costoProporcional;
     pos.qty-=qty;
     capital+=cashIn;
     if(pos.qty===0)portfolio=portfolio.filter(x=>!(x.id===selectedAsset.id&&x.type===selectedAsset.type));
@@ -3081,6 +3117,12 @@ function executeOrderAt(asset, side, qty){
     const pos = portfolio.find(x=>x.id===asset.id && x.type===asset.type);
     if (!pos || pos.qty < qty) return false;              // sin unidades suficientes
     const cashIn = gross - fee;
+    // Mismo criterio que executeDirect: el costo invertido se reduce
+    // en proporción a las unidades vendidas, para que el P&L de lo
+    // que queda en la posición no se calcule contra el costo de
+    // unidades que ya se vendieron.
+    const costoProporcional = pos.invested * (qty / pos.qty);
+    pos.invested -= costoProporcional;
     pos.qty -= qty;
     capital += cashIn;
     if (pos.qty === 0) portfolio = portfolio.filter(x=>!(x.id===asset.id && x.type===asset.type));
