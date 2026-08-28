@@ -2809,15 +2809,23 @@ function miniSparklineSVG(valores){
 async function capturarHistorialCartera(valorTotalParam, retornoPctParam){
   if(!currentUser?.usuario_id || !currentUser?.sesion_id || guestMode) return;
   try {
-    let valorTotal = valorTotalParam, retornoPct = retornoPctParam, totalInv;
+    // Siempre la misma fórmula, sin importar desde dónde se llame:
+    // capital en efectivo (que ya incluye cualquier ganancia o
+    // pérdida ya realizada de ventas anteriores) + valor de mercado
+    // de las posiciones abiertas, contra el capital inicial fijo.
+    // Antes, cuando se llamaba sin argumentos, usaba una fórmula
+    // distinta basada solo en lo invertido en posiciones abiertas —
+    // eso ignoraba por completo el efectivo y las ganancias ya
+    // realizadas, así que alguien que vendiera todo con ganancia y
+    // se quedara sin posiciones abiertas mostraría 0% de retorno en
+    // el historial, en vez de la ganancia real.
+    let valorTotal = valorTotalParam, retornoPct = retornoPctParam;
     if(valorTotal === undefined){
-      totalInv = portfolio.reduce((s,p)=>s+p.invested,0);
       const curVal = portfolio.reduce((s,p)=>s+(p.currentPrice||p.buyPrice)*p.qty,0);
       valorTotal = capital + curVal;
-      retornoPct = totalInv > 0 ? ((curVal - totalInv) / totalInv * 100) : 0;
-    } else {
-      totalInv = portfolio.reduce((s,p)=>s+p.invested,0);
+      retornoPct = ((valorTotal - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
     }
+    const totalInv = portfolio.reduce((s,p)=>s+(p.invested||0),0);
 
     await sb.from('portafolios_historial').upsert({
       usuario_id: currentUser.usuario_id,
@@ -4807,11 +4815,36 @@ async function authBoot(){
   // ═══════════════════════════════════════════════════════════════
   const paramsEnlace = new URLSearchParams(window.location.search);
   if(paramsEnlace.get('ticker')){
+    const tickerEnlace = paramsEnlace.get('ticker');
+    // URLSearchParams.get() ya decodifica el valor automáticamente —
+    // volver a aplicar decodeURIComponent() encima es decodificar dos
+    // veces. Con texto normal no se nota, pero en cuanto la tesis
+    // menciona un porcentaje ("creció 20%"), la doble decodificación
+    // rompe con un error de JavaScript que detenía el arranque
+    // completo de la app, no solo la importación de la tesis.
+    let tesisCompleta = paramsEnlace.get('tesis') || null;
+
+    // Si Analytics dejó el texto completo en localStorage (mismo
+    // dominio), se usa ese en vez del resumen corto que viaja en la
+    // URL — antes el texto siempre se cortaba a 220 caracteres, sin
+    // importar qué tan larga fuera la tesis real. Solo se usa si es
+    // reciente (menos de 5 minutos) y coincide con el mismo activo,
+    // para no aplicar por error una tesis vieja de otra sesión que
+    // haya quedado sin limpiar.
+    try {
+      const guardada = JSON.parse(localStorage.getItem('capitallab_tesis_pendiente') || 'null');
+      if(guardada && guardada.ticker === tickerEnlace && guardada.texto
+         && (Date.now() - new Date(guardada.guardadaEn).getTime()) < 5*60*1000){
+        tesisCompleta = guardada.texto;
+      }
+      localStorage.removeItem('capitallab_tesis_pendiente'); // se usa una sola vez, para no dejarla pegada
+    } catch(e){ /* localStorage bloqueado o dato corrupto — se sigue con el resumen corto de la URL */ }
+
     window.__enlaceDirectoCapitalLab = {
-      ticker: paramsEnlace.get('ticker'),
+      ticker: tickerEnlace,
       tipo: paramsEnlace.get('tipo') || 'accion',
       origen: paramsEnlace.get('origen') || null,
-      tesis: paramsEnlace.get('tesis') ? decodeURIComponent(paramsEnlace.get('tesis')) : null,
+      tesis: tesisCompleta,
     };
   }
 

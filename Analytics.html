@@ -1612,6 +1612,20 @@ function tesisTextoHTML(texto, ticker, market){
   // sincronización real; el mercado se traduce al tipo que el
   // Simulador reconoce internamente.
   const tipoSimulador = market === 'divisa' ? 'divisa' : 'accion';
+  // El texto COMPLETO se guarda en localStorage (mismo dominio que el
+  // Simulador, así que lo puede leer directo) — antes solo viajaba un
+  // resumen de 220 caracteres metido en la URL, y el resto de la
+  // tesis se perdía sin que hubiera ningún aviso de que se había
+  // cortado. Las URLs tienen un límite práctico de longitud; el
+  // localStorage no, así que el texto completo llega siempre entero.
+  // Se guarda bajo una sola clave (la tesis más reciente que se llevó
+  // al Simulador) — el Simulador la lee y la borra en cuanto la usa,
+  // para no dejar basura ni aplicar por error una tesis vieja.
+  try {
+    localStorage.setItem('capitallab_tesis_pendiente', JSON.stringify({
+      ticker, texto, guardadaEn: new Date().toISOString(),
+    }));
+  } catch(e){ /* localStorage lleno o bloqueado — el resumen corto de la URL sigue funcionando como respaldo */ }
   const resumenCorto = texto.length > 220 ? texto.slice(0, 217) + '…' : texto;
   const urlSimulador = ticker
     ? `Simulador.html?ticker=${encodeURIComponent(ticker)}&tipo=${tipoSimulador}&origen=analytics&tesis=${encodeURIComponent(resumenCorto)}`

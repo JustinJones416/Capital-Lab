@@ -1004,6 +1004,7 @@ function agregarOpcionTesis(){
     razon,
     origen: 'manual',
     fecha: new Date().toLocaleDateString('es-PA', {day:'2-digit', month:'short', year:'numeric'}),
+    fechaHora: new Date().toISOString(),
   });
   guardarMiTesis(lista);
   document.getElementById('tesis-form-razon').value = '';
@@ -1028,17 +1029,45 @@ function renderMiTesis(){
   const origenIcon = { analytics:'ti-chart-line', academy:'ti-school', manual:'ti-pencil' };
   cont.innerHTML = lista.map(op => `
     <div class="card" style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;">
-      <div style="flex:1;">
+      <div style="flex:1;min-width:0;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
           <b style="font-family:var(--font-mono);">${op.ticker}</b>
           <span style="font-size:10px;color:var(--t3);background:var(--c2);padding:2px 8px;border-radius:10px;"><i class="ti ${origenIcon[op.origen]||'ti-pencil'}"></i> ${origenLabel[op.origen]||'Agregado a mano'}</span>
         </div>
-        <div style="font-size:13px;color:var(--t2);line-height:1.5;">${op.razon}</div>
-        <div style="font-size:10.5px;color:var(--t3);margin-top:6px;">${op.fecha}</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${op.razon}</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+          <span style="font-size:10.5px;color:var(--t3);">${op.fecha}</span>
+          <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:10.5px;" onclick="verTesisCompleta(${op.id})">Ver completa</button>
+        </div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="quitarOpcionTesis(${op.id})" title="Quitar"><i class="ti ti-trash"></i></button>
     </div>
   `).join('');
+}
+
+// Muestra el texto íntegro de una tesis en un modal aparte, con fecha
+// y hora completas — antes el texto se veía cortado en la tarjeta
+// sin ninguna forma de leerlo entero (y, para las tesis traídas de
+// Analytics, se cortaba literalmente a 220 caracteres antes de llegar
+// aquí; eso ya se corrigió en el origen, pero esta vista sigue siendo
+// útil para cualquier tesis larga, venga de donde venga).
+function verTesisCompleta(id){
+  const lista = cargarMiTesis();
+  const op = lista.find(x => String(x.id) === String(id));
+  if(!op) return;
+  const fechaCompleta = op.fechaHora
+    ? new Date(op.fechaHora).toLocaleString('es-PA', {day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit'})
+    : op.fecha;
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.innerHTML = `<div class="export-modal" style="max-width:520px;">
+    <button class="modal-close" onclick="this.closest('.export-modal-overlay').remove();"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-notebook" style="color:var(--gold, #e8b94a);"></i> ${op.ticker}</h2>
+    <div style="font-size:11.5px;color:var(--t3, #7a8ab0);margin-bottom:14px;">${fechaCompleta}</div>
+    <div style="font-size:13.5px;color:var(--t1, #e8edf8);line-height:1.65;white-space:pre-wrap;">${op.razon}</div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
 }
 
 // ───── Enlace directo desde otra herramienta de CapitalLab ─────
@@ -1057,7 +1086,7 @@ function aplicarEnlaceDirectoCapitalLab(){
     const lista = cargarMiTesis();
     const yaExiste = lista.some(x => x.ticker===asset.ticker && x.origen==='analytics' && x.razon===enlace.tesis);
     if(!yaExiste){
-      lista.unshift({ id:Date.now(), ticker:asset.ticker||asset.name, nombre:asset.name, tipo:asset.type, razon:enlace.tesis, origen:'analytics', fecha:new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'short',year:'numeric'}) });
+      lista.unshift({ id:Date.now(), ticker:asset.ticker||asset.name, nombre:asset.name, tipo:asset.type, razon:enlace.tesis, origen:'analytics', fecha:new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'short',year:'numeric'}), fechaHora:new Date().toISOString() });
       guardarMiTesis(lista);
     }
     goPage('tesis');
