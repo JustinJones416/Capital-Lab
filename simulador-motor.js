@@ -958,6 +958,19 @@ async function cambiarSesionActiva(sesionId, sesionNombre, sesionCodigo){
   // real antes de crearlos.
   requestAnimationFrame(()=>requestAnimationFrame(renderPortfolio));
   renderLabHistory(); updateNavCapital();
+  // La tarjeta "Mi Cuenta" (con la lista de sesiones y sus botones
+  // "Cambiar"/"Activa") decide qué mostrar comparando cada sesión
+  // contra currentUser.sesion_id — como currentUser.sesion_id ya se
+  // actualizó arriba, pero esta tarjeta nunca se volvía a pintar,
+  // seguía mostrando el botón "Cambiar" en la sesión que ya estaba
+  // activa (y "Activa" en la que ya se había dejado), hasta que el
+  // usuario navegaba a otra página y volvía.
+  const tarjetaCuenta = document.getElementById('mi-cuenta-card');
+  if(tarjetaCuenta) renderMiCuenta(tarjetaCuenta);
+  // El título y subtítulo de Inicio ("Sesión: X") viven en una
+  // función aparte y más amplia — se refresca completa si el docente
+  // está ahí en el momento de cambiar, por el mismo motivo de arriba.
+  if(document.getElementById('page-inicio').classList.contains('active')) renderInicioPage();
   if(document.getElementById('page-profesor').classList.contains('active')){ cargarRosterProfesor(); iniciarRealtimeProfesor(); }
   notify(`Cambiaste a: ${sesionNombre}`, 'success');
   actualizarBadgeNotificaciones();
@@ -1688,7 +1701,10 @@ async function recopilarResumenActividades(){
   }
 
   // Órdenes — las operaciones más recientes registradas en esta cartera.
-  const ordenes = txHistory.slice(0, 10);
+  // Cronología completa, no solo las 10 más recientes — de más
+  // antigua a más reciente, para que se lea como la narrativa real de
+  // la sesión (mismo criterio que ahora usa el Replay de mi Cartera).
+  const ordenes = (txHistory||[]).slice().reverse();
 
   // Explicaciones pedagógicas breves — para que el resumen enseñe algo,
   // no solo reporte números. Se calibran según los valores reales del
@@ -2261,6 +2277,14 @@ function renderResumenActividadesHTML(d){
     html += `<div style="background:var(--c2);border-radius:var(--r2);padding:12px;margin-bottom:14px;">${graficaEvolucionSVG(d.crecimiento)}</div>`;
   }
 
+  // El replay ya trae sus propias etiquetas de operación (acción,
+  // activo, precio) y su tabla completa — no tiene sentido duplicar
+  // ese contenido aquí dentro; un botón que lo abra es más útil que
+  // una versión estática recortada.
+  if(navHistory && navHistory.length >= 2){
+    html += `<button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:14px;" onclick="abrirReplayCartera()"><i class="ti ti-player-play"></i> Ver Replay de mi Cartera</button>`;
+  }
+
   if(d.explicaciones){
     html += `<div style="background:rgba(0,196,255,.08);border-left:3px solid var(--accent2);border-radius:0 6px 6px 0;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--t2);line-height:1.5;">
       <div style="margin-bottom:6px;"><b style="color:var(--accent2);">Ratio Sharpe (${d.pm.sharpe.toFixed(2)}):</b> ${d.explicaciones.sharpe}</div>
@@ -2293,8 +2317,8 @@ function renderResumenActividadesHTML(d){
   }
 
   if(d.ordenes.length){
-    html += `<div style="font-weight:700;font-size:13px;margin:14px 0 6px;">Órdenes recientes</div>`;
-    html += d.ordenes.map(o => `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--c3);">
+    html += `<div style="font-weight:700;font-size:13px;margin:14px 0 6px;">Operaciones más recientes</div>`;
+    html += d.ordenes.slice(-5).reverse().map(o => `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--c3);">
       <span>${o.action} · ${o.name}</span><span class="mono">${o.qty}u a $${fmt(o.price)}</span>
     </div>`).join('');
   }
@@ -2321,7 +2345,7 @@ function exportarResumenActividadesPDF(d){
     + (d.topPosiciones.length ? `<table><tr><th>Posición</th><th class="right">Valor</th></tr>${d.topPosiciones.map(p=>`<tr><td>${p.name}</td><td class="right">$${(p.qty*(p.currentPrice||p.buyPrice)).toLocaleString('es-PA',{maximumFractionDigits:0})}</td></tr>`).join('')}</table>` : '')
     + (d.labSesiones.length ? `<div class="section"><div class="section-title">Laboratorio</div></div><table><tr><th>Horizonte</th><th>Meta</th><th>Resultado</th></tr>${d.labSesiones.map(h=>`<tr><td>${h.horizon||'—'} meses</td><td>${h.target||0}%</td><td>${h.passed?'Meta cumplida':'No alcanzada'}</td></tr>`).join('')}</table>` : '')
     + (d.subastas.length ? `<div class="section"><div class="section-title">Subastas del Mercado entre Estudiantes</div></div><table><tr><th>Activo</th><th>Cantidad</th><th class="right">Valor</th></tr>${d.subastas.map(s=>`<tr><td>${s.activo_nombre}</td><td>${s.cantidad}u</td><td class="right">$${(s.cantidad*s.precio_actual).toLocaleString('es-PA',{maximumFractionDigits:0})}</td></tr>`).join('')}</table>` : '')
-    + (d.ordenes.length ? `<div class="section"><div class="section-title">Órdenes recientes</div></div><table><tr><th>Operación</th><th>Activo</th><th class="right">Cantidad</th><th class="right">Precio</th></tr>${d.ordenes.map(o=>`<tr><td>${o.action}</td><td>${o.name}</td><td class="right">${o.qty}u</td><td class="right">$${fmt(o.price)}</td></tr>`).join('')}</table>` : '')
+    + (d.ordenes.length ? `<div class="section"><div class="section-title">Cronología de operaciones</div><div class="section-sub">Reemplaza al replay interactivo en esta versión impresa — mismo criterio: de la primera a la última operación de la sesión.</div></div><table><tr><th>Hora</th><th>Operación</th><th>Activo</th><th class="right">Cantidad</th><th class="right">Precio</th></tr>${d.ordenes.map(o=>`<tr><td>${o.date}</td><td>${o.action}</td><td>${o.name}</td><td class="right">${o.qty}u</td><td class="right">$${fmt(o.price)}</td></tr>`).join('')}</table>` : '')
     + pdfFooter();
   return openPrintWindow(body, `Resumen de actividades — ${currentUser.nombre}`);
 }
@@ -2401,11 +2425,19 @@ async function exportarResumenActividadesPPT(d){
   }
 
   if(d.ordenes.length){
-    s = pptx.addSlide(); s.background = { color: NAVY };
-    s.addText('Órdenes Recientes', { x:0.6, y:0.4, w:12, h:0.7, fontSize:28, bold:true, color:WHITE, fontFace:'Arial' });
-    const filas = [[{text:'Operación',options:{bold:true,color:GOLD}},{text:'Activo',options:{bold:true,color:GOLD}},{text:'Cantidad',options:{bold:true,color:GOLD}},{text:'Precio',options:{bold:true,color:GOLD}}]]
-      .concat(d.ordenes.map(o=>[o.action, o.name, o.qty+'u', '$'+fmt(o.price)]));
-    s.addTable(filas, { x:0.4, y:1.3, w:12.5, fontSize:12, color:WHITE, border:{type:'solid',color:'242D42',pt:1}, fill:{color:'1C2333'} });
+    // Con la cronología completa (no solo 10), una sola diapositiva
+    // se desbordaría — se reparte en bloques de 14 filas, tantas
+    // diapositivas como haga falta.
+    const BLOQUE = 14;
+    const totalBloques = Math.ceil(d.ordenes.length / BLOQUE);
+    for(let b = 0; b < totalBloques; b++){
+      const trozo = d.ordenes.slice(b*BLOQUE, (b+1)*BLOQUE);
+      s = pptx.addSlide(); s.background = { color: NAVY };
+      s.addText(totalBloques>1 ? `Cronología de Operaciones (${b+1}/${totalBloques})` : 'Cronología de Operaciones', { x:0.6, y:0.4, w:12, h:0.7, fontSize:26, bold:true, color:WHITE, fontFace:'Arial' });
+      const filas = [[{text:'Hora',options:{bold:true,color:GOLD}},{text:'Operación',options:{bold:true,color:GOLD}},{text:'Activo',options:{bold:true,color:GOLD}},{text:'Cantidad',options:{bold:true,color:GOLD}},{text:'Precio',options:{bold:true,color:GOLD}}]]
+        .concat(trozo.map(o=>[o.date, o.action, o.name, o.qty+'u', '$'+fmt(o.price)]));
+      s.addTable(filas, { x:0.4, y:1.3, w:12.5, fontSize:11, color:WHITE, border:{type:'solid',color:'242D42',pt:1}, fill:{color:'1C2333'} });
+    }
   }
 
   await pptx.writeFile({ fileName: `resumen-actividades-${(currentUser.nombre||'estudiante').replace(/\s+/g,'-')}.pptx` });

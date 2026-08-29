@@ -2447,11 +2447,21 @@ function dibujarInsigniaDesempeno(canvas, d){
 // ══════════════════════════════════════════════════
 function abrirReplayCartera(){
   if(!navHistory || navHistory.length < 2){ notify('Todavía no hay suficiente historial de tu cartera para reproducir — sigue operando y vuelve más tarde.', 'error'); return; }
+
+  // Vincula cada punto del historial con las operaciones reales que
+  // ocurrieron cerca de ese momento — antes el replay solo mostraba
+  // la línea del valor total, sin decir NUNCA qué decisión (comprar,
+  // vender, a qué precio) causó cada subida o caída.
+  const operacionesPorPunto = navHistory.map((punto, i) => {
+    const desde = i > 0 ? navHistory[i-1].t : punto.t - 5*60*1000;
+    return (txHistory || []).filter(tx => tx.timestamp > desde && tx.timestamp <= punto.t);
+  });
+
   const overlay = document.createElement('div');
   overlay.className = 'grade-modal-overlay';
-  overlay.innerHTML = `<div class="grade-modal" style="max-width:560px;">
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:640px;">
     <h3><i class="ti ti-player-play"></i> Replay de mi Cartera</h3>
-    <div class="sub">Recorre cómo fue cambiando el valor de tu cartera durante la sesión.</div>
+    <div class="sub">Recorre cómo fue cambiando el valor de tu cartera durante la sesión, con cada operación marcada en su momento exacto.</div>
     <canvas id="rc-canvas" width="900" height="260" style="width:100%;height:180px;background:var(--c2);border-radius:var(--r);margin-bottom:10px;"></canvas>
     <input type="range" id="rc-slider" min="0" max="${navHistory.length-1}" value="${navHistory.length-1}" style="width:100%;">
     <div style="display:flex;justify-content:space-between;margin-top:10px;">
@@ -2464,9 +2474,26 @@ function abrirReplayCartera(){
         <div id="rc-fecha" style="font-size:13px;color:var(--t2);">—</div>
       </div>
     </div>
+    <div id="rc-etiqueta-operacion" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;font-size:12.5px;"></div>
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button class="btn btn-sm" id="rc-play" style="flex:1;min-height:44px;"><i class="ti ti-player-play"></i> Reproducir</button>
       <button class="btn btn-ghost" onclick="this.closest('.grade-modal-overlay').remove()" style="flex:1;min-height:44px;">Cerrar</button>
+    </div>
+    <div style="margin-top:16px;">
+      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;margin-bottom:6px;">Todas las operaciones de esta sesión</div>
+      <div style="max-height:180px;overflow-y:auto;">
+        <table style="width:100%;font-size:11.5px;">
+          <thead><tr><th style="text-align:left;padding:4px 6px;">Hora</th><th style="text-align:left;padding:4px 6px;">Operación</th><th style="text-align:left;padding:4px 6px;">Activo</th><th style="text-align:right;padding:4px 6px;">Precio</th></tr></thead>
+          <tbody>
+            ${(txHistory||[]).slice().reverse().map(tx => `<tr>
+              <td style="padding:4px 6px;color:var(--t3);">${tx.date}</td>
+              <td style="padding:4px 6px;color:${tx.action==='Compra'?'var(--green)':'var(--red)'};">${tx.action}</td>
+              <td style="padding:4px 6px;">${tx.name}</td>
+              <td style="padding:4px 6px;text-align:right;font-family:var(--font-mono);">$${Number(tx.price).toFixed(2)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>`;
   document.body.appendChild(overlay);
@@ -2474,6 +2501,7 @@ function abrirReplayCartera(){
 
   const slider = overlay.querySelector('#rc-slider');
   const canvas = overlay.querySelector('#rc-canvas');
+  const etiquetaOp = overlay.querySelector('#rc-etiqueta-operacion');
   let reproduciendo = null;
 
   function actualizarReplay(i){
@@ -2481,7 +2509,18 @@ function abrirReplayCartera(){
     if(!punto) return;
     overlay.querySelector('#rc-valor').textContent = '$'+punto.value.toLocaleString('es-PA',{maximumFractionDigits:0});
     overlay.querySelector('#rc-fecha').textContent = new Date(punto.t).toLocaleString('es-PA',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-    dibujarReplayChart(canvas, navHistory, i);
+    dibujarReplayChart(canvas, navHistory, i, operacionesPorPunto);
+
+    const ops = operacionesPorPunto[i];
+    if(ops && ops.length){
+      etiquetaOp.style.display = 'block';
+      const esCompra = ops[0].action === 'Compra';
+      etiquetaOp.style.background = esCompra ? 'rgba(0,208,132,.1)' : 'rgba(255,71,87,.1)';
+      etiquetaOp.style.borderLeft = `3px solid ${esCompra?'var(--green)':'var(--red)'}`;
+      etiquetaOp.innerHTML = ops.map(o => `<b>${o.action}</b> — ${o.name}: ${o.qty} unidad(es) @ <span style="font-family:var(--font-mono);">$${Number(o.price).toFixed(2)}</span>`).join('<br>');
+    } else {
+      etiquetaOp.style.display = 'none';
+    }
   }
   slider.oninput = () => actualizarReplay(+slider.value);
   actualizarReplay(navHistory.length-1);
@@ -2500,7 +2539,7 @@ function abrirReplayCartera(){
   };
 }
 
-function dibujarReplayChart(canvas, historial, indiceActual){
+function dibujarReplayChart(canvas, historial, indiceActual, operacionesPorPunto){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0,0,W,H);
@@ -2519,6 +2558,19 @@ function dibujarReplayChart(canvas, historial, indiceActual){
   ctx.strokeStyle = ganando ? '#00D084' : '#FF4757'; ctx.lineWidth = 3; ctx.beginPath();
   for(let i=0;i<=indiceActual;i++){ i===0 ? ctx.moveTo(puntoX(i),puntoY(historial[i].value)) : ctx.lineTo(puntoX(i),puntoY(historial[i].value)); }
   ctx.stroke();
+
+  // Marcadores de operaciones — un punto en cada momento donde de
+  // verdad hubo una compra o venta, para que se vea qué decisión
+  // causó cada movimiento de la línea, no solo que la línea se movió.
+  if(operacionesPorPunto){
+    operacionesPorPunto.forEach((ops, i) => {
+      if(!ops || !ops.length || i > indiceActual) return;
+      const esCompra = ops[0].action === 'Compra';
+      ctx.fillStyle = esCompra ? '#00D084' : '#FF4757';
+      ctx.beginPath(); ctx.arc(puntoX(i), puntoY(historial[i].value), i===indiceActual?4:3, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#0b0e14'; ctx.lineWidth = 1.5; ctx.stroke();
+    });
+  }
 
   ctx.fillStyle = ganando ? '#00D084' : '#FF4757';
   ctx.beginPath(); ctx.arc(puntoX(indiceActual), puntoY(historial[indiceActual].value), 5, 0, Math.PI*2); ctx.fill();
