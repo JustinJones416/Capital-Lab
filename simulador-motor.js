@@ -4910,7 +4910,14 @@ async function authBoot(){
   }
   try {
     sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data: { session } } = await sb.auth.getSession();
+    // Esta llamada específica —la que procesa el regreso desde Google
+    // tras el inicio de sesión— no tenía límite de tiempo, a
+    // diferencia de las demás en authLoadProfileAndEnter(). Si se
+    // quedaba esperando sin resolver (más probable en modo incógnito,
+    // donde el manejo de almacenamiento y cookies de terceros es más
+    // restrictivo), la pantalla de inicio se quedaba "cargando" para
+    // siempre, sin mostrar ningún aviso ni el menú principal.
+    const { data: { session } } = await conTiempoLimite(sb.auth.getSession());
     if(session && !esEnlaceDeRecuperacion){
       await authLoadProfileAndEnter();
     }
