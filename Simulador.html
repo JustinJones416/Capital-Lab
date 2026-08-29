@@ -1146,11 +1146,11 @@
   </div>
 
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
-    <div class="auth-tabs" style="max-width:480px;margin-bottom:0;">
-      <div class="auth-tab active" id="prof-tab-lista" onclick="cambiarTabProfesor('lista')">Lista</div>
-      <div class="auth-tab" id="prof-tab-vivo" onclick="cambiarTabProfesor('vivo')"><i class="ti ti-broadcast" style="font-size:12px;margin-right:4px;"></i>Sala en vivo</div>
-      <div class="auth-tab" id="prof-tab-laboratorio" onclick="cambiarTabProfesor('laboratorio')"><i class="ti ti-flask" style="font-size:12px;margin-right:4px;"></i>Laboratorio</div>
-      <div class="auth-tab" id="prof-tab-correos" onclick="cambiarTabProfesor('correos')"><i class="ti ti-mail" style="font-size:12px;margin-right:4px;"></i>Correos</div>
+    <div class="auth-tabs" style="max-width:100%;width:fit-content;margin-bottom:0;flex-wrap:wrap;">
+      <div class="auth-tab active" id="prof-tab-lista" onclick="cambiarTabProfesor('lista')" style="flex:none;padding:8px 16px;">Lista</div>
+      <div class="auth-tab" id="prof-tab-vivo" onclick="cambiarTabProfesor('vivo')" style="flex:none;padding:8px 16px;white-space:nowrap;"><i class="ti ti-broadcast" style="font-size:12px;margin-right:4px;"></i>En vivo</div>
+      <div class="auth-tab" id="prof-tab-laboratorio" onclick="cambiarTabProfesor('laboratorio')" style="flex:none;padding:8px 16px;white-space:nowrap;"><i class="ti ti-flask" style="font-size:12px;margin-right:4px;"></i>Laboratorio</div>
+      <div class="auth-tab" id="prof-tab-correos" onclick="cambiarTabProfesor('correos')" style="flex:none;padding:8px 16px;white-space:nowrap;"><i class="ti ti-mail" style="font-size:12px;margin-right:4px;"></i>Correos</div>
     </div>
     <button class="btn btn-sm" onclick="abrirModoPresentacion()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-presentation"></i> Presentar</button>
   </div>
