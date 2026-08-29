@@ -1150,6 +1150,7 @@
       <div class="auth-tab active" id="prof-tab-lista" onclick="cambiarTabProfesor('lista')">Lista</div>
       <div class="auth-tab" id="prof-tab-vivo" onclick="cambiarTabProfesor('vivo')"><i class="ti ti-broadcast" style="font-size:12px;margin-right:4px;"></i>Sala en vivo</div>
       <div class="auth-tab" id="prof-tab-laboratorio" onclick="cambiarTabProfesor('laboratorio')"><i class="ti ti-flask" style="font-size:12px;margin-right:4px;"></i>Laboratorio</div>
+      <div class="auth-tab" id="prof-tab-correos" onclick="cambiarTabProfesor('correos')"><i class="ti ti-mail" style="font-size:12px;margin-right:4px;"></i>Correos</div>
     </div>
     <button class="btn btn-sm" onclick="abrirModoPresentacion()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-presentation"></i> Presentar</button>
   </div>
@@ -1239,6 +1240,44 @@
 
     <div class="card-title" style="margin-bottom:10px;">Secciones publicadas</div>
     <div id="labsec-lista"><div class="auth-hint">Cargando…</div></div>
+  </div>
+
+  <!-- Correos masivos — dos vistas: cualquier docente le escribe a su
+       propia sesión (toda la clase o estudiantes específicos), y el
+       superadmin además puede avisar a todos los docentes, todos los
+       estudiantes, o todos, sin importar la sesión — pensado para
+       reportes o errores conocidos que afectan a mucha gente a la vez. -->
+  <div id="prof-panel-correos" style="display:none;">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title"><i class="ti ti-mail" style="color:var(--gold, #e8b94a);"></i> Nuevo correo</div>
+
+      <div class="field" style="margin-bottom:10px;">
+        <label>Para</label>
+        <select id="correo-alcance" onchange="alCambiarAlcanceCorreo()">
+          <option value="sesion_completa">Toda mi sesión</option>
+          <option value="destinatarios_especificos">Estudiantes específicos de mi sesión</option>
+          <option value="todos_docentes" class="correo-opcion-superadmin" style="display:none;">Todos los docentes (todas las sesiones)</option>
+          <option value="todos_estudiantes" class="correo-opcion-superadmin" style="display:none;">Todos los estudiantes (todas las sesiones)</option>
+          <option value="todos" class="correo-opcion-superadmin" style="display:none;">Todos los usuarios de la plataforma</option>
+        </select>
+      </div>
+
+      <div id="correo-lista-destinatarios" style="display:none;margin-bottom:10px;max-height:180px;overflow-y:auto;border:1px solid var(--c4);border-radius:var(--r);padding:8px;"></div>
+
+      <div class="field" style="margin-bottom:10px;">
+        <label>Asunto</label>
+        <input type="text" id="correo-asunto" placeholder="Ej: Cambio en la fecha de entrega del Laboratorio">
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label>Mensaje</label>
+        <textarea id="correo-cuerpo" rows="6" placeholder="Escribe el mensaje completo aquí…" style="width:100%;padding:10px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:13px;resize:vertical;"></textarea>
+      </div>
+      <button class="btn btn-primary" id="correo-btn-enviar" onclick="enviarCorreoMasivo()"><i class="ti ti-send"></i> Enviar</button>
+      <div id="correo-resultado" style="margin-top:10px;font-size:12px;color:var(--t3);"></div>
+    </div>
+
+    <div class="card-title" style="margin-bottom:10px;">Correos enviados recientemente</div>
+    <div id="correo-historial"><div class="auth-hint">Cargando…</div></div>
   </div>
 
   <div class="info-box" style="margin-bottom:14px;">

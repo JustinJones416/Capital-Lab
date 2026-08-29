@@ -1425,8 +1425,8 @@ function cerrarModoPresentacion(){
 }
 
 function cambiarTabProfesor(tab){
-  const tabs = { lista:'prof-tab-lista', vivo:'prof-tab-vivo', laboratorio:'prof-tab-laboratorio' };
-  const paneles = { lista:'prof-panel-lista', vivo:'prof-panel-vivo', laboratorio:'prof-panel-laboratorio' };
+  const tabs = { lista:'prof-tab-lista', vivo:'prof-tab-vivo', laboratorio:'prof-tab-laboratorio', correos:'prof-tab-correos' };
+  const paneles = { lista:'prof-panel-lista', vivo:'prof-panel-vivo', laboratorio:'prof-panel-laboratorio', correos:'prof-panel-correos' };
   Object.keys(tabs).forEach(t => {
     const tabEl = document.getElementById(tabs[t]);
     const panelEl = document.getElementById(paneles[t]);
@@ -1435,6 +1435,7 @@ function cambiarTabProfesor(tab){
   });
   if(tab==='vivo') iniciarSalaEnVivo(); else detenerSalaEnVivo();
   if(tab==='laboratorio') cargarSeccionesLabDocente();
+  if(tab==='correos') prepararPanelCorreos();
 }
 
 async function iniciarSalaEnVivo(){

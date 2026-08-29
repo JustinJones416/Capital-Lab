@@ -4991,6 +4991,100 @@ async function calificarResultadoLab(resultadoId){
   }
 }
 
+// ── Correos masivos ──
+function prepararPanelCorreos(){
+  const esSuperadmin = currentUser?.rol === 'superadmin';
+  document.querySelectorAll('.correo-opcion-superadmin').forEach(op => op.style.display = esSuperadmin ? '' : 'none');
+  alCambiarAlcanceCorreo();
+  cargarHistorialCorreos();
+}
+
+async function alCambiarAlcanceCorreo(){
+  const alcance = document.getElementById('correo-alcance').value;
+  const cont = document.getElementById('correo-lista-destinatarios');
+  if(alcance !== 'destinatarios_especificos'){ cont.style.display = 'none'; return; }
+  cont.style.display = 'block';
+  cont.innerHTML = '<div class="auth-hint">Cargando…</div>';
+  try {
+    const { data, error } = await sb.from('usuarios').select('id, nombre').eq('sesion_id', currentUser.sesion_id).eq('rol', 'estudiante').order('nombre');
+    if(error) throw error;
+    if(!data || !data.length){ cont.innerHTML = '<div class="auth-hint">No hay estudiantes en tu sesión todavía.</div>'; return; }
+    cont.innerHTML = data.map(r => `
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12.5px;cursor:pointer;">
+        <input type="checkbox" class="correo-check-estudiante" value="${r.id}" style="width:auto;">
+        ${r.nombre}
+      </label>
+    `).join('');
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
+  }
+}
+
+async function enviarCorreoMasivo(){
+  const asunto = document.getElementById('correo-asunto').value.trim();
+  const cuerpo = document.getElementById('correo-cuerpo').value.trim();
+  const alcance = document.getElementById('correo-alcance').value;
+  if(!asunto || !cuerpo){ notify('Escribe el asunto y el mensaje antes de enviar.', 'error'); return; }
+
+  let destinatariosIds = null;
+  if(alcance === 'destinatarios_especificos'){
+    destinatariosIds = [...document.querySelectorAll('.correo-check-estudiante:checked')].map(c => c.value);
+    if(!destinatariosIds.length){ notify('Marca al menos un estudiante.', 'error'); return; }
+  }
+
+  const boton = document.getElementById('correo-btn-enviar');
+  const resultado = document.getElementById('correo-resultado');
+  boton.disabled = true;
+  boton.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Enviando…';
+  resultado.textContent = '';
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const resp = await fetch(`${SIM_IA_URL}/functions/v1/enviar-correo-masivo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SIM_IA_ANON_KEY, 'Authorization': `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ asunto, cuerpo, alcance, sesionId: currentUser.sesion_id, destinatariosIds }),
+    });
+    const d = await resp.json();
+    if(!d.ok) throw new Error(d.error || 'Error desconocido.');
+
+    resultado.style.color = 'var(--green)';
+    resultado.textContent = `Enviado a ${d.enviados} de ${d.totalDestinatarios} destinatario(s).${d.fallidos>0?` (${d.fallidos} fallaron)`:''}`;
+    notify('Correo enviado.', 'success');
+    document.getElementById('correo-asunto').value = '';
+    document.getElementById('correo-cuerpo').value = '';
+    cargarHistorialCorreos();
+  } catch(e){
+    resultado.style.color = 'var(--red)';
+    resultado.textContent = 'No se pudo enviar: ' + (e.message||e);
+  } finally {
+    boton.disabled = false;
+    boton.innerHTML = '<i class="ti ti-send"></i> Enviar';
+  }
+}
+
+async function cargarHistorialCorreos(){
+  const cont = document.getElementById('correo-historial');
+  if(!sb || !cont) return;
+  try {
+    const { data, error } = await sb.from('correos_masivos_enviados').select('*').order('enviado_en', {ascending:false}).limit(20);
+    if(error) throw error;
+    if(!data || !data.length){ cont.innerHTML = '<div class="auth-hint">Todavía no has enviado ningún correo.</div>'; return; }
+    const etiquetasAlcance = { sesion_completa:'Toda la sesión', destinatarios_especificos:'Estudiantes específicos', todos_docentes:'Todos los docentes', todos_estudiantes:'Todos los estudiantes', todos:'Todos los usuarios' };
+    cont.innerHTML = data.map(c => `
+      <div class="card" style="margin-bottom:8px;padding:10px 12px;">
+        <div style="display:flex;justify-content:space-between;gap:10px;">
+          <b style="font-size:12.5px;">${c.asunto}</b>
+          <span class="nav-badge">${etiquetasAlcance[c.alcance]||c.alcance}</span>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px;">${new Date(c.enviado_en).toLocaleString('es-PA')} · Enviado a ${c.total_enviados}${c.total_fallidos>0?` (${c.total_fallidos} fallaron)`:''}</div>
+      </div>
+    `).join('');
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
+  }
+}
+
 function initLab(){
   updateLabConfig();
   labConfig.started=true;
