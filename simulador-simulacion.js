@@ -597,6 +597,18 @@ function goPage(p){
   // .main-content vuelve a ser el único contenedor con scroll. Ver
   // el comentario junto a .mercado-scroll-propio en simulador-estilos.css.
   document.querySelector('.main-content')?.classList.toggle('mercado-scroll-propio', p==='mercado');
+  // Antes, cambiar de página nunca reiniciaba la posición de scroll —
+  // si venías desplazado hacia abajo en otra sección (Análisis, por
+  // ejemplo) y entrabas a Mercado, esa posición vieja se quedaba
+  // pegada, y como el contenido de Mercado usa su propio scroll
+  // interno más corto, la pantalla se veía "atascada" abajo sin
+  // mostrar el principio. Se reinicia siempre, en ambos contenedores
+  // (el general y el propio de Mercado), sin importar de cuál página
+  // se venga.
+  const mainContent = document.querySelector('.main-content');
+  if(mainContent) mainContent.scrollTop = 0;
+  const marketBody = document.querySelector('.market-body');
+  if(marketBody) marketBody.scrollTop = 0;
   // A partir de aquí, cada bloque de inicialización de página corre
   // dentro de su propio try/catch. Antes, si una de estas funciones
   // lanzaba una excepción sin capturar (confirmado: pasa en Tesis,
