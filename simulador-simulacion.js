@@ -625,7 +625,7 @@ function goPage(p){
     intentar(() => alternarPestanaResultados(pestanaResultadosAActivar || 'mercado'));
   }
   if(p==='analisis')intentar(populateAnalysisSelect);
-  if(p==='laboratorio'){intentar(renderLabHistory);intentar(renderLabPicker);}
+  if(p==='laboratorio'){intentar(renderLabHistory);intentar(renderLabPicker);intentar(cargarSeccionesLaboratorio);}
   if(p==='profesor'){ intentar(renderTeacher); intentar(cargarRosterProfesor); intentar(iniciarRealtimeProfesor); }
   else { intentar(detenerRealtimeProfesor); intentar(detenerSalaEnVivo); }
   if(p==='inicio') intentar(renderInicioPage);
@@ -4631,6 +4631,314 @@ function updateLabConfig(){
   document.getElementById('lab-target-show').textContent=labConfig.target+'%';
   document.getElementById('lab-capital-show').textContent=labConfig.capital.toLocaleString('es-PA');
 }
+// ── Laboratorio planificado por el profesor ──
+// Antes cada estudiante configuraba su propia simulación libremente
+// (capital, horizonte, meta, restricciones), incluso cuando el
+// profesor quería que todos trabajaran bajo las mismas reglas para
+// poder comparar resultados y calificarlos de forma justa. Ahora el
+// profesor puede publicar una "sección" con las reglas ya fijas —
+// si hay una obligatoria activa sin completar, el estudiante no
+// puede saltarla ni editar sus parámetros.
+let seccionesLabDisponibles = [];
+let resultadosLabPropios = [];
+
+async function cargarSeccionesLaboratorio(){
+  const wrap = document.getElementById('lab-secciones-wrap');
+  const lista = document.getElementById('lab-secciones-lista');
+  if(!sb || !currentUser?.sesion_id || guestMode || !wrap || !lista){
+    if(wrap) wrap.style.display = 'none';
+    return;
+  }
+  // Si ya hay una simulación en curso, no se toca nada de la
+  // selección de sección — recargar la página de Laboratorio a mitad
+  // de una simulación no debe reiniciar ni desvincular el resultado
+  // que se va a guardar al terminar.
+  if(labConfig.started) return;
+  try {
+    const [{data: secciones}, {data: resultados}] = await Promise.all([
+      sb.from('laboratorio_secciones').select('*').eq('sesion_id', currentUser.sesion_id).eq('activa', true).order('creado_en', {ascending:false}),
+      sb.from('laboratorio_resultados').select('seccion_id, retorno_pct, cumplio_meta, calificacion').eq('usuario_id', currentUser.usuario_id),
+    ]);
+    seccionesLabDisponibles = secciones || [];
+    resultadosLabPropios = resultados || [];
+
+    if(!seccionesLabDisponibles.length){ wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+
+    const hayObligatoriaPendiente = seccionesLabDisponibles.some(s =>
+      s.obligatoria && !resultadosLabPropios.some(r => r.seccion_id === s.id)
+    );
+    // Si hay una obligatoria sin completar, se oculta la configuración
+    // libre por completo — el profesor quiere que se use la sección,
+    // no una simulación aparte que no se pueda comparar ni calificar.
+    const cardLibre = document.getElementById('lab-config-libre-card');
+    if(cardLibre) cardLibre.style.display = hayObligatoriaPendiente ? 'none' : '';
+
+    lista.innerHTML = seccionesLabDisponibles.map(s => {
+      const resultado = resultadosLabPropios.find(r => r.seccion_id === s.id);
+      const completada = !!resultado;
+      return `<div class="card" style="margin-bottom:10px;border-color:${completada?'rgba(0,208,132,.3)':'rgba(232,185,74,.35)'};">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <b>${s.titulo}</b>
+              ${s.obligatoria ? '<span class="nav-badge" style="background:rgba(255,71,87,.15);color:var(--red);">Obligatoria</span>' : '<span class="nav-badge">Opcional</span>'}
+              ${completada ? '<span class="nav-badge" style="background:rgba(0,208,132,.15);color:var(--green);">Completada</span>' : ''}
+            </div>
+            ${s.descripcion ? `<div style="font-size:12px;color:var(--t2);margin-top:4px;">${s.descripcion}</div>` : ''}
+            <div style="font-size:11px;color:var(--t3);margin-top:6px;">
+              Capital: $${Number(s.capital).toLocaleString('es-PA')} · Horizonte: ${s.horizonte_meses} meses · Meta: ${s.meta_pct}%
+              ${s.riesgo_maximo ? ` · Riesgo máx: ${s.riesgo_maximo}%` : ''}
+              ${s.max_por_activo ? ` · Máx. por activo: ${s.max_por_activo}%` : ''}
+              ${s.min_diversificacion ? ` · Mín. ${s.min_diversificacion} tipos de mercado` : ''}
+            </div>
+            ${completada ? `<div style="font-size:11.5px;margin-top:6px;color:${resultado.cumplio_meta?'var(--green)':'var(--t2)'};">Tu resultado: ${resultado.retorno_pct>=0?'+':''}${Number(resultado.retorno_pct).toFixed(2)}% ${resultado.cumplio_meta?'· Meta alcanzada':'· Meta no alcanzada'}${resultado.calificacion!=null?` · Calificación: ${resultado.calificacion}`:' · Sin calificar todavía'}</div>` : ''}
+          </div>
+          ${!completada ? `<button class="btn btn-primary btn-sm" onclick="elegirSeccionLaboratorio('${s.id}')" style="flex-shrink:0;">Usar esta sección</button>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    console.error('No se pudieron cargar las secciones de Laboratorio:', e.message||e);
+    wrap.style.display = 'none';
+  }
+}
+
+function elegirSeccionLaboratorio(seccionId){
+  const s = seccionesLabDisponibles.find(x => x.id === seccionId);
+  if(!s) return;
+  labConfig.seccionId = s.id;
+  labConfig.tituloSeccion = s.titulo;
+
+  // Se rellenan los mismos campos del formulario de siempre (para que
+  // updateLabConfig() los siga leyendo sin duplicar lógica), pero se
+  // deshabilitan — el estudiante ve las reglas, no las edita.
+  document.getElementById('lab-capital').value = s.capital;
+  document.getElementById('lab-target').value = s.meta_pct;
+  document.getElementById('lab-riesgo-max').value = s.riesgo_maximo || '';
+  document.getElementById('lab-max-por-activo').value = s.max_por_activo || '';
+  document.getElementById('lab-min-diversificacion').value = s.min_diversificacion || '';
+  const opciones = {1:'1',3:'3',6:'6',9:'9',12:'12'};
+  const selectHorizonte = document.getElementById('lab-horizon');
+  if(opciones[s.horizonte_meses]){ selectHorizonte.value = opciones[s.horizonte_meses]; }
+  else { selectHorizonte.value = 'custom'; document.getElementById('custom-lab-wrap').style.display='block'; document.getElementById('lab-custom-months').value = s.horizonte_meses; }
+  onHorizonChange();
+
+  ['lab-capital','lab-target','lab-riesgo-max','lab-max-por-activo','lab-min-diversificacion','lab-horizon','lab-custom-months'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.disabled = true;
+  });
+
+  const cardLibre = document.getElementById('lab-config-libre-card');
+  cardLibre.style.display = '';
+  cardLibre.querySelector('.card-title').innerHTML = `<i class="ti ti-clipboard-check" style="color:var(--gold, #e8b94a);"></i> Sección asignada: ${s.titulo}`;
+  const aviso = document.getElementById('lab-seccion-activa-aviso');
+  aviso.style.display = 'block';
+  aviso.innerHTML = `<div class="info-box" style="margin-bottom:12px;">Estas reglas las fijó tu profesor y no se pueden editar. ${s.obligatoria ? 'Esta sección es obligatoria.' : ''}
+    ${!s.obligatoria ? '<button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="volverAConfigLibreLab()">Volver a configuración libre</button>' : ''}</div>`;
+
+  updateLabConfig();
+  notify('Sección cargada — revisa las reglas antes de iniciar.', 'success');
+}
+
+function volverAConfigLibreLab(){
+  labConfig.seccionId = null;
+  labConfig.tituloSeccion = null;
+  ['lab-capital','lab-target','lab-riesgo-max','lab-max-por-activo','lab-min-diversificacion','lab-horizon','lab-custom-months'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.disabled = false;
+  });
+  const cardLibre = document.getElementById('lab-config-libre-card');
+  cardLibre.querySelector('.card-title').innerHTML = `<i class="ti ti-school" style="color:var(--amber);"></i> Configuración libre`;
+  document.getElementById('lab-seccion-activa-aviso').style.display = 'none';
+}
+
+// Advertencia de confirmación antes de simular — evita que alguien
+// arranque por accidente sin revisar la configuración (sobre todo el
+// capital y el horizonte, que ya no se pueden cambiar después de
+// iniciar).
+function confirmarIniciarLab(){
+  updateLabConfig();
+  const resumen = labConfig.tituloSeccion
+    ? `Sección: <b>${labConfig.tituloSeccion}</b> (reglas fijadas por tu profesor)`
+    : 'Configuración libre';
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.innerHTML = `<div class="export-modal" style="max-width:440px;">
+    <button class="modal-close" onclick="this.closest('.export-modal-overlay').remove();"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-alert-triangle" style="color:var(--amber);"></i> Confirmar inicio</h2>
+    <div class="sub">Una vez que empiece la simulación, no se puede cambiar el capital ni el horizonte. Revisa antes de continuar.</div>
+    <div class="info-box" style="margin:14px 0;">
+      ${resumen}<br>
+      Capital: <b>$${labConfig.capital.toLocaleString('es-PA')}</b> · Horizonte: <b>${labConfig.horizon} meses</b> · Meta: <b>${labConfig.target}%</b>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" style="flex:1;" onclick="this.closest('.export-modal-overlay').remove();">Revisar de nuevo</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="this.closest('.export-modal-overlay').remove();initLab();">Sí, iniciar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+}
+
+// Guarda el resultado de una simulación vinculado a la sección del
+// profesor que se usó (si se usó alguna) — sin esto, no había forma
+// de que el profesor calificara una sección específica por separado.
+async function guardarResultadoSeccionLab(initCapital, finalVal, achieved, passed){
+  if(!sb || !currentUser?.usuario_id || guestMode || !labConfig.seccionId) return;
+  try {
+    await sb.from('laboratorio_resultados').upsert({
+      seccion_id: labConfig.seccionId,
+      usuario_id: currentUser.usuario_id,
+      capital_inicial: initCapital,
+      capital_final: finalVal,
+      retorno_pct: achieved,
+      cumplio_meta: passed,
+    }, { onConflict: 'seccion_id,usuario_id' });
+  } catch(e){
+    console.error('No se pudo guardar el resultado de la sección:', e.message||e);
+  }
+}
+
+// ── Panel del docente: crear y calificar secciones de Laboratorio ──
+async function crearSeccionLaboratorio(){
+  const titulo = document.getElementById('labsec-titulo').value.trim();
+  if(!titulo){ notify('Ponle un título a la sección.', 'error'); return; }
+  if(!sb || !currentUser?.sesion_id){ notify('No hay sesión activa.', 'error'); return; }
+
+  const capital = +document.getElementById('labsec-capital').value || 50000;
+  const horizonte = +document.getElementById('labsec-horizonte').value || 6;
+  const meta = +document.getElementById('labsec-meta').value || 8;
+  const riesgoMax = document.getElementById('labsec-riesgo-max').value;
+  const maxActivo = document.getElementById('labsec-max-activo').value;
+  const minDiversif = document.getElementById('labsec-min-diversif').value;
+
+  try {
+    const { error } = await sb.from('laboratorio_secciones').insert({
+      sesion_id: currentUser.sesion_id,
+      docente_id: currentUser.usuario_id,
+      titulo,
+      descripcion: document.getElementById('labsec-descripcion').value.trim() || null,
+      capital, horizonte_meses: horizonte, meta_pct: meta,
+      riesgo_maximo: riesgoMax ? +riesgoMax : null,
+      max_por_activo: maxActivo ? +maxActivo : null,
+      min_diversificacion: minDiversif ? +minDiversif : null,
+      obligatoria: document.getElementById('labsec-obligatoria').checked,
+    });
+    if(error) throw error;
+    notify('Sección publicada — ya la ven tus estudiantes.', 'success');
+    document.getElementById('labsec-titulo').value = '';
+    document.getElementById('labsec-descripcion').value = '';
+    cargarSeccionesLabDocente();
+  } catch(e){
+    notify('No se pudo publicar: ' + (e.message||e), 'error');
+  }
+}
+
+async function cargarSeccionesLabDocente(){
+  const cont = document.getElementById('labsec-lista');
+  if(!sb || !currentUser?.sesion_id || !cont) return;
+  cont.innerHTML = '<div class="auth-hint">Cargando…</div>';
+  try {
+    const { data: secciones, error } = await sb.from('laboratorio_secciones')
+      .select('*, laboratorio_resultados(id, usuario_id, retorno_pct, cumplio_meta, calificacion)')
+      .eq('sesion_id', currentUser.sesion_id).order('creado_en', {ascending:false});
+    if(error) throw error;
+
+    if(!secciones || !secciones.length){ cont.innerHTML = '<div class="auth-hint">Todavía no has publicado ninguna sección.</div>'; return; }
+
+    cont.innerHTML = secciones.map(s => {
+      const resultados = s.laboratorio_resultados || [];
+      const sinCalificar = resultados.filter(r => r.calificacion == null).length;
+      return `<div class="card" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <b>${s.titulo}</b>
+              ${s.obligatoria ? '<span class="nav-badge" style="background:rgba(255,71,87,.15);color:var(--red);">Obligatoria</span>' : '<span class="nav-badge">Opcional</span>'}
+              <span class="nav-badge">${resultados.length} completada(s)</span>
+              ${sinCalificar>0 ? `<span class="nav-badge" style="background:rgba(255,180,0,.15);color:var(--amber);">${sinCalificar} sin calificar</span>` : ''}
+            </div>
+            <div style="font-size:11px;color:var(--t3);margin-top:6px;">Capital: $${Number(s.capital).toLocaleString('es-PA')} · Horizonte: ${s.horizonte_meses} meses · Meta: ${s.meta_pct}%</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button class="btn btn-sm" onclick="abrirResultadosSeccionLab('${s.id}')">Ver resultados</button>
+            <button class="btn btn-ghost btn-sm" onclick="cerrarSeccionLaboratorio('${s.id}', ${s.activa})">${s.activa?'Cerrar':'Reabrir'}</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
+  }
+}
+
+async function cerrarSeccionLaboratorio(seccionId, activaActual){
+  try {
+    const { error } = await sb.from('laboratorio_secciones').update({ activa: !activaActual }).eq('id', seccionId);
+    if(error) throw error;
+    notify(activaActual ? 'Sección cerrada.' : 'Sección reabierta.', 'success');
+    cargarSeccionesLabDocente();
+  } catch(e){
+    notify('No se pudo actualizar: ' + (e.message||e), 'error');
+  }
+}
+
+async function abrirResultadosSeccionLab(seccionId){
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.innerHTML = `<div class="export-modal" style="max-width:640px;">
+    <button class="modal-close" onclick="this.closest('.export-modal-overlay').remove();"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-clipboard-check"></i> Resultados de la sección</h2>
+    <div id="labsec-resultados-lista" style="max-height:60vh;overflow-y:auto;margin-top:12px;"><div class="auth-hint">Cargando…</div></div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+
+  const cont = overlay.querySelector('#labsec-resultados-lista');
+  try {
+    const { data: resultados, error } = await sb.from('laboratorio_resultados')
+      .select('*, usuarios(nombre, correo)').eq('seccion_id', seccionId).order('retorno_pct', {ascending:false});
+    if(error) throw error;
+    if(!resultados || !resultados.length){ cont.innerHTML = '<div class="auth-hint">Nadie ha completado esta sección todavía.</div>'; return; }
+
+    cont.innerHTML = resultados.map(r => `
+      <div class="card" style="margin-bottom:8px;padding:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;">
+          <div>
+            <b>${r.usuarios?.nombre || '—'}</b>
+            <span style="font-size:11px;color:var(--t3);margin-left:6px;">${r.usuarios?.correo || ''}</span>
+          </div>
+          <span style="font-size:13px;font-weight:700;color:${r.retorno_pct>=0?'var(--green)':'var(--red)'};">${r.retorno_pct>=0?'+':''}${Number(r.retorno_pct).toFixed(2)}%</span>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">${r.cumplio_meta?'Meta alcanzada':'Meta no alcanzada'} · Completado: ${new Date(r.completado_en).toLocaleDateString('es-PA')}</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" min="0" max="100" placeholder="Calificación" value="${r.calificacion ?? ''}" id="labsec-nota-${r.id}" style="width:110px;padding:6px 10px;background:var(--c1, #0d1015);border:1px solid var(--c4, #242d42);border-radius:6px;color:var(--t1, #e8edf8);font-size:12px;">
+          <input type="text" placeholder="Comentario (opcional)" value="${r.comentario_docente ?? ''}" id="labsec-comentario-${r.id}" style="flex:1;padding:6px 10px;background:var(--c1, #0d1015);border:1px solid var(--c4, #242d42);border-radius:6px;color:var(--t1, #e8edf8);font-size:12px;">
+          <button class="btn btn-sm" onclick="calificarResultadoLab('${r.id}')">Guardar</button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
+  }
+}
+
+async function calificarResultadoLab(resultadoId){
+  const nota = document.getElementById(`labsec-nota-${resultadoId}`).value;
+  const comentario = document.getElementById(`labsec-comentario-${resultadoId}`).value.trim();
+  if(nota === ''){ notify('Pon una calificación antes de guardar.', 'error'); return; }
+  try {
+    const { error } = await sb.from('laboratorio_resultados').update({
+      calificacion: +nota, comentario_docente: comentario || null, calificado_en: new Date().toISOString(),
+    }).eq('id', resultadoId);
+    if(error) throw error;
+    notify('Calificación guardada.', 'success');
+  } catch(e){
+    notify('No se pudo guardar: ' + (e.message||e), 'error');
+  }
+}
+
 function initLab(){
   updateLabConfig();
   labConfig.started=true;
@@ -4955,6 +5263,7 @@ function simulateLab(){
   </div>`;
   notify('Simulación completada ✓');
   autosave();
+  guardarResultadoSeccionLab(init, finalVal, +achieved.toFixed(2), passed);
 
   // ── Guardar sesión en el historial del laboratorio ──
   labHistory.unshift({

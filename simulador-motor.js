@@ -1412,17 +1412,16 @@ function cerrarModoPresentacion(){
 }
 
 function cambiarTabProfesor(tab){
-  const tabLista = document.getElementById('prof-tab-lista');
-  const tabVivo = document.getElementById('prof-tab-vivo');
-  const panelLista = document.getElementById('prof-panel-lista');
-  const panelVivo = document.getElementById('prof-panel-vivo');
-  if(!tabLista || !tabVivo || !panelLista || !panelVivo) return;
-  tabLista.classList.toggle('active', tab==='lista');
-  tabVivo.classList.toggle('active', tab==='vivo');
-  panelLista.style.display = tab==='lista' ? '' : 'none';
-  panelVivo.style.display = tab==='vivo' ? '' : 'none';
-  if(tab==='vivo') iniciarSalaEnVivo();
-  else detenerSalaEnVivo();
+  const tabs = { lista:'prof-tab-lista', vivo:'prof-tab-vivo', laboratorio:'prof-tab-laboratorio' };
+  const paneles = { lista:'prof-panel-lista', vivo:'prof-panel-vivo', laboratorio:'prof-panel-laboratorio' };
+  Object.keys(tabs).forEach(t => {
+    const tabEl = document.getElementById(tabs[t]);
+    const panelEl = document.getElementById(paneles[t]);
+    if(tabEl) tabEl.classList.toggle('active', t===tab);
+    if(panelEl) panelEl.style.display = (t===tab) ? '' : 'none';
+  });
+  if(tab==='vivo') iniciarSalaEnVivo(); else detenerSalaEnVivo();
+  if(tab==='laboratorio') cargarSeccionesLabDocente();
 }
 
 async function iniciarSalaEnVivo(){

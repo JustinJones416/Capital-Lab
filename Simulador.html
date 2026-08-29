@@ -773,9 +773,21 @@
     <button class="btn btn-ghost btn-sm" onclick="goPage('personalizado')" style="margin-top:8px;" title="Ver cómo cambian el riesgo y el retorno al mover parámetros individuales de un instrumento hipotético"><i class="ti ti-adjustments-horizontal"></i> Análisis de sensibilidad (avanzado)</button>
   </div>
 
+  <!-- Secciones planificadas por el profesor — antes cada estudiante
+       configuraba su propia simulación libremente, incluso cuando el
+       profesor quería que todos trabajaran bajo las mismas reglas
+       para poder comparar y calificar de forma justa. Si hay una
+       sección obligatoria activa, la configuración libre de abajo se
+       oculta hasta completarla. -->
+  <div id="lab-secciones-wrap" style="display:none;margin-bottom:16px;">
+    <div class="card-title" style="margin-bottom:10px;"><i class="ti ti-clipboard-list" style="color:var(--gold, #e8b94a);"></i> Asignaciones de tu profesor</div>
+    <div id="lab-secciones-lista"></div>
+  </div>
+
   <!-- Config panel -->
-  <div class="card" style="margin-bottom:16px;border-color:rgba(255,180,0,.3);">
-    <div class="card-title"><i class="ti ti-school" style="color:var(--amber);"></i> Configuración del profesor</div>
+  <div class="card" id="lab-config-libre-card" style="margin-bottom:16px;border-color:rgba(255,180,0,.3);">
+    <div class="card-title"><i class="ti ti-school" style="color:var(--amber);"></i> Configuración libre</div>
+    <div id="lab-seccion-activa-aviso" style="display:none;"></div>
     <div class="grid3">
       <div class="field"><label>Capital asignado ($)</label><input type="number" id="lab-capital" value="50000" min="1000" oninput="updateLabConfig()"></div>
       <div class="field"><label>Horizonte de inversión</label>
@@ -798,7 +810,7 @@
       <div class="horizon-chip" style="background:rgba(41,98,255,.1);border-color:rgba(41,98,255,.2);color:#7aa4ff;"><i class="ti ti-target" style="font-size:12px;"></i> Meta: <b id="lab-target-show">8%</b></div>
       <div class="horizon-chip" style="background:rgba(0,208,132,.1);border-color:rgba(0,208,132,.2);color:var(--green);"><i class="ti ti-wallet" style="font-size:12px;"></i> $<b id="lab-capital-show">50,000</b></div>
     </div>
-    <button class="btn btn-primary" onclick="initLab()"><i class="ti ti-player-play"></i> Iniciar simulación</button>
+    <button class="btn btn-primary" onclick="confirmarIniciarLab()"><i class="ti ti-player-play"></i> Iniciar simulación</button>
   </div>
 
   <div id="lab-body" style="display:none;">
@@ -1134,9 +1146,10 @@
   </div>
 
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
-    <div class="auth-tabs" style="max-width:340px;margin-bottom:0;">
+    <div class="auth-tabs" style="max-width:480px;margin-bottom:0;">
       <div class="auth-tab active" id="prof-tab-lista" onclick="cambiarTabProfesor('lista')">Lista</div>
       <div class="auth-tab" id="prof-tab-vivo" onclick="cambiarTabProfesor('vivo')"><i class="ti ti-broadcast" style="font-size:12px;margin-right:4px;"></i>Sala en vivo</div>
+      <div class="auth-tab" id="prof-tab-laboratorio" onclick="cambiarTabProfesor('laboratorio')"><i class="ti ti-flask" style="font-size:12px;margin-right:4px;"></i>Laboratorio</div>
     </div>
     <button class="btn btn-sm" onclick="abrirModoPresentacion()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-presentation"></i> Presentar</button>
   </div>
@@ -1196,6 +1209,36 @@
         <div class="auth-hint">Esperando actividad… las operaciones de tus estudiantes van a aparecer aquí en cuanto sucedan.</div>
       </div>
     </div>
+  </div>
+
+  <!-- Laboratorio planificado — crear secciones con reglas fijas para
+       los estudiantes, y calificar los resultados de cada una por
+       separado. -->
+  <div id="prof-panel-laboratorio" style="display:none;">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title"><i class="ti ti-clipboard-plus" style="color:var(--gold, #e8b94a);"></i> Nueva sección de Laboratorio</div>
+      <div class="grid2" style="margin-bottom:10px;">
+        <div class="field"><label>Título</label><input type="text" id="labsec-titulo" placeholder="Ej: Cartera conservadora — primer trimestre"></div>
+        <div class="field"><label>Descripción (opcional)</label><input type="text" id="labsec-descripcion" placeholder="Instrucciones breves para el estudiante"></div>
+      </div>
+      <div class="grid3" style="margin-bottom:10px;">
+        <div class="field"><label>Capital ($)</label><input type="number" id="labsec-capital" value="50000" min="1000"></div>
+        <div class="field"><label>Horizonte (meses)</label><input type="number" id="labsec-horizonte" value="6" min="1" max="36"></div>
+        <div class="field"><label>Meta de rentabilidad (%)</label><input type="number" id="labsec-meta" value="8"></div>
+      </div>
+      <div class="grid3" style="margin-bottom:10px;">
+        <div class="field"><label>Riesgo máximo σ (opcional)</label><input type="number" id="labsec-riesgo-max" placeholder="Sin límite" min="1"></div>
+        <div class="field"><label>Máx. % por activo (opcional)</label><input type="number" id="labsec-max-activo" placeholder="Sin límite" min="5" max="100"></div>
+        <div class="field"><label>Mín. tipos de mercado (opcional)</label><input type="number" id="labsec-min-diversif" placeholder="Sin mínimo" min="1" max="4"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--t2);cursor:pointer;margin-bottom:12px;">
+        <input type="checkbox" id="labsec-obligatoria" checked style="width:auto;"> Obligatoria — el estudiante no puede usar configuración libre mientras esté pendiente
+      </label>
+      <button class="btn btn-primary" onclick="crearSeccionLaboratorio()"><i class="ti ti-plus"></i> Publicar sección</button>
+    </div>
+
+    <div class="card-title" style="margin-bottom:10px;">Secciones publicadas</div>
+    <div id="labsec-lista"><div class="auth-hint">Cargando…</div></div>
   </div>
 
   <div class="info-box" style="margin-bottom:14px;">
