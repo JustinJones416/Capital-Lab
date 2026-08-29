@@ -2937,7 +2937,10 @@ async function renderInicioPage(){
       // Cartera funciona igual para cualquier rol), pero quedaba fuera
       // de la vista una vez que la pantalla de Inicio pasa a mostrar
       // solo gestión de clase.
-      const { data: miPropioPortafolio } = await sb.from('portafolios').select('id').eq('usuario_id', currentUser.usuario_id).limit(1).maybeSingle();
+      // Esta consulta vivía fuera de la protección de tiempo límite de
+      // arriba — si se colgaba, la página se quedaba en "Cargando tu
+      // resumen…" sin mostrar ni siquiera el mensaje de error.
+      const { data: miPropioPortafolio } = await conTiempoLimite(sb.from('portafolios').select('id').eq('usuario_id', currentUser.usuario_id).limit(1).maybeSingle());
       const tieneHistorialEstudiante = !!miPropioPortafolio;
 
       cont.innerHTML = `
@@ -2993,7 +2996,9 @@ async function renderInicioPage(){
 
       let rankingTxt = '';
       if(sesionInfo?.mostrar_ranking){
-        const { data: ports } = await sb.from('portafolios').select('usuario_id,retorno_pct').eq('sesion_id', sesionId).order('retorno_pct',{ascending:false});
+        // Misma protección — esta también quedaba fuera del
+        // Promise.all de arriba, sin límite de tiempo.
+        const { data: ports } = await conTiempoLimite(sb.from('portafolios').select('usuario_id,retorno_pct').eq('sesion_id', sesionId).order('retorno_pct',{ascending:false}));
         if(ports && ports.length){
           const puesto = ports.findIndex(p=>p.usuario_id===currentUser.usuario_id) + 1;
           if(puesto>0) rankingTxt = `Estás en el puesto <b>${puesto}</b> de ${ports.length}.`;
