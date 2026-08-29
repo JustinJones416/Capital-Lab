@@ -781,6 +781,12 @@ const FUTUROS_YAHOO_MAP = { 'CL1!':'CL=F', 'GC1!':'GC=F', 'ES1!':'ES=F', 'ZW1!':
 const MAX_ANTIGUEDAD_COTIZACION_MS = 20 * 60 * 1000;
 
 async function sincronizarPreciosRealesSimulador(){
+  // El modo invitado (sin cuenta, sin conexión requerida) nunca debe
+  // intentar llamar a esta función en la nube — usa siempre precios
+  // simulados, tanto por diseño (no se pide cuenta) como para que la
+  // versión offline descargable funcione de verdad sin internet, sin
+  // generar peticiones de red que de todas formas van a fallar.
+  if(guestMode) return;
   // Bonos y derivados (opciones, swaps, CDS, forwards) no tienen una
   // fuente gratuita y confiable en Yahoo Finance — se quedan siempre
   // con su precio simulado, sin ninguna sincronización real.
