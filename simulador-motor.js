@@ -858,7 +858,7 @@ async function abrirCompararSesiones(){
         <thead><tr style="text-align:left;color:var(--t3);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--c4);">
           <th style="padding:8px 10px;">Sesión</th>
           <th style="padding:8px 10px;">Estudiantes</th>
-          <th style="padding:8px 10px;">Retorno promedio</th>
+          <th style="padding:8px 10px;">${conAyuda('Retorno promedio')}</th>
           <th style="padding:8px 10px;">Cuestionarios resueltos</th>
           <th style="padding:8px 10px;">Calificaciones dadas</th>
         </tr></thead>

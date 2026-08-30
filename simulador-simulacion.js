@@ -4038,8 +4038,8 @@ function renderAnalysis(id,type){
             ['Gamma (Γ)',asset.gamma.toFixed(3),'a','Variación del delta'],
             ['Theta (Θ)',asset.theta.toFixed(3),'r','Decaimiento temporal diario'],
             ['Vega (ν)',asset.vega.toFixed(2),'','Sensibilidad a la volatilidad'],
-            ['Volatilidad implícita',asset.impliedVol.toFixed(1)+'%','a','IV del contrato'],
-            ['Precio de ejercicio','$'+fmt(asset.strike),'','Strike'],
+            ['Volatilidad implícita',asset.impliedVol.toFixed(1)+'%','a','Volatilidad implícita del contrato'],
+            ['Precio de ejercicio','$'+fmt(asset.strike),'','Precio al que se puede ejercer la opción'],
           ].map(([l,v,c,t])=>`<div class="metric" title="${t}"><div class="metric-label">${conAyuda(l)}</div><div class="metric-val ${c}" style="font-size:15px;">${v}</div></div>`).join('')}
         </div>
         <div class="info-box" style="margin:0;">
@@ -4048,6 +4048,12 @@ function renderAnalysis(id,type){
       </div>`;
     body.appendChild(der);
   }
+  // Se conecta aquí porque este es el punto donde YA se insertó todo
+  // el contenido de la página (incluidas las secciones condicionales
+  // de bonos/derivados de arriba) — antes, ninguna métrica de
+  // Análisis tenía su ícono de ayuda, aunque el glosario sí traía la
+  // explicación lista para "Ratio Sharpe", "Riesgo", "Beta", etc.
+  aplicarAyudaTerminos();
 }
 
 // ═══════════════════ CUSTOM ═══════════════════
@@ -4496,11 +4502,16 @@ function renderPortfolio(permitirSaltarGraficos){
     ['Ratio Sharpe',sh.toFixed(2)],['VaR 95% 1 año','$'+fmt(var95)],
     ['Posiciones activas',portfolio.length],['Ganadoras / Perdedoras',winners.length+' / '+losers.length],
     ['Total transacciones',txHistory.length],
-  ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.03);"><span style="color:var(--t2);">${l}</span><span class="mono">${v}</span></div>`).join('');
+  ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.03);"><span style="color:var(--t2);">${conAyuda(l)}</span><span class="mono">${v}</span></div>`).join('');
 
   // ── Transaction history ──
   renderTablaHistorialTx(aplicarFiltroYOrdenTx(txHistory));
   autoColapsarEnMovil(document.getElementById('page-cartera'));
+  // Cubre las métricas fijas del HTML de esta página ("Valor total",
+  // "Capital disponible", etc., que sí usan .metric-label) — la
+  // tabla de arriba ya lleva su ayuda con conAyuda() directamente,
+  // ya que no usa esa clase.
+  aplicarAyudaTerminos();
 }
 
 // ── Buscador y orden por columnas del historial de transacciones ──
@@ -5405,7 +5416,7 @@ function simulateLab(){
     </div>
     <div style="font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Distribución del portafolio simulado</div>
     <table style="margin-bottom:14px;">
-      <thead><tr><th>Tipo de activo</th><th>Asignación</th><th>Retorno aportado</th><th>Riesgo aportado</th><th>Perfil</th></tr></thead>
+      <thead><tr><th>Tipo de activo</th><th>Asignación</th><th>${conAyuda('Retorno aportado')}</th><th>${conAyuda('Riesgo aportado')}</th><th>Perfil</th></tr></thead>
       <tbody>${allocRows.map(r=>`<tr>
         <td>${r[0]}</td>
         <td class="mono">${(r[1]*100).toFixed(0)}%</td>

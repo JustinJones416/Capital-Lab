@@ -44,9 +44,9 @@ function renderLabHistory(){
           <th>Horizonte</th>
           <th>Capital inicial</th>
           <th>Capital final</th>
-          <th>Rentabilidad</th>
+          <th>${conAyuda('Rentabilidad')}</th>
           <th>Meta</th>
-          <th>Sharpe</th>
+          <th>${conAyuda('Sharpe')}</th>
           <th>Calificación</th>
           <th>Activos</th>
         </tr>
@@ -665,6 +665,7 @@ function renderResults(){
       CapitalLab · Simulador de Mercados Financieros · Facultad de Economía / Finanzas y Banca · Universidad de Panamá · 2026
     </div>`;
   autoColapsarEnMovil(document.getElementById('page-resultados'));
+  aplicarAyudaTerminos();
 }
 
 // ═══════════════════ INIT (see window.load at bottom) ═══════════════════
@@ -2741,6 +2742,15 @@ const GLOSARIO_TERMINOS = {
   'base (futuro − spot)': 'La diferencia entre el precio de un contrato de futuro y el precio actual del activo en el mercado spot. Normalmente converge a cero a medida que se acerca el vencimiento del contrato.',
   'riesgo de crédito': 'La posibilidad de que el emisor de un bono no pague sus intereses o el valor nominal a tiempo, o no pague en absoluto.',
   'riesgo de reinversión': 'El riesgo de que, cuando recibas los pagos de un bono (cupones o el valor final), no encuentres otra inversión con un rendimiento igual de bueno para reinvertirlos.',
+  'capital disponible': 'El dinero de tu cuenta que todavía no está invertido en ningún activo — lo que tienes libre para comprar en cualquier momento.',
+  'capital inicial': 'El monto con el que empezaste a operar, antes de cualquier ganancia o pérdida — el punto de partida para medir tu retorno.',
+  'capital actual': 'El dinero disponible en este momento, después de sumar o restar el efecto de tus operaciones hasta ahora.',
+  'ganancia / pérdida': 'La diferencia entre lo que vale tu cartera ahora y lo que invertiste — en dólares, no en porcentaje. Un número positivo es ganancia; uno negativo, pérdida.',
+  'ganancia estimada': 'La ganancia en dólares que tendrías si el activo se comporta como su retorno esperado histórico — una proyección, no una garantía.',
+  'invertido': 'El monto de capital que de verdad pusiste en esa posición específica, sin contar comisiones ni el resultado de cómo le haya ido después.',
+  'valor total': 'La suma de tu efectivo disponible más el valor actual de mercado de todo lo que tienes invertido — tu patrimonio completo en la cartera en este momento.',
+  'precio actual': 'El precio de mercado del activo en este instante — cambia constantemente mientras el mercado esté abierto.',
+  'valor actual': 'Lo que vale hoy esa posición al precio de mercado presente — cuánto recibirías si la vendieras ahora mismo, antes de comisiones.',
 };
 
 // Reconoce el concepto de fondo detrás de una etiqueta, aunque tenga
@@ -2758,6 +2768,7 @@ function normalizarTerminoGlosario(texto){
   t = t.replace(/\(anualizada\)/g, ' ');
   t = t.replace(/\(diversificado\)/g, ' ');
   t = t.replace(/\(1 año\)/g, ' ');
+  t = t.replace(/\b1 año\b/g, ' ');
   t = t.replace(/\(realizado\)/g, ' ');
   t = t.replace(/\bparamétrico\b/g, ' ');
   t = t.replace(/\banual(izada)?\b/g, ' ');
@@ -2765,10 +2776,13 @@ function normalizarTerminoGlosario(texto){
   t = t.replace(/\bprom\.?\b/g, ' ');
   t = t.replace(/\bpromedio\b/g, ' ');
   t = t.replace(/\bponderad[ao]\b/g, ' ');
+  t = t.replace(/\baportad[ao]\b/g, ' ');
   t = t.replace(/\bneta?\b/g, ' ');
   t = t.replace(/\btotal\b/g, ' ');
   t = t.replace(/\bdel per[ií]odo\b/g, ' ');
   t = t.replace(/[.,]/g, ' ');
+  t = t.replace(/(?<!\d)%(?!\d)/g, ' '); // el símbolo % suelto (no pegado a un número), como en "Retorno %"
+  t = t.replace(/\(\s*\)/g, ' '); // paréntesis que quedan vacíos tras quitar un símbolo de arriba (ej. "Riesgo (σ)" → "Riesgo ( )")
   t = t.replace(/\s+/g, ' ').trim();
   // Sinónimos frecuentes hacia la clave canónica del glosario
   const sinonimos = { 'rendimiento esperado':'retorno esperado' };
@@ -2816,10 +2830,10 @@ function iniciarAyudaTerminos(){
 }
 
 function aplicarAyudaTerminos(){
-  document.querySelectorAll('.metric-label, .profile-key').forEach(el => {
+  document.querySelectorAll('.metric-label, .profile-key, th.con-ayuda').forEach(el => {
     if(el.dataset.ayudaAplicada) return;
-    const texto = el.textContent.trim().toLowerCase();
-    const explicacion = GLOSARIO_TERMINOS[texto];
+    const clave = normalizarTerminoGlosario(el.textContent);
+    const explicacion = GLOSARIO_TERMINOS[clave];
     if(!explicacion) { el.dataset.ayudaAplicada='1'; return; }
     el.dataset.ayudaAplicada = '1';
     const icono = document.createElement('i');
@@ -2829,6 +2843,38 @@ function aplicarAyudaTerminos(){
     el.appendChild(icono);
   });
 }
+
+// El ícono de ayuda se creaba en más de 15 lugares distintos
+// (aplicarAyudaTerminos + conAyuda), pero nada escuchaba el clic para
+// mostrar la explicación — el ícono aparecía, pero no hacía nada al
+// tocarlo. Un solo manejador delegado en document cubre TODOS los
+// íconos, sin importar cuándo o dónde se hayan creado, incluidos los
+// que se generan después de este punto en el tiempo.
+document.addEventListener('click', (e) => {
+  const icono = e.target.closest('.icono-ayuda-termino');
+  document.querySelectorAll('.popover-ayuda-termino').forEach(p => p.remove());
+  if(!icono) return;
+  e.stopPropagation();
+  const popover = document.createElement('div');
+  popover.className = 'popover-ayuda-termino';
+  popover.textContent = icono.dataset.explicacion;
+  popover.style.cssText = `
+    position:fixed; max-width:280px; background:var(--c2, #161b26); color:var(--t1, #e8edf8);
+    border:1px solid var(--accent2, #4a9eff); border-radius:8px; padding:10px 12px;
+    font-size:12px; line-height:1.5; z-index:9999; box-shadow:0 8px 24px rgba(0,0,0,.4);
+  `;
+  document.body.appendChild(popover);
+  const rectIcono = icono.getBoundingClientRect();
+  const rectPopover = popover.getBoundingClientRect();
+  // Se ajusta para nunca salirse de la pantalla — clave en móvil,
+  // donde el ícono puede estar cerca del borde derecho.
+  let left = Math.min(rectIcono.left, window.innerWidth - rectPopover.width - 12);
+  left = Math.max(12, left);
+  let top = rectIcono.bottom + 6;
+  if(top + rectPopover.height > window.innerHeight - 12) top = rectIcono.top - rectPopover.height - 6;
+  popover.style.left = left + 'px';
+  popover.style.top = top + 'px';
+});
 
 function alternarPanelNoticias(){
   const esMovil = window.innerWidth <= 768;
@@ -3541,11 +3587,11 @@ function renderTeacher(){
   thead.innerHTML = `<tr>
     <th>#</th><th>Estudiante</th>
     <th>Sección</th><th>Grupo</th>
-    <th style="text-align:right;">Retorno</th>
-    <th style="text-align:right;">Sharpe</th>
+    <th style="text-align:right;">${conAyuda('Retorno')}</th>
+    <th style="text-align:right;">${conAyuda('Sharpe')}</th>
     <th style="text-align:right;">P&L</th>
     <th style="text-align:right;">σ</th>
-    <th style="text-align:right;">VaR 95%</th>
+    <th style="text-align:right;">${conAyuda('VaR 95%')}</th>
     <th style="text-align:right;">Oper.</th>
     <th style="text-align:right;">Posic.</th>
     <th></th>
