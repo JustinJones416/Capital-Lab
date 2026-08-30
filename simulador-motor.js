@@ -2097,6 +2097,71 @@ function definirExportacionesDisponibles(){
   return items;
 }
 
+// ── Preguntas frecuentes ──
+// Cada pregunta responde algo que de verdad generó dudas reales
+// mientras se construía la app — no son preguntas genéricas
+// inventadas, son las que un estudiante o docente realmente se
+// encuentra al usar el simulador.
+const FAQ_DATOS = [
+  { categoria:'Cuenta y acceso', pregunta:'¿Cómo entro sin crear una cuenta?', respuesta:'En la pantalla de inicio, busca "Probar como estudiante" o "Probar como docente" — no pide correo ni contraseña, y no requiere conexión a internet. Eso sí: nada de lo que hagas ahí se guarda en una cuenta real ni se comparte con tu profesor. Cuando quieras que tu progreso cuente de verdad, cierra el modo de prueba y crea una cuenta.' },
+  { categoria:'Cuenta y acceso', pregunta:'Inicié sesión con Google y se quedó cargando sin entrar', respuesta:'Puede pasar en modo incógnito o con conexiones lentas/filtradas (redes institucionales, bloqueadores de anuncios). Si se queda pegado más de unos segundos, deberías ver un mensaje explicando qué pasó — si no aparece nada, recarga la página. Para entrar con una cuenta de Google adicional sin mezclarla con la tuya, es más confiable usar un perfil de Chrome distinto que el modo incógnito.' },
+  { categoria:'Cuenta y acceso', pregunta:'¿Cómo cambio entre mis distintas sesiones o clases?', respuesta:'Ve a Inicio → tarjeta "Mi Cuenta", ahí aparece la lista de todas tus sesiones con un botón "Cambiar" junto a la que no esté activa en ese momento.' },
+
+  { categoria:'Operar en el Mercado', pregunta:'¿Cómo compro o vendo un activo?', respuesta:'Selecciona el activo en la lista de seguimiento o en Mercado, escribe la cantidad, y confirma la operación. El precio se ejecuta al momento, con el spread y la comisión ya reflejados en el total.' },
+  { categoria:'Operar en el Mercado', pregunta:'¿Qué son el Límite de pérdida y Asegurar ganancia?', respuesta:'Son órdenes automáticas — conocidas internacionalmente como Stop Loss y Take Profit. El Límite de pérdida vende solo si el precio cae hasta el nivel que fijaste, para no perder más de lo que decidiste de antemano. Asegurar ganancia hace lo mismo pero al subir, para no arriesgar una ganancia que ya tienes con solo esperar más.' },
+  { categoria:'Operar en el Mercado', pregunta:'Vendí solo una parte de mi posición y la ganancia se ve rara', respuesta:'Si notas un número que no cuadra al vender solo una parte de lo que tenías, avísale a tu profesor — es justo el tipo de caso que vale la pena reportar para revisar.' },
+
+  { categoria:'Laboratorio', pregunta:'¿En qué se diferencia el Laboratorio del Mercado normal?', respuesta:'El Mercado es de precios en vivo, sin fecha de cierre. El Laboratorio es una simulación con un horizonte fijo (por ejemplo, 6 meses) y una meta de rentabilidad — pensado para practicar una decisión de cartera completa de principio a fin, no para operar día a día.' },
+  { categoria:'Laboratorio', pregunta:'Mi profesor publicó una sección obligatoria, ¿puedo cambiar las reglas?', respuesta:'No — el capital, el horizonte, la meta y las restricciones ya vienen fijados por tu profesor para que todos en la clase trabajen bajo las mismas condiciones. Si la sección es obligatoria, tampoco puedes usar la configuración libre hasta completarla.' },
+
+  { categoria:'Resultados y calificaciones', pregunta:'¿Qué significa el Ratio Sharpe?', respuesta:'Mide cuánto retorno obtuviste por cada unidad de riesgo que asumiste — no solo si ganaste, sino si esa ganancia compensó el riesgo real de tu cartera. Un Sharpe más alto es mejor; uno negativo significa que el riesgo asumido no se justificó con el resultado.' },
+  { categoria:'Resultados y calificaciones', pregunta:'¿Cómo me califica mi profesor?', respuesta:'Puede calificar tus sesiones del Laboratorio, tus cuestionarios, y dejarte comentarios directos — revisa la sección "Calificaciones" para ver todo en un solo lugar.' },
+
+  { categoria:'Exportar e informes', pregunta:'¿Cómo exporto mi progreso?', respuesta:'Desde Más herramientas → Centro de Exportación puedes generar tu resumen en PDF o PowerPoint, listo para presentar en clase. Si usaste la versión offline de CapitalLab, ahí mismo puedes exportar tu progreso a un archivo y luego importarlo cuando entres a la versión en línea con tu cuenta real.' },
+  { categoria:'Exportar e informes', pregunta:'¿Los reportes que exporto se actualizan solos?', respuesta:'No — un PDF o PowerPoint exportado es una fotografía del momento exacto en que lo generaste. Si algo cambia después en tu cartera, tienes que exportarlo de nuevo para que se refleje.' },
+
+  { categoria:'Mi Tesis de Inversión', pregunta:'¿Qué es "Mi Tesis de Inversión"?', respuesta:'Es un espacio para anotar por qué decidiste invertir (o no) en un activo — tu propio razonamiento, antes o después de operar. Puedes escribirla a mano, o traerla directo desde Analytics si ya la redactaste ahí.' },
+];
+
+function abrirFAQ(){
+  document.getElementById('faq-overlay').style.display = 'flex';
+  document.getElementById('faq-buscar').value = '';
+  renderizarFAQ(FAQ_DATOS);
+}
+
+function renderizarFAQ(lista){
+  const cont = document.getElementById('faq-lista');
+  if(!lista.length){ cont.innerHTML = '<div class="auth-hint">Ninguna pregunta coincide con tu búsqueda.</div>'; return; }
+  const categorias = [...new Set(lista.map(f => f.categoria))];
+  cont.innerHTML = categorias.map(cat => `
+    <div style="font-size:11px;color:var(--t3, #7a8ab0);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 6px;">${cat}</div>
+    ${lista.filter(f => f.categoria === cat).map((f, i) => {
+      const id = `faq-${cat}-${i}`.replace(/\s+/g,'-');
+      return `<div class="card" style="margin-bottom:8px;padding:0;overflow:hidden;">
+        <button onclick="alternarPreguntaFAQ('${id}')" style="width:100%;text-align:left;padding:12px 14px;background:none;border:none;color:var(--t1, #e8edf8);font-size:13px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          ${f.pregunta}
+          <i class="ti ti-chevron-down" id="${id}-icono" style="flex-shrink:0;transition:transform .15s;"></i>
+        </button>
+        <div id="${id}" style="display:none;padding:0 14px 14px;font-size:12.5px;color:var(--t2, #b8c4dc);line-height:1.55;">${f.respuesta}</div>
+      </div>`;
+    }).join('')}
+  `).join('');
+}
+
+function alternarPreguntaFAQ(id){
+  const cuerpo = document.getElementById(id);
+  const icono = document.getElementById(id+'-icono');
+  const abierto = cuerpo.style.display !== 'none';
+  cuerpo.style.display = abierto ? 'none' : 'block';
+  icono.style.transform = abierto ? '' : 'rotate(180deg)';
+}
+
+function filtrarFAQ(texto){
+  const q = texto.trim().toLowerCase();
+  if(!q){ renderizarFAQ(FAQ_DATOS); return; }
+  renderizarFAQ(FAQ_DATOS.filter(f => f.pregunta.toLowerCase().includes(q) || f.respuesta.toLowerCase().includes(q)));
+}
+
 function abrirCentroExportacion(){
   document.getElementById('centro-exportacion-overlay').style.display = 'flex';
   const items = definirExportacionesDisponibles();
