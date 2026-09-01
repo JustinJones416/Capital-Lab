@@ -5459,6 +5459,12 @@ function simulateLab(){
   });
   autosave();
   renderLabHistory();
+  // Llamada explícita — antes se confiaba en que renderLabHistory()
+  // la disparara indirectamente (ya que aplicarAyudaTerminos escanea
+  // todo el documento), pero en el flujo real de esta función eso no
+  // cubría de forma confiable las tarjetas de escenarios Monte Carlo
+  // que se insertan arriba, en otro contenedor.
+  aplicarAyudaTerminos();
 }
 
 // ═══════════════════ LAB HISTORY ═══════════════════

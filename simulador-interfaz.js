@@ -2751,6 +2751,14 @@ const GLOSARIO_TERMINOS = {
   'valor total': 'La suma de tu efectivo disponible más el valor actual de mercado de todo lo que tienes invertido — tu patrimonio completo en la cartera en este momento.',
   'precio actual': 'El precio de mercado del activo en este instante — cambia constantemente mientras el mercado esté abierto.',
   'valor actual': 'Lo que vale hoy esa posición al precio de mercado presente — cuánto recibirías si la vendieras ahora mismo, antes de comisiones.',
+  'escenario mediano (p50)': 'El resultado que queda justo en la mitad de todas las simulaciones posibles — la mitad de los escenarios terminan mejor que este, y la otra mitad peor. Es la estimación "típica", ni optimista ni pesimista.',
+  'escenario optimista (p95)': 'Un resultado que solo el 5% de las simulaciones superó — representa un escenario favorable, pero no el mejor posible; hay un 5% de probabilidad de terminar incluso mejor que esto.',
+  'escenario pesimista (p5)': 'Un resultado que solo el 5% de las simulaciones terminó peor que este — representa un escenario desfavorable real a considerar, no el peor caso absoluto.',
+  'prob de alcanzar meta': 'De todas las simulaciones que se corrieron, el porcentaje que terminó cumpliendo la meta de rentabilidad que se propuso — entre más alto, más realista es esperar alcanzarla con esta estrategia.',
+  'prob de pérdida': 'El porcentaje de simulaciones que terminaron con menos capital del que se empezó — una medida directa de qué tan probable es perder dinero con esta cartera, no solo cuánto se podría perder.',
+  'prob de ruina (≥95%)': 'El porcentaje de simulaciones donde se perdió el 95% o más del capital — un escenario de pérdida casi total, útil para saber si una estrategia tiene cola de riesgo extremo, aunque sea poco probable.',
+  'p&l neto': 'La ganancia o pérdida final en dólares, después de descontar comisiones y otros costos de operar — el número real que te queda, no la ganancia "en teoría" antes de gastos.',
+  'costos de transacción': 'El total de comisiones y otros cargos pagados por comprar y vender — dinero que sale de tu resultado final sin importar si la operación fue ganadora o perdedora.',
 };
 
 // Reconoce el concepto de fondo detrás de una etiqueta, aunque tenga
@@ -2830,7 +2838,7 @@ function iniciarAyudaTerminos(){
 }
 
 function aplicarAyudaTerminos(){
-  document.querySelectorAll('.metric-label, .profile-key, th.con-ayuda').forEach(el => {
+  document.querySelectorAll('.metric-label, .profile-key, th.con-ayuda, .kpi-lbl, .lbl, .stat-label, .kpi-label').forEach(el => {
     if(el.dataset.ayudaAplicada) return;
     const clave = normalizarTerminoGlosario(el.textContent);
     const explicacion = GLOSARIO_TERMINOS[clave];
