@@ -1289,17 +1289,38 @@
        Google Form ya hecho como alternativa completa. -->
   <div id="prof-panel-encuestas" style="display:none;">
     <div class="card" style="margin-bottom:16px;">
-      <div class="card-title"><i class="ti ti-clipboard-plus" style="color:var(--gold, #e8b94a);"></i> Nueva encuesta</div>
+      <div class="card-title"><i class="ti ti-clipboard-plus" style="color:var(--gold, #e8b94a);"></i> <span id="encuesta-form-titulo-modo">Nueva encuesta</span></div>
 
-      <div class="field" style="margin-bottom:10px;">
+      <div class="field" style="margin-bottom:10px;" id="encuesta-campo-plantilla-wrap">
         <label>Empezar desde</label>
         <select id="encuesta-plantilla" onchange="alCambiarPlantillaEncuesta()">
           <option value="">En blanco</option>
+          <option value="generar_ia">Redactar con IA a partir de un tema</option>
           <option value="percepcion_riesgo">Plantilla: Percepción de riesgo y aprendizaje</option>
           <option value="satisfaccion">Plantilla: Satisfacción con el simulador</option>
           <option value="autoevaluacion_lab">Plantilla: Autoevaluación tras el Laboratorio</option>
           <option value="google_form">Usar un Google Form en su lugar</option>
         </select>
+      </div>
+
+      <div id="encuesta-campo-generar-ia" style="display:none;margin-bottom:14px;padding:12px;background:var(--c2, #161b26);border-radius:8px;border:1px solid rgba(232,185,74,.3);">
+        <div class="field" style="margin-bottom:8px;">
+          <label>Tema de la encuesta</label>
+          <input type="text" id="encuesta-ia-tema" placeholder="Ej: Uso del Laboratorio y toma de decisiones bajo restricciones">
+        </div>
+        <div class="field" style="margin-bottom:8px;">
+          <label>Objetivo de investigación (opcional)</label>
+          <input type="text" id="encuesta-ia-objetivo" placeholder="¿Qué quieres medir o entender con esto?">
+        </div>
+        <div style="display:flex;gap:10px;align-items:end;margin-bottom:8px;">
+          <div class="field" style="flex:1;">
+            <label>Cantidad de preguntas</label>
+            <input type="number" id="encuesta-ia-cantidad" value="5" min="2" max="12">
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);padding-bottom:8px;"><input type="checkbox" id="encuesta-ia-abiertas" checked style="width:auto;"> Incluir preguntas abiertas</label>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="redactarEncuestaConIA()" id="encuesta-ia-btn"><i class="ti ti-sparkles"></i> Redactar con IA</button>
+        <div style="font-size:10.5px;color:var(--t3);margin-top:6px;">El resultado queda completamente editable antes de publicar — revisa y ajusta lo que haga falta.</div>
       </div>
 
       <div id="encuesta-campos-propios">
@@ -1326,7 +1347,10 @@
         </div>
       </div>
 
-      <button class="btn btn-primary" onclick="publicarEncuesta()"><i class="ti ti-send"></i> Publicar encuesta</button>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" id="encuesta-btn-publicar" onclick="publicarEncuesta()"><i class="ti ti-send"></i> Publicar encuesta</button>
+        <button class="btn btn-ghost" id="encuesta-btn-cancelar-edicion" onclick="cancelarEdicionEncuesta()" style="display:none;">Cancelar edición</button>
+      </div>
     </div>
 
     <div class="card-title" style="margin-bottom:10px;">Encuestas publicadas</div>

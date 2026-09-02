@@ -2955,8 +2955,11 @@ const PLANTILLAS_ENCUESTA = {
 function alCambiarPlantillaEncuesta(){
   const clave = document.getElementById('encuesta-plantilla').value;
   const esGoogleForm = clave === 'google_form';
+  const esGenerarIA = clave === 'generar_ia';
   document.getElementById('encuesta-campos-propios').style.display = esGoogleForm ? 'none' : '';
   document.getElementById('encuesta-campo-google-form').style.display = esGoogleForm ? '' : 'none';
+  document.getElementById('encuesta-campo-generar-ia').style.display = esGenerarIA ? '' : 'none';
+  if(esGenerarIA){ return; } // se espera a que el docente pida la redacción con IA — no se toca preguntasEncuestaActual todavía
   if(esGoogleForm || !clave) { if(!clave) preguntasEncuestaActual = []; renderPreguntasEncuesta(); return; }
   const plantilla = PLANTILLAS_ENCUESTA[clave];
   document.getElementById('encuesta-titulo').value = plantilla.titulo;
@@ -2965,7 +2968,50 @@ function alCambiarPlantillaEncuesta(){
   renderPreguntasEncuesta();
 }
 
+async function redactarEncuestaConIA(){
+  const tema = document.getElementById('encuesta-ia-tema').value.trim();
+  if(!tema){ notify('Escribe el tema de la encuesta primero.', 'error'); return; }
+  const boton = document.getElementById('encuesta-ia-btn');
+  boton.disabled = true;
+  boton.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Redactando…';
+  try {
+    const resp = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SIM_IA_ANON_KEY, 'Authorization': `Bearer ${SIM_IA_ANON_KEY}` },
+      body: JSON.stringify({
+        modo: 'generar_encuesta',
+        parametros: {
+          tema,
+          objetivo: document.getElementById('encuesta-ia-objetivo').value.trim(),
+          cantidadPreguntas: +document.getElementById('encuesta-ia-cantidad').value || 5,
+          incluirAbiertas: document.getElementById('encuesta-ia-abiertas').checked,
+        },
+      }),
+    });
+    const d = await resp.json();
+    if(!d.ok) throw new Error(d.error || 'Error desconocido.');
+
+    // Se muestran los campos normales (editables) con lo que la IA
+    // redactó — nunca se publica directo, el docente revisa y ajusta
+    // antes de darle a "Publicar".
+    document.getElementById('encuesta-plantilla').value = '';
+    document.getElementById('encuesta-campo-generar-ia').style.display = 'none';
+    document.getElementById('encuesta-campos-propios').style.display = '';
+    document.getElementById('encuesta-titulo').value = d.titulo;
+    document.getElementById('encuesta-descripcion').value = d.descripcion || '';
+    preguntasEncuestaActual = d.preguntas;
+    renderPreguntasEncuesta();
+    notify('Encuesta redactada — revisa y ajusta antes de publicar.', 'success');
+  } catch(e){
+    notify('No se pudo redactar: ' + (e.message||e), 'error');
+  } finally {
+    boton.disabled = false;
+    boton.innerHTML = '<i class="ti ti-sparkles"></i> Redactar con IA';
+  }
+}
+
 let preguntasEncuestaActual = [];
+let encuestaEditandoId = null; // null = creando nueva; con valor = editando una ya publicada
 
 function renderPreguntasEncuesta(){
   const cont = document.getElementById('encuesta-preguntas-lista');
@@ -2996,7 +3042,8 @@ function agregarPreguntaEncuesta(){
 }
 
 async function publicarEncuesta(){
-  const esGoogleForm = document.getElementById('encuesta-plantilla').value === 'google_form';
+  const esGoogleForm = document.getElementById('encuesta-plantilla').value === 'google_form'
+    || (encuestaEditandoId && document.getElementById('encuesta-campo-google-form').style.display !== 'none');
   if(!currentUser?.sesion_id){ notify('No hay sesión activa.', 'error'); return; }
 
   let payload;
@@ -3010,26 +3057,66 @@ async function publicarEncuesta(){
     const titulo = document.getElementById('encuesta-titulo').value.trim();
     if(!titulo){ notify('Ponle un título a la encuesta.', 'error'); return; }
     if(!preguntasEncuestaActual.length || preguntasEncuestaActual.some(p => !p.texto.trim())){ notify('Cada pregunta necesita su texto — revisa que ninguna esté vacía.', 'error'); return; }
-    payload = { titulo, descripcion: document.getElementById('encuesta-descripcion').value.trim() || null, preguntas: preguntasEncuestaActual };
+    payload = { titulo, descripcion: document.getElementById('encuesta-descripcion').value.trim() || null, preguntas: preguntasEncuestaActual, google_form_url: null };
   }
 
   try {
-    const { error } = await sb.from('encuestas_completas').insert({
-      sesion_id: currentUser.sesion_id, docente_id: currentUser.usuario_id, ...payload,
-    });
-    if(error) throw error;
-    notify('Encuesta publicada — ya la ven tus estudiantes.', 'success');
-    document.getElementById('encuesta-titulo').value = '';
-    document.getElementById('encuesta-descripcion').value = '';
-    document.getElementById('encuesta-gf-titulo').value = '';
-    document.getElementById('encuesta-gf-url').value = '';
-    document.getElementById('encuesta-plantilla').value = '';
-    preguntasEncuestaActual = [];
-    alCambiarPlantillaEncuesta();
+    if(encuestaEditandoId){
+      const { error } = await sb.from('encuestas_completas').update(payload).eq('id', encuestaEditandoId);
+      if(error) throw error;
+      notify('Encuesta actualizada.', 'success');
+    } else {
+      const { error } = await sb.from('encuestas_completas').insert({
+        sesion_id: currentUser.sesion_id, docente_id: currentUser.usuario_id, ...payload,
+      });
+      if(error) throw error;
+      notify('Encuesta publicada — ya la ven tus estudiantes.', 'success');
+    }
+    cancelarEdicionEncuesta();
     cargarEncuestasDocente();
   } catch(e){
-    notify('No se pudo publicar: ' + (e.message||e), 'error');
+    notify('No se pudo guardar: ' + (e.message||e), 'error');
   }
+}
+
+function editarEncuesta(id){
+  const datos = encuestasDocenteCache[id];
+  if(!datos){ notify('No se encontró la encuesta.', 'error'); return; }
+  encuestaEditandoId = id;
+  document.getElementById('encuesta-campo-plantilla-wrap').style.display = 'none'; // editando, no eligiendo desde dónde empezar
+  document.getElementById('encuesta-form-titulo-modo').textContent = 'Editando encuesta';
+  document.getElementById('encuesta-btn-publicar').innerHTML = '<i class="ti ti-device-floppy"></i> Guardar cambios';
+  document.getElementById('encuesta-btn-cancelar-edicion').style.display = '';
+
+  if(datos.google_form_url){
+    document.getElementById('encuesta-campos-propios').style.display = 'none';
+    document.getElementById('encuesta-campo-google-form').style.display = '';
+    document.getElementById('encuesta-gf-titulo').value = datos.titulo;
+    document.getElementById('encuesta-gf-url').value = datos.google_form_url;
+  } else {
+    document.getElementById('encuesta-campos-propios').style.display = '';
+    document.getElementById('encuesta-campo-google-form').style.display = 'none';
+    document.getElementById('encuesta-titulo').value = datos.titulo;
+    document.getElementById('encuesta-descripcion').value = datos.descripcion || '';
+    preguntasEncuestaActual = datos.preguntas.map(p => ({...p}));
+    renderPreguntasEncuesta();
+  }
+  document.getElementById('prof-panel-encuestas').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function cancelarEdicionEncuesta(){
+  encuestaEditandoId = null;
+  document.getElementById('encuesta-campo-plantilla-wrap').style.display = '';
+  document.getElementById('encuesta-plantilla').value = '';
+  document.getElementById('encuesta-form-titulo-modo').textContent = 'Nueva encuesta';
+  document.getElementById('encuesta-btn-publicar').innerHTML = '<i class="ti ti-send"></i> Publicar encuesta';
+  document.getElementById('encuesta-btn-cancelar-edicion').style.display = 'none';
+  document.getElementById('encuesta-titulo').value = '';
+  document.getElementById('encuesta-descripcion').value = '';
+  document.getElementById('encuesta-gf-titulo').value = '';
+  document.getElementById('encuesta-gf-url').value = '';
+  preguntasEncuestaActual = [];
+  alCambiarPlantillaEncuesta();
 }
 
 async function cargarEncuestasDocente(){
@@ -3041,6 +3128,13 @@ async function cargarEncuestasDocente(){
       .select('*, encuestas_completas_respuestas(id)').eq('sesion_id', currentUser.sesion_id).order('creado_en', {ascending:false});
     if(error) throw error;
     if(!encuestas || !encuestas.length){ cont.innerHTML = '<div class="auth-hint">Todavía no has publicado ninguna encuesta.</div>'; return; }
+
+    // Se guarda en memoria (no en el onclick directo) para poder
+    // precargar el formulario de edición sin arriesgar errores de
+    // escape con comillas/caracteres especiales dentro del título o
+    // las preguntas.
+    encuestasDocenteCache = {};
+    encuestas.forEach(e => { encuestasDocenteCache[e.id] = e; });
 
     cont.innerHTML = encuestas.map(e => `
       <div class="card" style="margin-bottom:10px;">
@@ -3054,6 +3148,7 @@ async function cargarEncuestasDocente(){
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
             ${!e.google_form_url ? `<button class="btn btn-sm" onclick="verResultadosEncuestaCompleta('${e.id}')">Ver resultados</button>` : `<a class="btn btn-sm" href="${e.google_form_url}" target="_blank">Abrir Form</a>`}
+            <button class="btn btn-ghost btn-sm" onclick="editarEncuesta('${e.id}')"><i class="ti ti-pencil"></i></button>
             <button class="btn btn-ghost btn-sm" onclick="alternarActivaEncuesta('${e.id}', ${e.activa})">${e.activa?'Cerrar':'Reabrir'}</button>
           </div>
         </div>
@@ -3063,6 +3158,7 @@ async function cargarEncuestasDocente(){
     cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
   }
 }
+let encuestasDocenteCache = {};
 
 async function alternarActivaEncuesta(id, activaActual){
   try {
@@ -3092,7 +3188,23 @@ async function verResultadosEncuestaCompleta(encuestaId){
 
     if(!respuestas || !respuestas.length){ cont.innerHTML = '<div class="auth-hint">Todavía nadie ha respondido esta encuesta.</div>'; contIA.innerHTML=''; return; }
 
-    contIA.innerHTML = `<button class="btn btn-ghost btn-sm" id="encuesta-btn-ia" onclick="analizarEncuestaConIA('${encuestaId}')" style="width:100%;"><i class="ti ti-sparkles"></i> Analizar resultados con IA</button><div id="encuesta-ia-resultado" style="margin-top:8px;"></div>`;
+    // Indicador de suficiencia de muestra — visible siempre, no solo
+    // dentro del análisis de IA, para que el docente vea de un
+    // vistazo si vale la pena sacar conclusiones firmes de estos
+    // datos antes de leer nada más. Los mismos umbrales se le piden
+    // a la IA que los respete en su propio análisis de texto.
+    const n = respuestas.length;
+    let etiquetaMuestra, colorMuestra;
+    if(n < 5){ etiquetaMuestra = 'Muestra insuficiente'; colorMuestra = 'var(--red)'; }
+    else if(n < 15){ etiquetaMuestra = 'Muestra limitada'; colorMuestra = 'var(--amber, #e8b94a)'; }
+    else { etiquetaMuestra = 'Muestra razonable'; colorMuestra = 'var(--green)'; }
+
+    contIA.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 12px;background:var(--c2, #161b26);border-radius:8px;border-left:3px solid ${colorMuestra};">
+        <i class="ti ti-users" style="color:${colorMuestra};"></i>
+        <span style="font-size:12.5px;"><b style="color:${colorMuestra};">${etiquetaMuestra}</b> — ${n} respuesta(s) recibida(s)${n<15?' (recomendado: 15 o más para conclusiones más firmes)':''}</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="encuesta-btn-ia" onclick="analizarEncuestaConIA('${encuestaId}')" style="width:100%;"><i class="ti ti-sparkles"></i> Analizar resultados con IA</button><div id="encuesta-ia-resultado" style="margin-top:8px;"></div>`;
 
     cont.innerHTML = encuesta.preguntas.map(p => {
       const valores = respuestas.map(r => r.respuestas[p.id]).filter(v => v !== undefined && v !== null && v !== '');
@@ -5264,8 +5376,17 @@ async function abrirResultadosSeccionLab(seccionId){
   </div>`;
   document.body.appendChild(overlay);
   overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+  cargarContenidoResultadosSeccionLab(seccionId);
+}
 
-  const cont = overlay.querySelector('#labsec-resultados-lista');
+// Separada de abrirResultadosSeccionLab() para poder refrescar SOLO
+// el contenido después de guardar una calificación, sin crear un
+// segundo modal encima del que ya está abierto — antes, guardar no
+// refrescaba nada en absoluto, así que el docente segu\u00eda viendo los
+// valores de antes de guardar y parec\u00eda que no hab\u00eda funcionado.
+async function cargarContenidoResultadosSeccionLab(seccionId){
+  const cont = document.getElementById('labsec-resultados-lista');
+  if(!cont) return;
   try {
     const { data: resultados, error } = await sb.from('laboratorio_resultados')
       .select('*, usuarios(nombre, correo)').eq('seccion_id', seccionId).order('retorno_pct', {ascending:false});
@@ -5285,8 +5406,9 @@ async function abrirResultadosSeccionLab(seccionId){
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="number" min="0" max="100" placeholder="Calificación" value="${r.calificacion ?? ''}" id="labsec-nota-${r.id}" style="width:110px;padding:6px 10px;background:var(--c1, #0d1015);border:1px solid var(--c4, #242d42);border-radius:6px;color:var(--t1, #e8edf8);font-size:12px;">
           <input type="text" placeholder="Comentario (opcional)" value="${r.comentario_docente ?? ''}" id="labsec-comentario-${r.id}" style="flex:1;padding:6px 10px;background:var(--c1, #0d1015);border:1px solid var(--c4, #242d42);border-radius:6px;color:var(--t1, #e8edf8);font-size:12px;">
-          <button class="btn btn-sm" onclick="calificarResultadoLab('${r.id}')">Guardar</button>
+          <button class="btn btn-sm" onclick="calificarResultadoLab('${r.id}', '${seccionId}')">Guardar</button>
         </div>
+        <div id="labsec-guardado-${r.id}" style="display:none;font-size:11px;color:var(--green);margin-top:4px;"><i class="ti ti-check"></i> Guardado</div>
       </div>
     `).join('');
   } catch(e){
@@ -5294,7 +5416,7 @@ async function abrirResultadosSeccionLab(seccionId){
   }
 }
 
-async function calificarResultadoLab(resultadoId){
+async function calificarResultadoLab(resultadoId, seccionId){
   const nota = document.getElementById(`labsec-nota-${resultadoId}`).value;
   const comentario = document.getElementById(`labsec-comentario-${resultadoId}`).value.trim();
   if(nota === ''){ notify('Pon una calificación antes de guardar.', 'error'); return; }
@@ -5304,6 +5426,21 @@ async function calificarResultadoLab(resultadoId){
     }).eq('id', resultadoId);
     if(error) throw error;
     notify('Calificación guardada.', 'success');
+    // Antes, la vista se quedaba mostrando los valores de ANTES de
+    // guardar (o vacíos) — el guardado sí funcionaba en la base de
+    // datos, pero como nada refrescaba la pantalla, parecía que no
+    // había pasado nada. Se muestra una confirmación visual clara al
+    // lado del botón, y se refresca la lista completa por si el
+    // docente sigue calificando a otros estudiantes de la misma
+    // sección justo después.
+    const aviso = document.getElementById(`labsec-guardado-${resultadoId}`);
+    if(seccionId) await cargarContenidoResultadosSeccionLab(seccionId);
+    // El refresco de arriba reconstruye todo el HTML del contenedor,
+    // así que el aviso hay que mostrarlo DESPUÉS de eso — si se
+    // mostraba antes, el propio refresco lo destruía y lo reemplazaba
+    // por una copia nueva ya oculta, sin que nadie lo llegara a ver.
+    const avisoNuevo = document.getElementById(`labsec-guardado-${resultadoId}`);
+    if(avisoNuevo){ avisoNuevo.style.display = 'block'; setTimeout(()=>{ avisoNuevo.style.display='none'; }, 2500); }
   } catch(e){
     notify('No se pudo guardar: ' + (e.message||e), 'error');
   }
