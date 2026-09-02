@@ -2129,7 +2129,7 @@ function pdfStyles(){
      sintaxis (con y sin guion) por compatibilidad — el motor de
      captura interno no siempre reconoce la más moderna por sí sola. */
   ${p} .kpi, ${p} tr, ${p} .info-box, ${p} .lab-card, ${p} .hdr, ${p} .footer,
-  ${p} .medal, ${p} .rank-medal, ${p} .badge {
+  ${p} .medal, ${p} .rank-medal, ${p} .badge, ${p} .card, ${p} .section, ${p} svg {
     page-break-inside: avoid; break-inside: avoid;
   }
   /* Un título de sección nunca debe quedar solo al final de una

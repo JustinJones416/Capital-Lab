@@ -917,6 +917,7 @@
   <div class="news-classes" id="res-tabs">
     <button class="news-class-btn active" data-tab="mercado" onclick="alternarPestanaResultados('mercado')"><i class="ti ti-chart-candle"></i> Mercado</button>
     <button class="news-class-btn" data-tab="laboratorio" onclick="alternarPestanaResultados('laboratorio')"><i class="ti ti-flask"></i> Laboratorio</button>
+    <button class="news-class-btn" data-tab="encuestas" onclick="alternarPestanaResultados('encuestas')"><i class="ti ti-clipboard-text"></i> Encuestas</button>
   </div>
 
   <div id="res-tab-mercado">
@@ -977,6 +978,9 @@
 
   <div id="res-tab-laboratorio" style="display:none;">
     <div id="rlab-content"></div>
+  </div>
+  <div id="res-tab-encuestas" style="display:none;">
+    <div id="rencuestas-content"></div>
   </div>
 </div>
 
@@ -1353,7 +1357,10 @@
       </div>
     </div>
 
-    <div class="card-title" style="margin-bottom:10px;">Encuestas publicadas</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="card-title" style="margin-bottom:0;">Encuestas publicadas</div>
+      <button class="btn btn-ghost btn-sm" onclick="exportarDatosInvestigacionCSV()" title="Combina Laboratorio + todas las encuestas de la sesión en un solo archivo, listo para análisis estadístico"><i class="ti ti-database-export"></i> Exportar datos de investigación</button>
+    </div>
     <div id="encuesta-lista-docente"><div class="auth-hint">Cargando…</div></div>
   </div>
 

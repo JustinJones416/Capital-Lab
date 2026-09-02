@@ -571,10 +571,13 @@ function alternarPestanaResultados(pestana){
   });
   const tabMercado = document.getElementById('res-tab-mercado');
   const tabLab = document.getElementById('res-tab-laboratorio');
+  const tabEncuestas = document.getElementById('res-tab-encuestas');
   if(tabMercado) tabMercado.style.display = pestana === 'mercado' ? '' : 'none';
   if(tabLab) tabLab.style.display = pestana === 'laboratorio' ? '' : 'none';
+  if(tabEncuestas) tabEncuestas.style.display = pestana === 'encuestas' ? '' : 'none';
   if(pestana === 'mercado'){ try { renderResults(); } catch(e){ console.error(e); } }
-  else { try { renderResultsLab(); } catch(e){ console.error(e); } }
+  else if(pestana === 'laboratorio'){ try { renderResultsLab(); } catch(e){ console.error(e); } }
+  else { try { renderResultadosEncuestas(); } catch(e){ console.error(e); } }
 }
 
 function goPage(p){
@@ -3119,8 +3122,9 @@ function cancelarEdicionEncuesta(){
   alCambiarPlantillaEncuesta();
 }
 
-async function cargarEncuestasDocente(){
-  const cont = document.getElementById('encuesta-lista-docente');
+async function cargarEncuestasDocente(idContenedor){
+  idContenedor = idContenedor || 'encuesta-lista-docente';
+  const cont = document.getElementById(idContenedor);
   if(!sb || !currentUser?.sesion_id || !cont) return;
   cont.innerHTML = '<div class="auth-hint">Cargando…</div>';
   try {
@@ -3147,15 +3151,33 @@ async function cargarEncuestasDocente(){
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
-            ${!e.google_form_url ? `<button class="btn btn-sm" onclick="verResultadosEncuestaCompleta('${e.id}')">Ver resultados</button>` : `<a class="btn btn-sm" href="${e.google_form_url}" target="_blank">Abrir Form</a>`}
-            <button class="btn btn-ghost btn-sm" onclick="editarEncuesta('${e.id}')"><i class="ti ti-pencil"></i></button>
+            ${!e.google_form_url ? `<button class="btn btn-sm" onclick="verResultadosEncuestaCompleta('${e.id}')">Ver resultados</button><button class="btn btn-ghost btn-sm" onclick="exportarEncuestaCSV('${e.id}')" title="Descargar datos crudos en CSV"><i class="ti ti-download"></i></button>` : `<a class="btn btn-sm" href="${e.google_form_url}" target="_blank">Abrir Form</a>`}
+            <button class="btn btn-ghost btn-sm" onclick="editarEncuesta('${e.id}')" title="Editar"><i class="ti ti-pencil"></i></button>
             <button class="btn btn-ghost btn-sm" onclick="alternarActivaEncuesta('${e.id}', ${e.activa})">${e.activa?'Cerrar':'Reabrir'}</button>
+            <button class="btn btn-ghost btn-sm" onclick="eliminarEncuesta('${e.id}', '${idContenedor}')" title="Eliminar" style="color:var(--red);"><i class="ti ti-trash"></i></button>
           </div>
         </div>
       </div>
     `).join('');
   } catch(e){
     cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
+  }
+}
+
+async function eliminarEncuesta(id, idContenedor){
+  const datos = encuestasDocenteCache[id];
+  const nRespuestas = datos?.encuestas_completas_respuestas?.length || 0;
+  const advertencia = nRespuestas > 0
+    ? `Esta encuesta tiene ${nRespuestas} respuesta(s) — se eliminarán también, sin poder recuperarse. ¿Continuar?`
+    : '¿Eliminar esta encuesta?';
+  if(!confirm(advertencia)) return;
+  try {
+    const { error } = await sb.from('encuestas_completas').delete().eq('id', id);
+    if(error) throw error;
+    notify('Encuesta eliminada.', 'success');
+    cargarEncuestasDocente(idContenedor);
+  } catch(e){
+    notify('No se pudo eliminar: ' + (e.message||e), 'error');
   }
 }
 let encuestasDocenteCache = {};
@@ -3260,6 +3282,57 @@ async function analizarEncuestaConIA(encuestaId){
 }
 
 // ── Vista del estudiante: encuestas activas pendientes de responder ──
+// Despachador de la pestaña "Encuestas" dentro de Resultados — el
+// docente ve la gestión completa (misma lista reutilizada de Modo
+// Profesor), el estudiante ve su propio historial de respuestas, no
+// los resultados agregados de sus compañeros (eso es del docente).
+async function renderResultadosEncuestas(){
+  const cont = document.getElementById('rencuestas-content');
+  if(!cont) return;
+  const esDocente = currentUser?.rol === 'docente' || currentUser?.rol === 'superadmin';
+  if(esDocente){
+    cont.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:0;">Encuestas de esta sesión</div>
+        <button class="btn btn-ghost btn-sm" onclick="exportarDatosInvestigacionCSV()" title="Combina Laboratorio + todas las encuestas de la sesión en un solo archivo"><i class="ti ti-database-export"></i> Exportar datos de investigación</button>
+      </div>
+      <div id="rencuestas-lista-docente"><div class="auth-hint">Cargando…</div></div>`;
+    cargarEncuestasDocente('rencuestas-lista-docente');
+  } else {
+    cont.innerHTML = '<div class="auth-hint">Cargando…</div>';
+    renderHistorialEncuestasEstudiante(cont);
+  }
+}
+
+async function renderHistorialEncuestasEstudiante(cont){
+  if(!sb || !currentUser?.usuario_id || guestMode){ cont.innerHTML = '<div class="auth-hint">El historial de encuestas necesita una cuenta real.</div>'; return; }
+  try {
+    const { data: misRespuestas, error } = await sb.from('encuestas_completas_respuestas')
+      .select('*, encuestas_completas(titulo, descripcion, preguntas)').eq('usuario_id', currentUser.usuario_id).order('respondido_en', {ascending:false});
+    if(error) throw error;
+    if(!misRespuestas || !misRespuestas.length){ cont.innerHTML = '<div class="auth-hint">Todavía no has respondido ninguna encuesta.</div>'; return; }
+
+    cont.innerHTML = misRespuestas.map(r => {
+      const enc = r.encuestas_completas;
+      const filasPreguntas = enc.preguntas.map(p => {
+        const v = r.respuestas[p.id];
+        if(v === undefined || v === null || v === '') return '';
+        const texto = Array.isArray(v) ? v.join(', ') : v;
+        return `<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:5px 0;border-bottom:1px solid var(--c3);"><span style="color:var(--t2);">${p.texto}</span><span class="mono">${texto}</span></div>`;
+      }).join('');
+      return `<div class="card" style="margin-bottom:10px;padding:12px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <b>${enc.titulo}</b>
+          <span style="font-size:11px;color:var(--t3);">Respondida: ${new Date(r.respondido_en).toLocaleDateString('es-PA')}</span>
+        </div>
+        ${filasPreguntas}
+      </div>`;
+    }).join('');
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
+  }
+}
+
 async function cargarEncuestasPendientesEstudiante(){
   if(!sb || !currentUser?.sesion_id || guestMode) return;
   try {
