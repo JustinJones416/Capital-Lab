@@ -2119,6 +2119,22 @@ function pdfStyles(){
   return `
   ${p} { font-family: 'Inter', Arial, Helvetica, sans-serif; font-size: 10pt; color: #1a2233 !important; background: #fff; width: 700px; padding: 20px 24px; }
   ${p} * { box-sizing: border-box; }
+  /* Saltos de página forzados — antes solo se aplicaban a 4 lugares
+     puntuales del código (secciones grandes completas), pero ningún
+     elemento individual (una fila de tabla, una tarjeta de KPI, una
+     tarjeta de sesión de Laboratorio) tenía protección contra
+     cortarse a la mitad entre dos páginas del PDF — el motor
+     (html2pdf, configurado con pagebreak:{mode:['css','legacy']})
+     SÍ respeta estas reglas, solo faltaba declararlas. Se usan ambas
+     sintaxis (con y sin guion) por compatibilidad — el motor de
+     captura interno no siempre reconoce la más moderna por sí sola. */
+  ${p} .kpi, ${p} tr, ${p} .info-box, ${p} .lab-card, ${p} .hdr, ${p} .footer,
+  ${p} .medal, ${p} .rank-medal, ${p} .badge {
+    page-break-inside: avoid; break-inside: avoid;
+  }
+  /* Un título de sección nunca debe quedar solo al final de una
+     página, con su contenido recién empezando en la siguiente. */
+  ${p} .section-title { page-break-after: avoid; break-after: avoid-page; }
   ${p} .hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #0F1420; border-radius: 8px; margin-bottom: 18px; gap: 14px; }
   ${p} .hdr-left { display: flex; align-items: center; gap: 12px; }
   ${p} .hdr-logo { width: 42px; height: 42px; border-radius: 9px; flex-shrink: 0; }
