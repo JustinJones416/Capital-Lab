@@ -2917,6 +2917,301 @@ async function cerrarEncuestaDocente(id){
   } catch(e){ notify('No se pudo cerrar: ' + (e.message||e), 'error'); }
 }
 
+// ── Encuestas completas de investigación ──
+// Plantillas con preguntas ya redactadas ("datos predeterminados") —
+// el docente las puede usar tal cual o editarlas antes de publicar.
+const PLANTILLAS_ENCUESTA = {
+  percepcion_riesgo: {
+    titulo: 'Percepción de riesgo y aprendizaje',
+    descripcion: 'Cómo cambió tu forma de pensar el riesgo al invertir después de usar el simulador.',
+    preguntas: [
+      { id:'p1', tipo:'escala', texto:'Antes de usar CapitalLab, ¿qué tan cómodo te sentías tomando decisiones de inversión con riesgo?' },
+      { id:'p2', tipo:'escala', texto:'¿Qué tan cómodo te sientes ahora, después de usar el simulador?' },
+      { id:'p3', tipo:'opcion_unica', texto:'¿Cuál describe mejor tu perfil de riesgo real, según tus propias decisiones en el simulador?', opciones:['Conservador','Moderado','Agresivo','No estoy seguro'] },
+      { id:'p4', tipo:'abierta', texto:'¿Qué decisión de inversión te enseñó más sobre el riesgo, y por qué?' },
+    ],
+  },
+  satisfaccion: {
+    titulo: 'Satisfacción con el simulador',
+    descripcion: '',
+    preguntas: [
+      { id:'p1', tipo:'escala', texto:'¿Qué tan útil te pareció CapitalLab para entender conceptos de finanzas?' },
+      { id:'p2', tipo:'escala', texto:'¿Qué tan fácil fue usar la plataforma?' },
+      { id:'p3', tipo:'opcion_unica', texto:'¿Qué sección usaste más?', opciones:['Mercado','Análisis','Laboratorio','Mi Cartera','Resultados'] },
+      { id:'p4', tipo:'abierta', texto:'¿Qué mejorarías del simulador?' },
+    ],
+  },
+  autoevaluacion_lab: {
+    titulo: 'Autoevaluación tras el Laboratorio',
+    descripcion: '',
+    preguntas: [
+      { id:'p1', tipo:'escala', texto:'¿Qué tan satisfecho estás con el resultado de tu simulación de Laboratorio?' },
+      { id:'p2', tipo:'opcion_unica', texto:'¿Alcanzaste la meta de rentabilidad que te propusiste (o te asignó tu profesor)?', opciones:['Sí, la superé','Sí, justo','No, me quedé cerca','No, me quedé lejos'] },
+      { id:'p3', tipo:'abierta', texto:'Si volvieras a hacer esta simulación, ¿qué cambiarías de tu estrategia?' },
+    ],
+  },
+};
+
+function alCambiarPlantillaEncuesta(){
+  const clave = document.getElementById('encuesta-plantilla').value;
+  const esGoogleForm = clave === 'google_form';
+  document.getElementById('encuesta-campos-propios').style.display = esGoogleForm ? 'none' : '';
+  document.getElementById('encuesta-campo-google-form').style.display = esGoogleForm ? '' : 'none';
+  if(esGoogleForm || !clave) { if(!clave) preguntasEncuestaActual = []; renderPreguntasEncuesta(); return; }
+  const plantilla = PLANTILLAS_ENCUESTA[clave];
+  document.getElementById('encuesta-titulo').value = plantilla.titulo;
+  document.getElementById('encuesta-descripcion').value = plantilla.descripcion;
+  preguntasEncuestaActual = plantilla.preguntas.map(p => ({...p}));
+  renderPreguntasEncuesta();
+}
+
+let preguntasEncuestaActual = [];
+
+function renderPreguntasEncuesta(){
+  const cont = document.getElementById('encuesta-preguntas-lista');
+  if(!preguntasEncuestaActual.length){ cont.innerHTML = '<div class="auth-hint">Todavía no hay preguntas — agrega una o elige una plantilla.</div>'; return; }
+  const etiquetasTipo = { escala:'Escala 1-5', opcion_unica:'Opción única', multiple:'Selección múltiple', abierta:'Respuesta abierta' };
+  cont.innerHTML = preguntasEncuestaActual.map((p, i) => `
+    <div class="card" style="margin-bottom:8px;padding:10px 12px;">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:start;">
+        <div style="flex:1;">
+          <input type="text" value="${(p.texto||'').replace(/"/g,'&quot;')}" oninput="preguntasEncuestaActual[${i}].texto=this.value" placeholder="Texto de la pregunta" style="width:100%;margin-bottom:6px;padding:6px 8px;background:var(--c1, #0d1015);border:1px solid var(--c4, #242d42);border-radius:6px;color:var(--t1, #e8edf8);font-size:12.5px;">
+          <select onchange="preguntasEncuestaActual[${i}].tipo=this.value;renderPreguntasEncuesta();" style="font-size:11.5px;padding:4px 8px;">
+            ${Object.entries(etiquetasTipo).map(([v,l]) => `<option value="${v}" ${p.tipo===v?'selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="preguntasEncuestaActual.splice(${i},1);renderPreguntasEncuesta();"><i class="ti ti-trash"></i></button>
+      </div>
+      ${(p.tipo==='opcion_unica'||p.tipo==='multiple') ? `
+        <div style="margin-top:6px;">
+          <input type="text" value="${(p.opciones||[]).join(', ')}" oninput="preguntasEncuestaActual[${i}].opciones=this.value.split(',').map(s=>s.trim()).filter(Boolean)" placeholder="Opciones separadas por coma" style="width:100%;padding:6px 8px;background:var(--c1, #0d1015);border:1px solid var(--c4, #242d42);border-radius:6px;color:var(--t1, #e8edf8);font-size:12px;">
+        </div>` : ''}
+    </div>
+  `).join('');
+}
+
+function agregarPreguntaEncuesta(){
+  preguntasEncuestaActual.push({ id:'p'+Date.now(), tipo:'escala', texto:'' });
+  renderPreguntasEncuesta();
+}
+
+async function publicarEncuesta(){
+  const esGoogleForm = document.getElementById('encuesta-plantilla').value === 'google_form';
+  if(!currentUser?.sesion_id){ notify('No hay sesión activa.', 'error'); return; }
+
+  let payload;
+  if(esGoogleForm){
+    const titulo = document.getElementById('encuesta-gf-titulo').value.trim();
+    const url = document.getElementById('encuesta-gf-url').value.trim();
+    if(!titulo || !url){ notify('Completa el título y el enlace del Google Form.', 'error'); return; }
+    if(!/^https:\/\/(docs\.google\.com|forms\.gle)\//.test(url)){ notify('El enlace no parece ser de Google Forms.', 'error'); return; }
+    payload = { titulo, google_form_url: url, preguntas: [] };
+  } else {
+    const titulo = document.getElementById('encuesta-titulo').value.trim();
+    if(!titulo){ notify('Ponle un título a la encuesta.', 'error'); return; }
+    if(!preguntasEncuestaActual.length || preguntasEncuestaActual.some(p => !p.texto.trim())){ notify('Cada pregunta necesita su texto — revisa que ninguna esté vacía.', 'error'); return; }
+    payload = { titulo, descripcion: document.getElementById('encuesta-descripcion').value.trim() || null, preguntas: preguntasEncuestaActual };
+  }
+
+  try {
+    const { error } = await sb.from('encuestas_completas').insert({
+      sesion_id: currentUser.sesion_id, docente_id: currentUser.usuario_id, ...payload,
+    });
+    if(error) throw error;
+    notify('Encuesta publicada — ya la ven tus estudiantes.', 'success');
+    document.getElementById('encuesta-titulo').value = '';
+    document.getElementById('encuesta-descripcion').value = '';
+    document.getElementById('encuesta-gf-titulo').value = '';
+    document.getElementById('encuesta-gf-url').value = '';
+    document.getElementById('encuesta-plantilla').value = '';
+    preguntasEncuestaActual = [];
+    alCambiarPlantillaEncuesta();
+    cargarEncuestasDocente();
+  } catch(e){
+    notify('No se pudo publicar: ' + (e.message||e), 'error');
+  }
+}
+
+async function cargarEncuestasDocente(){
+  const cont = document.getElementById('encuesta-lista-docente');
+  if(!sb || !currentUser?.sesion_id || !cont) return;
+  cont.innerHTML = '<div class="auth-hint">Cargando…</div>';
+  try {
+    const { data: encuestas, error } = await sb.from('encuestas_completas')
+      .select('*, encuestas_completas_respuestas(id)').eq('sesion_id', currentUser.sesion_id).order('creado_en', {ascending:false});
+    if(error) throw error;
+    if(!encuestas || !encuestas.length){ cont.innerHTML = '<div class="auth-hint">Todavía no has publicado ninguna encuesta.</div>'; return; }
+
+    cont.innerHTML = encuestas.map(e => `
+      <div class="card" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <b>${e.titulo}</b>
+              ${e.google_form_url ? '<span class="nav-badge">Google Form</span>' : `<span class="nav-badge">${e.preguntas.length} pregunta(s)</span>`}
+              <span class="nav-badge">${e.encuestas_completas_respuestas.length} respuesta(s)</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            ${!e.google_form_url ? `<button class="btn btn-sm" onclick="verResultadosEncuestaCompleta('${e.id}')">Ver resultados</button>` : `<a class="btn btn-sm" href="${e.google_form_url}" target="_blank">Abrir Form</a>`}
+            <button class="btn btn-ghost btn-sm" onclick="alternarActivaEncuesta('${e.id}', ${e.activa})">${e.activa?'Cerrar':'Reabrir'}</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
+  }
+}
+
+async function alternarActivaEncuesta(id, activaActual){
+  try {
+    await sb.from('encuestas_completas').update({ activa: !activaActual }).eq('id', id);
+    cargarEncuestasDocente();
+  } catch(e){ notify('No se pudo actualizar: ' + (e.message||e), 'error'); }
+}
+
+async function verResultadosEncuestaCompleta(encuestaId){
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.innerHTML = `<div class="export-modal" style="max-width:640px;">
+    <button class="modal-close" onclick="this.closest('.export-modal-overlay').remove();"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-chart-bar"></i> Resultados de la encuesta</h2>
+    <div id="encuesta-resultados-ia" style="margin:12px 0;"></div>
+    <div id="encuesta-resultados-cont" style="max-height:55vh;overflow-y:auto;"><div class="auth-hint">Cargando…</div></div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+
+  const contIA = overlay.querySelector('#encuesta-resultados-ia');
+  const cont = overlay.querySelector('#encuesta-resultados-cont');
+  try {
+    const { data: encuesta } = await sb.from('encuestas_completas').select('*').eq('id', encuestaId).maybeSingle();
+    const { data: respuestas, error } = await sb.from('encuestas_completas_respuestas').select('respuestas').eq('encuesta_id', encuestaId);
+    if(error) throw error;
+
+    if(!respuestas || !respuestas.length){ cont.innerHTML = '<div class="auth-hint">Todavía nadie ha respondido esta encuesta.</div>'; contIA.innerHTML=''; return; }
+
+    contIA.innerHTML = `<button class="btn btn-ghost btn-sm" id="encuesta-btn-ia" onclick="analizarEncuestaConIA('${encuestaId}')" style="width:100%;"><i class="ti ti-sparkles"></i> Analizar resultados con IA</button><div id="encuesta-ia-resultado" style="margin-top:8px;"></div>`;
+
+    cont.innerHTML = encuesta.preguntas.map(p => {
+      const valores = respuestas.map(r => r.respuestas[p.id]).filter(v => v !== undefined && v !== null && v !== '');
+      if(p.tipo === 'abierta'){
+        return `<div class="card" style="margin-bottom:8px;padding:10px 12px;">
+          <b style="font-size:12.5px;">${p.texto}</b>
+          <div style="margin-top:6px;">${valores.map(v => `<div style="font-size:12px;color:var(--t2);padding:5px 0;border-bottom:1px solid var(--c3);">"${v}"</div>`).join('') || '<span class="auth-hint">Sin respuestas.</span>'}</div>
+        </div>`;
+      }
+      if(p.tipo === 'escala'){
+        const prom = valores.length ? (valores.reduce((s,v)=>s+Number(v),0)/valores.length).toFixed(1) : '—';
+        return `<div class="card" style="margin-bottom:8px;padding:10px 12px;">
+          <b style="font-size:12.5px;">${p.texto}</b>
+          <div style="font-size:20px;font-weight:700;margin-top:4px;">${prom} <span style="font-size:11px;color:var(--t3);font-weight:400;">promedio de ${valores.length} respuesta(s)</span></div>
+        </div>`;
+      }
+      // opción única / múltiple — conteo por opción
+      const conteo = {};
+      valores.forEach(v => { (Array.isArray(v)?v:[v]).forEach(op => { conteo[op] = (conteo[op]||0)+1; }); });
+      return `<div class="card" style="margin-bottom:8px;padding:10px 12px;">
+        <b style="font-size:12.5px;">${p.texto}</b>
+        <div style="margin-top:6px;">${Object.entries(conteo).sort((a,b)=>b[1]-a[1]).map(([op,n]) => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span>${op}</span><span class="mono">${n}</span></div>`).join('')}</div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
+  }
+}
+
+async function analizarEncuestaConIA(encuestaId){
+  const boton = document.getElementById('encuesta-btn-ia');
+  const cont = document.getElementById('encuesta-ia-resultado');
+  boton.disabled = true;
+  boton.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Analizando…';
+  try {
+    const { data: encuesta } = await sb.from('encuestas_completas').select('*').eq('id', encuestaId).maybeSingle();
+    const { data: respuestas } = await sb.from('encuestas_completas_respuestas').select('respuestas').eq('encuesta_id', encuestaId);
+
+    const resp = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SIM_IA_ANON_KEY, 'Authorization': `Bearer ${SIM_IA_ANON_KEY}` },
+      body: JSON.stringify({ modo: 'analizar_encuesta', encuesta: { titulo: encuesta.titulo, preguntas: encuesta.preguntas }, respuestas: respuestas.map(r => r.respuestas) }),
+    });
+    const d = await resp.json();
+    if(!d.ok) throw new Error(d.error || 'Error desconocido.');
+    cont.innerHTML = `<div class="info-box">${d.analisis}</div>`;
+  } catch(e){
+    cont.innerHTML = `<div class="auth-hint">No se pudo analizar: ${e.message||e}</div>`;
+  } finally {
+    boton.disabled = false;
+    boton.innerHTML = '<i class="ti ti-sparkles"></i> Analizar resultados con IA';
+  }
+}
+
+// ── Vista del estudiante: encuestas activas pendientes de responder ──
+async function cargarEncuestasPendientesEstudiante(){
+  if(!sb || !currentUser?.sesion_id || guestMode) return;
+  try {
+    const { data: encuestas } = await sb.from('encuestas_completas').select('*').eq('sesion_id', currentUser.sesion_id).eq('activa', true);
+    if(!encuestas || !encuestas.length) return;
+    const { data: yaRespondidas } = await sb.from('encuestas_completas_respuestas').select('encuesta_id').eq('usuario_id', currentUser.usuario_id);
+    const idsRespondidas = new Set((yaRespondidas||[]).map(r => r.encuesta_id));
+    const pendientes = encuestas.filter(e => !idsRespondidas.has(e.id));
+    const cont = document.getElementById('encuestas-pendientes-inicio');
+    if(!cont) return;
+    if(!pendientes.length){ cont.innerHTML = ''; return; }
+    cont.innerHTML = pendientes.map(e => `
+      <div class="card" style="margin-bottom:8px;padding:12px 14px;border-color:rgba(232,185,74,.35);display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div><i class="ti ti-clipboard-text" style="color:var(--gold, #e8b94a);margin-right:6px;"></i><b>${e.titulo}</b><div style="font-size:11px;color:var(--t3);margin-top:2px;">${e.descripcion||''}</div></div>
+        ${e.google_form_url ? `<a class="btn btn-primary btn-sm" href="${e.google_form_url}" target="_blank">Responder</a>` : `<button class="btn btn-primary btn-sm" onclick="abrirResponderEncuesta('${e.id}')">Responder</button>`}
+      </div>
+    `).join('');
+  } catch(e){ console.error('No se pudieron cargar las encuestas pendientes:', e.message||e); }
+}
+
+async function abrirResponderEncuesta(encuestaId){
+  const { data: encuesta } = await sb.from('encuestas_completas').select('*').eq('id', encuestaId).maybeSingle();
+  if(!encuesta) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:520px;">
+    <h3><i class="ti ti-clipboard-text"></i> ${encuesta.titulo}</h3>
+    ${encuesta.descripcion ? `<div class="sub">${encuesta.descripcion}</div>` : ''}
+    <div id="responder-encuesta-preguntas" style="margin:14px 0;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost" style="flex:1;" onclick="this.closest('.grade-modal-overlay').remove();">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="enviarRespuestaEncuesta('${encuestaId}')">Enviar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+
+  document.getElementById('responder-encuesta-preguntas').innerHTML = encuesta.preguntas.map(p => {
+    if(p.tipo === 'escala') return `<div style="margin-bottom:14px;"><div style="font-size:13px;margin-bottom:6px;">${p.texto}</div><div style="display:flex;gap:6px;">${[1,2,3,4,5].map(n=>`<button type="button" class="btn btn-ghost btn-sm escala-opcion" data-pregunta="${p.id}" data-valor="${n}" onclick="this.parentElement.querySelectorAll('.escala-opcion').forEach(b=>b.classList.remove('active'));this.classList.add('active');this.dataset.marcado='1';" style="flex:1;">${n}</button>`).join('')}</div></div>`;
+    if(p.tipo === 'abierta') return `<div style="margin-bottom:14px;"><div style="font-size:13px;margin-bottom:6px;">${p.texto}</div><textarea data-pregunta="${p.id}" class="respuesta-abierta" rows="2" style="width:100%;padding:8px 10px;background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:8px;color:var(--t1, #e8edf8);font-size:12.5px;"></textarea></div>`;
+    return `<div style="margin-bottom:14px;"><div style="font-size:13px;margin-bottom:6px;">${p.texto}</div>${(p.opciones||[]).map(op => `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;cursor:pointer;"><input type="${p.tipo==='multiple'?'checkbox':'radio'}" name="pregunta-${p.id}" value="${op}" data-pregunta="${p.id}" class="respuesta-opcion" style="width:auto;"> ${op}</label>`).join('')}</div>`;
+  }).join('');
+}
+
+async function enviarRespuestaEncuesta(encuestaId){
+  const respuestas = {};
+  document.querySelectorAll('.escala-opcion[data-marcado="1"]').forEach(b => { respuestas[b.dataset.pregunta] = +b.dataset.valor; });
+  document.querySelectorAll('.respuesta-abierta').forEach(t => { if(t.value.trim()) respuestas[t.dataset.pregunta] = t.value.trim(); });
+  document.querySelectorAll('.respuesta-opcion:checked').forEach(inp => {
+    if(inp.type === 'checkbox'){ (respuestas[inp.dataset.pregunta] = respuestas[inp.dataset.pregunta]||[]).push(inp.value); }
+    else { respuestas[inp.dataset.pregunta] = inp.value; }
+  });
+  if(!Object.keys(respuestas).length){ notify('Responde al menos una pregunta.', 'error'); return; }
+  try {
+    const { error } = await sb.from('encuestas_completas_respuestas').upsert({ encuesta_id: encuestaId, usuario_id: currentUser.usuario_id, respuestas }, { onConflict: 'encuesta_id,usuario_id' });
+    if(error) throw error;
+    document.querySelector('.grade-modal-overlay')?.remove();
+    notify('¡Gracias por responder!', 'success');
+    cargarEncuestasPendientesEstudiante();
+  } catch(e){
+    notify('No se pudo enviar: ' + (e.message||e), 'error');
+  }
+}
+
 function abrirCrearAlertaPrecio(){
   if(!selectedAsset){ notify('Selecciona un activo primero', 'error'); return; }
   if(!currentUser || guestMode){ notify('Las alertas de precio necesitan una cuenta real.', 'error'); return; }

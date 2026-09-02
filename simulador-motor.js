@@ -1425,8 +1425,8 @@ function cerrarModoPresentacion(){
 }
 
 function cambiarTabProfesor(tab){
-  const tabs = { lista:'prof-tab-lista', vivo:'prof-tab-vivo', laboratorio:'prof-tab-laboratorio', correos:'prof-tab-correos' };
-  const paneles = { lista:'prof-panel-lista', vivo:'prof-panel-vivo', laboratorio:'prof-panel-laboratorio', correos:'prof-panel-correos' };
+  const tabs = { lista:'prof-tab-lista', vivo:'prof-tab-vivo', laboratorio:'prof-tab-laboratorio', correos:'prof-tab-correos', encuestas:'prof-tab-encuestas' };
+  const paneles = { lista:'prof-panel-lista', vivo:'prof-panel-vivo', laboratorio:'prof-panel-laboratorio', correos:'prof-panel-correos', encuestas:'prof-panel-encuestas' };
   Object.keys(tabs).forEach(t => {
     const tabEl = document.getElementById(tabs[t]);
     const panelEl = document.getElementById(paneles[t]);
@@ -1436,6 +1436,7 @@ function cambiarTabProfesor(tab){
   if(tab==='vivo') iniciarSalaEnVivo(); else detenerSalaEnVivo();
   if(tab==='laboratorio') cargarSeccionesLabDocente();
   if(tab==='correos') prepararPanelCorreos();
+  if(tab==='encuestas') cargarEncuestasDocente();
 }
 
 async function iniciarSalaEnVivo(){
@@ -2946,6 +2947,7 @@ async function renderInicioPage(){
 
   const primerNombre = (currentUser.nombre||'').split(' ')[0] || 'de vuelta';
   titulo.textContent = `Hola, ${primerNombre}`;
+  cargarEncuestasPendientesEstudiante();
 
   if(guestMode){
     sub.textContent = 'Estás en modo de prueba, sin cuenta real.';

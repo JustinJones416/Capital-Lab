@@ -356,6 +356,7 @@
     <div class="page-title" id="inicio-titulo">Bienvenido a CapitalLab</div>
     <div class="page-sub" id="inicio-sub">Cargando tu resumen…</div>
   </div>
+  <div id="encuestas-pendientes-inicio"></div>
   <div id="inicio-contenido"><div class="auth-hint">Cargando…</div></div>
 </div>
 
@@ -1151,6 +1152,7 @@
       <div class="auth-tab" id="prof-tab-vivo" onclick="cambiarTabProfesor('vivo')" style="flex:none;padding:8px 16px;white-space:nowrap;"><i class="ti ti-broadcast" style="font-size:12px;margin-right:4px;"></i>En vivo</div>
       <div class="auth-tab" id="prof-tab-laboratorio" onclick="cambiarTabProfesor('laboratorio')" style="flex:none;padding:8px 16px;white-space:nowrap;"><i class="ti ti-flask" style="font-size:12px;margin-right:4px;"></i>Laboratorio</div>
       <div class="auth-tab" id="prof-tab-correos" onclick="cambiarTabProfesor('correos')" style="flex:none;padding:8px 16px;white-space:nowrap;"><i class="ti ti-mail" style="font-size:12px;margin-right:4px;"></i>Correos</div>
+      <div class="auth-tab" id="prof-tab-encuestas" onclick="cambiarTabProfesor('encuestas')" style="flex:none;padding:8px 16px;white-space:nowrap;"><i class="ti ti-clipboard-text" style="font-size:12px;margin-right:4px;"></i>Encuestas</div>
     </div>
     <button class="btn btn-sm" onclick="abrirModoPresentacion()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-presentation"></i> Presentar</button>
   </div>
@@ -1278,6 +1280,57 @@
 
     <div class="card-title" style="margin-bottom:10px;">Correos enviados recientemente</div>
     <div id="correo-historial"><div class="auth-hint">Cargando…</div></div>
+  </div>
+
+  <!-- Encuestas completas de investigación — distintas del "Encuesta
+       rápida" (pulso instantáneo de una sola pregunta en vivo). Se
+       puede construir desde cero, partir de una plantilla con
+       preguntas ya redactadas ("datos predeterminados"), o usar un
+       Google Form ya hecho como alternativa completa. -->
+  <div id="prof-panel-encuestas" style="display:none;">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title"><i class="ti ti-clipboard-plus" style="color:var(--gold, #e8b94a);"></i> Nueva encuesta</div>
+
+      <div class="field" style="margin-bottom:10px;">
+        <label>Empezar desde</label>
+        <select id="encuesta-plantilla" onchange="alCambiarPlantillaEncuesta()">
+          <option value="">En blanco</option>
+          <option value="percepcion_riesgo">Plantilla: Percepción de riesgo y aprendizaje</option>
+          <option value="satisfaccion">Plantilla: Satisfacción con el simulador</option>
+          <option value="autoevaluacion_lab">Plantilla: Autoevaluación tras el Laboratorio</option>
+          <option value="google_form">Usar un Google Form en su lugar</option>
+        </select>
+      </div>
+
+      <div id="encuesta-campos-propios">
+        <div class="field" style="margin-bottom:10px;">
+          <label>Título</label>
+          <input type="text" id="encuesta-titulo" placeholder="Ej: Percepción de riesgo — fin de semestre">
+        </div>
+        <div class="field" style="margin-bottom:10px;">
+          <label>Descripción (opcional)</label>
+          <input type="text" id="encuesta-descripcion" placeholder="Instrucciones breves para el estudiante">
+        </div>
+        <div id="encuesta-preguntas-lista" style="margin-bottom:10px;"></div>
+        <button class="btn btn-ghost btn-sm" onclick="agregarPreguntaEncuesta()" style="margin-bottom:12px;"><i class="ti ti-plus"></i> Agregar pregunta</button>
+      </div>
+
+      <div id="encuesta-campo-google-form" style="display:none;margin-bottom:10px;">
+        <div class="field" style="margin-bottom:10px;">
+          <label>Título</label>
+          <input type="text" id="encuesta-gf-titulo" placeholder="Ej: Encuesta de fin de curso">
+        </div>
+        <div class="field">
+          <label>Enlace del Google Form</label>
+          <input type="text" id="encuesta-gf-url" placeholder="https://forms.gle/…">
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="publicarEncuesta()"><i class="ti ti-send"></i> Publicar encuesta</button>
+    </div>
+
+    <div class="card-title" style="margin-bottom:10px;">Encuestas publicadas</div>
+    <div id="encuesta-lista-docente"><div class="auth-hint">Cargando…</div></div>
   </div>
 
   <div class="info-box" style="margin-bottom:14px;">
