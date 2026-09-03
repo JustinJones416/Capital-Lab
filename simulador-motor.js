@@ -3879,6 +3879,38 @@ async function cargarSelectorEncuestasInvestigacion(){
   } catch(e){ console.error('No se pudieron cargar las encuestas vinculables:', e.message||e); }
 }
 
+// Nombres de cada paso del editor de Investigación — se usan tanto
+// para el indicador de arriba (números clicables) como para el
+// contador "Paso X de 8" de la barra inferior.
+const INV_NOMBRES_PASOS = ['Identificación','Objetivos','Metodología','Introducción','Marco teórico','Resultados','Discusión','Conclusiones'];
+let invPasoActual = 1;
+
+function renderIndicadorPasosInvestigacion(){
+  const cont = document.getElementById('inv-pasos-indicador');
+  cont.innerHTML = INV_NOMBRES_PASOS.map((nombre, i) => {
+    const paso = i+1;
+    const activo = paso === invPasoActual;
+    return `<button type="button" onclick="irAPasoInvestigacion(${paso})" title="${nombre}" style="width:28px;height:28px;border-radius:50%;border:1.5px solid ${activo?'#004977':'var(--c4, #242d42)'};background:${activo?'#004977':'var(--c2, #161b26)'};color:${activo?'#fff':'var(--t2, #b8c4dc)'};font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;">${paso}</button>`;
+  }).join('');
+}
+
+function irAPasoInvestigacion(paso){
+  if(paso < 1 || paso > INV_NOMBRES_PASOS.length) return;
+  document.getElementById(`inv-paso-${invPasoActual}`).style.display = 'none';
+  invPasoActual = paso;
+  document.getElementById(`inv-paso-${invPasoActual}`).style.display = '';
+  document.getElementById('inv-paso-contador').textContent = `Paso ${invPasoActual} de ${INV_NOMBRES_PASOS.length} — ${INV_NOMBRES_PASOS[invPasoActual-1]}`;
+  document.getElementById('inv-btn-anterior').style.visibility = invPasoActual === 1 ? 'hidden' : 'visible';
+  const esUltimo = invPasoActual === INV_NOMBRES_PASOS.length;
+  document.getElementById('inv-btn-siguiente').style.display = esUltimo ? 'none' : '';
+  document.getElementById('inv-btn-guardar').style.display = esUltimo ? '' : 'none';
+  renderIndicadorPasosInvestigacion();
+}
+
+function cambiarPasoInvestigacion(delta){
+  irAPasoInvestigacion(invPasoActual + delta);
+}
+
 function nuevaInvestigacion(){
   investigacionEditandoId = null;
   document.getElementById('inv-editor-titulo-modo').textContent = 'Nueva investigación';
@@ -3890,6 +3922,7 @@ function nuevaInvestigacion(){
   cargarSelectorEncuestasInvestigacion();
   document.getElementById('inv-lista-vista').style.display = 'none';
   document.getElementById('inv-editor-vista').style.display = '';
+  irAPasoInvestigacion(1);
 }
 
 async function editarInvestigacion(id){
@@ -3917,6 +3950,7 @@ async function editarInvestigacion(id){
   document.getElementById('inv-encuesta-vinculada').value = (inv.fuentes_datos?.encuestaIds || [])[0] || '';
   document.getElementById('inv-lista-vista').style.display = 'none';
   document.getElementById('inv-editor-vista').style.display = '';
+  irAPasoInvestigacion(1);
 }
 
 function volverListaInvestigaciones(){
@@ -4045,6 +4079,7 @@ async function redactarInvestigacionConIA(){
     document.getElementById('inv-discusion').value = d.discusion || '';
     document.getElementById('inv-conclusiones').value = d.conclusiones || '';
     notify(fuentesResumen ? 'Borrador redactado con los datos reales de la encuesta.' : 'Borrador redactado — vincula una encuesta para que incluya resultados con cifras reales.', 'success');
+    irAPasoInvestigacion(4); // salta directo a Introducción — si el usuario seguía en Identificación, el resultado quedaría fuera de vista
   } catch(e){
     notify('No se pudo redactar: ' + (e.message||e), 'error');
   } finally {

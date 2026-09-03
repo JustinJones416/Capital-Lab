@@ -1468,109 +1468,129 @@
 
   <div id="inv-editor-vista" style="display:none;">
     <div class="card" style="margin-bottom:14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <div class="card-title" style="margin-bottom:0;" id="inv-editor-titulo-modo">Nueva investigación</div>
         <button class="btn btn-ghost btn-sm" onclick="volverListaInvestigaciones()"><i class="ti ti-arrow-left"></i> Volver a la lista</button>
       </div>
 
-      <div class="field" style="margin-bottom:10px;">
-        <label>Título de la investigación</label>
-        <input type="text" id="inv-titulo" placeholder="Ej: Percepción de riesgo financiero en estudiantes universitarios">
-      </div>
-      <div class="field" style="margin-bottom:10px;">
-        <label>Tema</label>
-        <input type="text" id="inv-tema" placeholder="Ej: Educación financiera y tolerancia al riesgo">
-      </div>
+      <!-- Flujo de varios pasos — antes todo el formulario era un solo
+           bloque largo con espacios de escritura pequeños (3-4 líneas)
+           para secciones que en un informe real ocupan varios
+           párrafos. Ahora cada paso ocupa toda la pantalla disponible,
+           y las secciones de contenido (introducción, marco teórico,
+           resultados, discusión, conclusiones) tienen textareas
+           mucho más altas para escribir con comodidad. -->
+      <div id="inv-pasos-indicador" style="display:flex;gap:4px;margin-bottom:18px;flex-wrap:wrap;"></div>
 
-      <div style="display:flex;gap:10px;margin-bottom:16px;">
-        <div class="field" style="flex:1;">
-          <label>Tipo de metodología</label>
-          <select id="inv-tipo-metodologia">
-            <option value="Cuantitativa">Cuantitativa</option>
-            <option value="Cualitativa">Cualitativa</option>
-            <option value="Mixta">Mixta</option>
-          </select>
+      <div id="inv-paso-1" class="inv-paso">
+        <div class="card-title" style="margin-bottom:10px;">Identificación</div>
+        <div class="field" style="margin-bottom:10px;">
+          <label>Título de la investigación</label>
+          <input type="text" id="inv-titulo" placeholder="Ej: Percepción de riesgo financiero en estudiantes universitarios">
         </div>
-        <div class="field" style="flex:1;">
-          <label>Diseño</label>
-          <select id="inv-diseno">
-            <option value="Descriptivo">Descriptivo</option>
-            <option value="Correlacional">Correlacional</option>
-            <option value="Experimental">Experimental</option>
-            <option value="Cuasiexperimental">Cuasiexperimental</option>
-            <option value="Exploratorio">Exploratorio</option>
-          </select>
+        <div class="field" style="margin-bottom:10px;">
+          <label>Tema</label>
+          <input type="text" id="inv-tema" placeholder="Ej: Educación financiera y tolerancia al riesgo">
         </div>
-      </div>
-
-      <div class="field" style="margin-bottom:16px;">
-        <label>Vincular con una encuesta ya publicada (opcional — trae los resultados reales para el análisis)</label>
-        <select id="inv-encuesta-vinculada"><option value="">Ninguna</option></select>
-      </div>
-
-      <div class="card-title" style="margin-bottom:10px;">Objetivos</div>
-      <div class="field" style="margin-bottom:10px;">
-        <label>Objetivo general</label>
-        <textarea id="inv-objetivo-general" rows="2" placeholder="Ej: Determinar la relación entre la percepción de riesgo y las decisiones de inversión de los estudiantes"></textarea>
-      </div>
-      <div class="field" style="margin-bottom:16px;">
-        <label>Objetivos específicos (uno por línea)</label>
-        <textarea id="inv-objetivos-especificos" rows="3" placeholder="Un objetivo específico por línea"></textarea>
-      </div>
-
-      <div class="card-title" style="margin-bottom:10px;">Metodología</div>
-      <div style="display:flex;gap:10px;margin-bottom:10px;">
-        <div class="field" style="flex:1;">
-          <label>Población</label>
-          <input type="text" id="inv-poblacion" placeholder="Ej: Estudiantes de la Facultad de Economía">
+        <div style="display:flex;gap:10px;margin-bottom:10px;">
+          <div class="field" style="flex:1;">
+            <label>Tipo de metodología</label>
+            <select id="inv-tipo-metodologia">
+              <option value="Cuantitativa">Cuantitativa</option>
+              <option value="Cualitativa">Cualitativa</option>
+              <option value="Mixta">Mixta</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1;">
+            <label>Diseño</label>
+            <select id="inv-diseno">
+              <option value="Descriptivo">Descriptivo</option>
+              <option value="Correlacional">Correlacional</option>
+              <option value="Experimental">Experimental</option>
+              <option value="Cuasiexperimental">Cuasiexperimental</option>
+              <option value="Exploratorio">Exploratorio</option>
+            </select>
+          </div>
         </div>
-        <div class="field" style="flex:1;">
-          <label>Muestra</label>
-          <input type="text" id="inv-muestra" placeholder="Ej: 45 estudiantes de Finanzas y Banca">
+        <div class="field">
+          <label>Vincular con una encuesta ya publicada (opcional — trae los resultados reales para el análisis)</label>
+          <select id="inv-encuesta-vinculada"><option value="">Ninguna</option></select>
         </div>
       </div>
-      <div class="field" style="margin-bottom:10px;">
-        <label>Instrumentos</label>
-        <input type="text" id="inv-instrumentos" placeholder="Ej: Encuesta estructurada aplicada mediante CapitalLab">
-      </div>
-      <div class="field" style="margin-bottom:16px;">
-        <label>Procedimiento</label>
-        <textarea id="inv-procedimiento" rows="2" placeholder="Cómo se llevó a cabo la recolección de datos"></textarea>
-      </div>
-      <div class="field" style="margin-bottom:16px;">
-        <label>Metodología (redacción para el informe)</label>
-        <textarea id="inv-metodologia-texto" rows="4" placeholder="Párrafo formal describiendo el diseño, la población, la muestra, los instrumentos y el procedimiento"></textarea>
+
+      <div id="inv-paso-2" class="inv-paso" style="display:none;">
+        <div class="card-title" style="margin-bottom:10px;">Objetivos</div>
+        <div class="field" style="margin-bottom:14px;">
+          <label>Objetivo general</label>
+          <textarea id="inv-objetivo-general" rows="4" placeholder="Ej: Determinar la relación entre la percepción de riesgo y las decisiones de inversión de los estudiantes"></textarea>
+        </div>
+        <div class="field">
+          <label>Objetivos específicos (uno por línea)</label>
+          <textarea id="inv-objetivos-especificos" rows="8" placeholder="Un objetivo específico por línea"></textarea>
+        </div>
       </div>
 
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div class="card-title" style="margin-bottom:0;">Contenido del informe</div>
+      <div id="inv-paso-3" class="inv-paso" style="display:none;">
+        <div class="card-title" style="margin-bottom:10px;">Metodología</div>
+        <div style="display:flex;gap:10px;margin-bottom:10px;">
+          <div class="field" style="flex:1;">
+            <label>Población</label>
+            <input type="text" id="inv-poblacion" placeholder="Ej: Estudiantes de la Facultad de Economía">
+          </div>
+          <div class="field" style="flex:1;">
+            <label>Muestra</label>
+            <input type="text" id="inv-muestra" placeholder="Ej: 45 estudiantes de Finanzas y Banca">
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:10px;">
+          <label>Instrumentos</label>
+          <input type="text" id="inv-instrumentos" placeholder="Ej: Encuesta estructurada aplicada mediante CapitalLab">
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label>Procedimiento</label>
+          <textarea id="inv-procedimiento" rows="4" placeholder="Cómo se llevó a cabo la recolección de datos"></textarea>
+        </div>
+        <div class="field">
+          <label>Metodología (redacción para el informe)</label>
+          <textarea id="inv-metodologia-texto" rows="10" placeholder="Párrafo formal describiendo el diseño, la población, la muestra, los instrumentos y el procedimiento"></textarea>
+        </div>
+      </div>
+
+      <div id="inv-paso-4" class="inv-paso" style="display:none;">
+        <div class="card-title" style="margin-bottom:10px;">Introducción</div>
+        <textarea id="inv-introduccion" rows="18"></textarea>
+      </div>
+
+      <div id="inv-paso-5" class="inv-paso" style="display:none;">
+        <div class="card-title" style="margin-bottom:10px;">Marco teórico</div>
+        <textarea id="inv-marco-teorico" rows="18"></textarea>
+      </div>
+
+      <div id="inv-paso-6" class="inv-paso" style="display:none;">
+        <div class="card-title" style="margin-bottom:10px;">Resultados</div>
+        <textarea id="inv-resultados" rows="18"></textarea>
+      </div>
+
+      <div id="inv-paso-7" class="inv-paso" style="display:none;">
+        <div class="card-title" style="margin-bottom:10px;">Discusión</div>
+        <textarea id="inv-discusion" rows="18"></textarea>
+      </div>
+
+      <div id="inv-paso-8" class="inv-paso" style="display:none;">
+        <div class="card-title" style="margin-bottom:10px;">Conclusiones</div>
+        <textarea id="inv-conclusiones" rows="18"></textarea>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--c4, #242d42);flex-wrap:wrap;gap:10px;">
         <button class="btn btn-ghost btn-sm" onclick="redactarInvestigacionConIA()" id="inv-btn-ia"><i class="ti ti-sparkles"></i> Redactar borrador con IA</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="btn btn-ghost btn-sm" id="inv-btn-anterior" onclick="cambiarPasoInvestigacion(-1)"><i class="ti ti-chevron-left"></i> Anterior</button>
+          <span id="inv-paso-contador" style="font-size:11.5px;color:var(--t3);white-space:nowrap;">Paso 1 de 8</span>
+          <button class="btn btn-sm" id="inv-btn-siguiente" onclick="cambiarPasoInvestigacion(1)">Siguiente <i class="ti ti-chevron-right"></i></button>
+          <button class="btn btn-primary btn-sm" id="inv-btn-guardar" style="display:none;" onclick="guardarInvestigacion()"><i class="ti ti-device-floppy"></i> Guardar</button>
+        </div>
       </div>
-      <div style="font-size:10.5px;color:var(--t3);margin-bottom:10px;">La IA redacta un borrador a partir del título, el tema, los objetivos y los resultados de la encuesta vinculada (si hay una) — el texto queda completamente editable después, siempre en registro académico.</div>
-      <div class="field" style="margin-bottom:10px;">
-        <label>Introducción</label>
-        <textarea id="inv-introduccion" rows="3"></textarea>
-      </div>
-      <div class="field" style="margin-bottom:10px;">
-        <label>Marco teórico</label>
-        <textarea id="inv-marco-teorico" rows="4"></textarea>
-      </div>
-      <div class="field" style="margin-bottom:10px;">
-        <label>Resultados</label>
-        <textarea id="inv-resultados" rows="4"></textarea>
-      </div>
-      <div class="field" style="margin-bottom:10px;">
-        <label>Discusión</label>
-        <textarea id="inv-discusion" rows="4"></textarea>
-      </div>
-      <div class="field" style="margin-bottom:16px;">
-        <label>Conclusiones</label>
-        <textarea id="inv-conclusiones" rows="3"></textarea>
-      </div>
-
-      <div style="display:flex;gap:10px;">
-        <button class="btn btn-primary" onclick="guardarInvestigacion()"><i class="ti ti-device-floppy"></i> Guardar</button>
-      </div>
+      <div style="font-size:10.5px;color:var(--t3);margin-top:8px;">La IA redacta un borrador a partir del título, el tema, los objetivos y los resultados de la encuesta vinculada (si hay una) — el texto queda completamente editable después, siempre en registro académico.</div>
     </div>
   </div>
 </div>
