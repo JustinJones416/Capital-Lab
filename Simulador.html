@@ -1373,6 +1373,7 @@
   <div class="prof-toolbar">
     <input type="file" id="prof-import-file" accept=".json" multiple style="display:none;" onchange="importStudent(event)">
     <button class="btn btn-primary" onclick="document.getElementById('prof-import-file').click()"><i class="ti ti-user-plus"></i> Importar estudiante(s)</button>
+    <button class="btn" onclick="exportarTodoParaOffline()" title="Reúne estudiantes, encuestas y resultados de Laboratorio en un solo archivo, para llevarlos a la versión offline"><i class="ti ti-package-export"></i> Exportar todo para offline</button>
     <button class="btn" onclick="exportTeacherCSV()"><i class="ti ti-file-spreadsheet"></i> Exportar ranking (CSV)</button>
     <button class="btn" onclick="exportTeacherPDF()" title="Exportar ranking a PDF"><i class="ti ti-file-type-pdf"></i> Ranking (PDF)</button>
     <button class="btn" onclick="clearRoster()"><i class="ti ti-trash"></i> Limpiar lista</button>

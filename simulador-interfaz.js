@@ -3430,7 +3430,7 @@ function computeStudentMetrics(){
 }
 
 // El estudiante exporta su desempeño para entregar al profesor.
-function exportForTeacher(){
+async function exportForTeacher(){
   try {
     let student = prompt('Ingresa tu nombre completo (aparecerá en la lista del profesor):','');
     if(student===null) return;            // canceló
@@ -3464,9 +3464,30 @@ function exportForTeacher(){
                buyPrice:+(p.buyPrice||0).toFixed(2), currentPrice:+cur.toFixed(2),
                value:+val.toFixed(2), pnl:+pnl.toFixed(2), pnlPct:+pnlPct.toFixed(2) };
     });
+    const labHistorySlice = Array.isArray(labHistory)? labHistory.slice(0,20).map(h=>({
+        date:h.date, strategy:h.strategy, finalValue:h.finalValue,
+        achieved:h.achieved, target:h.target, passed:h.passed
+      })):[];
+    // Respuestas de encuestas del estudiante — antes esta exportación
+    // solo cubría cartera y Laboratorio; con encuestas ahora siendo
+    // parte real del tracking de investigación, faltaban por completo
+    // aquí. Solo se incluyen si hay cuenta real (sb) y conexión — en
+    // modo invitado puro no hay nada que traer.
+    let encuestasRespondidas = [];
+    if(sb && currentUser?.usuario_id && !guestMode){
+      try {
+        const { data: misRespuestas } = await sb.from('encuestas_completas_respuestas')
+          .select('respuestas, respondido_en, encuestas_completas(titulo, preguntas)')
+          .eq('usuario_id', currentUser.usuario_id);
+        encuestasRespondidas = (misRespuestas||[]).map(r => ({
+          titulo: r.encuestas_completas?.titulo, preguntas: r.encuestas_completas?.preguntas,
+          respuestas: r.respuestas, respondidoEn: r.respondido_en,
+        }));
+      } catch(e){ console.error('No se pudieron incluir las encuestas en la exportación:', e.message||e); }
+    }
     const payload = {
       _capitallab_student: true,          // marcador de validación
-      version: 'CapitalLab Student v2',   // v2: incluye datos de progreso
+      version: 'CapitalLab Student v3',   // v3: incluye respuestas de encuestas
       student,
       section,                            // sección/materia (ej. "Mercado Financiero")
       group,                              // grupo (opcional)
@@ -3475,10 +3496,8 @@ function exportForTeacher(){
       holdingsDetail,                     // cartera con P&L por posición
       txHistory: txHistory.slice(0,300),  // libro de operaciones (tope de seguridad)
       navHistory: navSampled,             // curva de patrimonio muestreada
-      labHistory: Array.isArray(labHistory)? labHistory.slice(0,20).map(h=>({
-        date:h.date, strategy:h.strategy, finalValue:h.finalValue,
-        achieved:h.achieved, target:h.target, passed:h.passed
-      })):[],
+      labHistory: labHistorySlice,
+      encuestasRespondidas,                // respuestas de encuestas completas del estudiante
       exportedAt: new Date().toLocaleString('es-PA'),
     };
     const blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
@@ -3502,6 +3521,17 @@ function importStudent(event){
     reader.onload = (e)=>{
       try {
         const data = JSON.parse(e.target.result);
+        // Reconoce dos formatos distintos por su marcador: el de un
+        // solo estudiante (de siempre), o el consolidado del
+        // profesor (nuevo) — este último se despacha aparte y no
+        // cuenta contra el conteo de archivos rechazados/agregados
+        // de abajo, ya que trae varios estudiantes de una vez.
+        if(data && data._capitallab_profesor_offline===true){
+          importarDatosCompletosProfesor(data);
+          done++;
+          if(done===files.length){ /* ya se notificó dentro de importarDatosCompletosProfesor */ }
+          return;
+        }
         // Validación estricta: debe ser un export de estudiante válido.
         if(!data || data._capitallab_student!==true || !data.student || !data.metrics){
           rejected++;
@@ -3522,6 +3552,7 @@ function importStudent(event){
             txLog: Array.isArray(data.txHistory)? data.txHistory : [],
             navCurve: Array.isArray(data.navHistory)? data.navHistory : [],
             labRuns: Array.isArray(data.labHistory)? data.labHistory : [],
+            encuestasRespondidas: Array.isArray(data.encuestasRespondidas)? data.encuestasRespondidas : [],
             version: data.version||'v1',
             importedAt: new Date().toLocaleString('es-PA'),
           };
@@ -3543,6 +3574,88 @@ function importStudent(event){
     reader.readAsText(file);
   });
   event.target.value=''; // permite reimportar el mismo archivo
+}
+
+// Exportación consolidada para el profesor — mientras tiene cuenta
+// real y conexión, reúne TODO lo de su sesión (estudiantes con sus
+// resultados, todas las encuestas con sus preguntas y respuestas,
+// secciones de Laboratorio con resultados) en un solo archivo, para
+// poder llevarlo a la versión offline (donde no hay acceso a la base
+// de datos real) en una sola operación, en vez de tener que pedirle a
+// cada estudiante que exporte el suyo por separado.
+async function exportarTodoParaOffline(){
+  if(!sb || !currentUser?.sesion_id){ notify('Esta exportación necesita una cuenta real conectada.', 'error'); return; }
+  notify('Reuniendo todos los datos de la sesión…', 'success');
+  try {
+    const [{ data: estudiantes }, { data: encuestas }, { data: seccionesLab }] = await Promise.all([
+      sb.from('usuarios').select('id, nombre, correo').eq('sesion_id', currentUser.sesion_id).eq('rol', 'estudiante'),
+      sb.from('encuestas_completas').select('*').eq('sesion_id', currentUser.sesion_id),
+      sb.from('laboratorio_secciones').select('*').eq('sesion_id', currentUser.sesion_id),
+    ]);
+
+    const idsEncuestasPropias = (encuestas||[]).filter(e => !e.google_form_url).map(e => e.id);
+    const { data: respuestasEncuestas } = idsEncuestasPropias.length
+      ? await sb.from('encuestas_completas_respuestas').select('*').in('encuesta_id', idsEncuestasPropias)
+      : { data: [] };
+
+    const idsSeccionesLab = (seccionesLab||[]).map(s => s.id);
+    const { data: resultadosLab } = idsSeccionesLab.length
+      ? await sb.from('laboratorio_resultados').select('*').in('seccion_id', idsSeccionesLab)
+      : { data: [] };
+
+    const payload = {
+      _capitallab_profesor_offline: true, // marcador de validación, distinto del de un estudiante individual
+      version: 'CapitalLab Profesor Offline v1',
+      sesionNombre: currentUser.sesion_nombre || '',
+      exportadoPor: currentUser.nombre || '',
+      exportedAt: new Date().toLocaleString('es-PA'),
+      estudiantes: estudiantes || [],
+      encuestas: encuestas || [],
+      respuestasEncuestas: respuestasEncuestas || [],
+      seccionesLaboratorio: seccionesLab || [],
+      resultadosLaboratorio: resultadosLab || [],
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `CapitalLab datos completos ${(currentUser.sesion_nombre||'sesion').replace(/[^a-zA-Z0-9_-]/g,'-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    notify(`Todo listo — ${(estudiantes||[]).length} estudiante(s), ${(encuestas||[]).length} encuesta(s), ${(respuestasEncuestas||[]).length} respuesta(s).`, 'success');
+  } catch(e){
+    notify('No se pudo exportar: ' + (e.message||e), 'error');
+  }
+}
+
+// Del lado offline: importa el archivo consolidado del profesor —
+// reconoce el marcador _capitallab_profesor_offline y lo distingue
+// del formato de un solo estudiante (_capitallab_student), para que
+// el mismo cuadro de "Importar" siga aceptando ambos tipos de archivo
+// sin que el profesor tenga que saber cuál es cuál de antemano.
+function importarDatosCompletosProfesor(data){
+  let importados = 0;
+  (data.estudiantes || []).forEach(est => {
+    const resultadosDeEste = (data.resultadosLaboratorio || []).filter(r => r.usuario_id === est.id);
+    const respuestasDeEste = (data.respuestasEncuestas || []).filter(r => r.usuario_id === est.id).map(r => {
+      const enc = (data.encuestas || []).find(e => e.id === r.encuesta_id);
+      return { titulo: enc?.titulo, preguntas: enc?.preguntas, respuestas: r.respuestas, respondidoEn: r.respondido_en };
+    });
+    const entry = {
+      student: est.nombre, section: data.sesionNombre || '', group: '',
+      retPct: 0, sharpe: 0, pnl: 0, sigma: 0, var95: 0, txCount: 0, posCount: 0, portVal: 0, capital: 0,
+      holdingsDetail: [], txLog: [], navCurve: [],
+      labRuns: resultadosDeEste.map(r => ({ date: r.completado_en, finalValue: r.capital_final, achieved: r.retorno_pct, target: null, passed: r.cumplio_meta })),
+      encuestasRespondidas: respuestasDeEste,
+      version: 'importado-de-profesor',
+      importedAt: new Date().toLocaleString('es-PA'),
+    };
+    const existing = teacherRoster.findIndex(r=>r.student.toLowerCase()===est.nombre.toLowerCase());
+    if(existing>=0) teacherRoster[existing]=entry; else teacherRoster.push(entry);
+    importados++;
+  });
+  saveTeacherRoster();
+  renderTeacher();
+  notify(`Datos completos importados: ${importados} estudiante(s), ${(data.encuestas||[]).length} encuesta(s).`, 'success');
 }
 
 function setTeacherSort(key){ teacherSortKey=key; renderTeacher(); }
