@@ -280,8 +280,9 @@ let guestMode = false;
 function aplicarVisibilidadNavPorRol(rol){
   const navProfesor = document.getElementById('nav-profesor');
   if(navProfesor) navProfesor.style.display = (rol==='estudiante') ? 'none' : '';
-  const navInvestigacion = document.getElementById('nav-investigacion');
-  if(navInvestigacion) navInvestigacion.style.display = (rol==='estudiante') ? 'none' : '';
+  // Investigación ya no depende del rol — ahora aplica a estudiante
+  // y docente por igual, cada uno con su propia vista dentro de la
+  // página (ver renderVistaInvestigacionSegunRol).
   const navSoporte = document.getElementById('nav-soporte');
   if(navSoporte) navSoporte.style.display = (rol==='estudiante') ? 'none' : '';
   const navAdmin = document.getElementById('nav-admin');
@@ -3832,35 +3833,62 @@ async function exportarDatosInvestigacionCSV(){
 let investigacionesCache = {};
 let investigacionEditandoId = null;
 
+let investigacionAlcanceActual = 'mias'; // 'mias' | 'estudiantes' — solo aplica a docente
+
+function cambiarAlcanceInvestigaciones(alcance){
+  investigacionAlcanceActual = alcance;
+  document.getElementById('inv-toggle-mias').className = alcance==='mias' ? 'btn btn-sm' : 'btn btn-ghost btn-sm';
+  document.getElementById('inv-toggle-estudiantes').className = alcance==='estudiantes' ? 'btn btn-sm' : 'btn btn-ghost btn-sm';
+  cargarListaInvestigaciones();
+}
+
 async function cargarListaInvestigaciones(){
   const cont = document.getElementById('inv-lista-cont');
+  const togglecont = document.getElementById('inv-lista-toggle');
   if(!sb || !currentUser?.usuario_id || !cont) return;
   cont.innerHTML = '<div class="auth-hint">Cargando…</div>';
+  const esDocente = currentUser.rol === 'docente';
+  if(togglecont) togglecont.style.display = esDocente ? 'flex' : 'none';
+  if(togglecont) togglecont.style.gap = '8px';
   try {
-    const query = currentUser.rol === 'superadmin'
-      ? sb.from('investigaciones').select('*').order('actualizado_en', {ascending:false})
-      : sb.from('investigaciones').select('*').eq('autor_id', currentUser.usuario_id).order('actualizado_en', {ascending:false});
+    let query;
+    if(currentUser.rol === 'superadmin'){
+      query = sb.from('investigaciones').select('*, usuarios(nombre)').order('actualizado_en', {ascending:false});
+    } else if(esDocente && investigacionAlcanceActual === 'estudiantes'){
+      // Aprovecha la política nueva: el docente ve (solo lectura) las
+      // investigaciones de estudiantes de su propia sesión — antes
+      // solo podía ver las suyas propias, aunque los estudiantes ya
+      // pudieran crear las suyas.
+      query = sb.from('investigaciones').select('*, usuarios(nombre)').eq('sesion_id', currentUser.sesion_id||'').neq('autor_id', currentUser.usuario_id).order('actualizado_en', {ascending:false});
+    } else {
+      query = sb.from('investigaciones').select('*').eq('autor_id', currentUser.usuario_id).order('actualizado_en', {ascending:false});
+    }
     const { data: investigaciones, error } = await query;
     if(error) throw error;
     if(!investigaciones || !investigaciones.length){
-      cont.innerHTML = '<div class="card"><div class="auth-hint">Todavía no has creado ninguna investigación. Usa "Nueva investigación" para empezar.</div></div>';
+      const mensajeVacio = (esDocente && investigacionAlcanceActual === 'estudiantes')
+        ? 'Ningún estudiante de tu sesión ha creado una investigación todavía.'
+        : 'Todavía no has creado ninguna investigación. Usa "Nueva investigación" para empezar.';
+      cont.innerHTML = `<div class="card"><div class="auth-hint">${mensajeVacio}</div></div>`;
       return;
     }
     investigacionesCache = {};
     investigaciones.forEach(i => { investigacionesCache[i.id] = i; });
 
+    const esVistaDeEstudiantes = esDocente && investigacionAlcanceActual === 'estudiantes';
     cont.innerHTML = investigaciones.map(inv => `
       <div class="card" style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
           <div style="flex:1;min-width:0;">
             <b>${inv.titulo}</b>
+            ${inv.usuarios?.nombre ? `<span class="nav-badge" style="margin-left:6px;">${inv.usuarios.nombre}</span>` : ''}
             <div style="font-size:11px;color:var(--t3);margin-top:2px;">${inv.tema||''} · ${inv.tipo_metodologia||''} · Actualizado: ${new Date(inv.actualizado_en).toLocaleDateString('es-PA')}</div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-            <button class="btn btn-sm" onclick="editarInvestigacion('${inv.id}')"><i class="ti ti-pencil"></i> Editar</button>
+            ${esVistaDeEstudiantes ? '' : `<button class="btn btn-sm" onclick="editarInvestigacion('${inv.id}')"><i class="ti ti-pencil"></i> Editar</button>`}
             <button class="btn btn-ghost btn-sm" onclick="exportarInvestigacionDOCX('${inv.id}')" title="Exportar a Word"><i class="ti ti-file-type-docx"></i></button>
             <button class="btn btn-ghost btn-sm" onclick="exportarInvestigacionPDF('${inv.id}')" title="Exportar a PDF"><i class="ti ti-file-type-pdf"></i></button>
-            <button class="btn btn-ghost btn-sm" onclick="eliminarInvestigacion('${inv.id}')" title="Eliminar" style="color:var(--red);"><i class="ti ti-trash"></i></button>
+            ${esVistaDeEstudiantes ? '' : `<button class="btn btn-ghost btn-sm" onclick="eliminarInvestigacion('${inv.id}')" title="Eliminar" style="color:var(--red);"><i class="ti ti-trash"></i></button>`}
           </div>
         </div>
       </div>
@@ -4172,6 +4200,36 @@ async function redactarInvestigacionConIA(){
           return `- "${p.texto}": ${Object.entries(conteo).map(([k,v])=>`${k}=${v}`).join(', ')}`;
         }).join('\n');
       }
+    }
+    // Si es un estudiante, se añaden automáticamente sus propios
+    // datos reales (retorno, decisiones registradas) y, si hay una
+    // sesión de clase, una comparación agregada y anónima con el
+    // grupo — nunca el dato individual de un compañero, solo
+    // promedios. Los retornos de cartera libre no están centralizados
+    // en el servidor (viven en el navegador de cada estudiante), así
+    // que la comparación de grupo se limita a lo que sí lo está:
+    // bitácora de decisiones y resultados de Laboratorio.
+    if(currentUser?.rol === 'estudiante' && !guestMode){
+      try {
+        const m = typeof computeStudentMetrics === 'function' ? computeStudentMetrics() : null;
+        if(m){
+          fuentesResumen += (fuentesResumen?'\n\n':'') + `Datos propios del estudiante en el simulador: retorno acumulado ${m.retPct?.toFixed?.(2) ?? m.retPct}%, ratio Sharpe ${m.sharpe}, ${m.txCount||0} operación(es) realizadas, ${m.posCount||0} posición(es) actuales.`;
+        }
+        if(currentUser.sesion_id){
+          const { data: misDecisiones } = await sb.from('bitacora_decisiones').select('nivel_riesgo_percibido, tipo_operacion').eq('usuario_id', currentUser.usuario_id);
+          if(misDecisiones?.length){
+            const conRiesgo = misDecisiones.filter(d=>d.nivel_riesgo_percibido!=null);
+            const miProm = conRiesgo.length ? (conRiesgo.reduce((s,d)=>s+d.nivel_riesgo_percibido,0)/conRiesgo.length).toFixed(1) : null;
+            fuentesResumen += `\nDecisiones registradas por el propio estudiante antes de operar: ${misDecisiones.length} en total${miProm?`, riesgo percibido promedio propio ${miProm}/5`:''}.`;
+          }
+          const { data: todasDecisiones } = await sb.from('bitacora_decisiones').select('nivel_riesgo_percibido').eq('sesion_id', currentUser.sesion_id);
+          const grupoConRiesgo = (todasDecisiones||[]).filter(d=>d.nivel_riesgo_percibido!=null);
+          if(grupoConRiesgo.length >= 3){ // agregado anónimo, nunca con muestra tan chica que identifique a alguien
+            const promGrupo = (grupoConRiesgo.reduce((s,d)=>s+d.nivel_riesgo_percibido,0)/grupoConRiesgo.length).toFixed(1);
+            fuentesResumen += `\nComparación anónima con el grupo (n=${grupoConRiesgo.length} decisiones de toda la sesión, sin identificar estudiantes): riesgo percibido promedio del grupo ${promGrupo}/5.`;
+          }
+        }
+      } catch(e){ console.error('No se pudieron incluir los datos propios del estudiante:', e.message||e); }
     }
     const resp = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
       method: 'POST',

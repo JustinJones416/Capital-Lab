@@ -299,6 +299,7 @@
     <button class="wl-nav-btn"        id="nav-herramientas-sim" onclick="abrirLanzadorHerramientas()"><i class="ti ti-apps"></i> Más herramientas<span class="nav-chat-dot" id="dot-herramientas-sim" style="display:none;"></span></button>
     <button class="wl-nav-btn"        id="nav-laboratorio"   onclick="goPage('laboratorio')"><i class="ti ti-flask"></i> Laboratorio</button>
     <button class="wl-nav-btn"        id="nav-resultados"    onclick="goPage('resultados')"><i class="ti ti-award"></i> Resultados</button>
+    <button class="wl-nav-btn"        id="nav-investigacion" onclick="goPage('investigacion')"><i class="ti ti-microscope"></i> Investigación</button>
     <!-- Los botones originales siguen existiendo, ocultos, para que
          goPage() los siga encontrando sin ningún cambio en el resto
          del código — el lanzador navega a las mismas páginas de
@@ -323,7 +324,6 @@
 
     <div class="wl-nav-section" id="wl-nav-section-gestion" onclick="alternarSeccionNav(this)" style="display:none;"><i class="ti ti-chevron-down wl-nav-section-flecha"></i> Gestión</div>
     <button class="wl-nav-btn"        id="nav-profesor"      onclick="goPage('profesor')" style="display:none;"><i class="ti ti-school"></i> Modo Profesor</button>
-    <button class="wl-nav-btn"        id="nav-investigacion" onclick="goPage('investigacion')" style="display:none;"><i class="ti ti-microscope"></i> Investigación</button>
     <button class="wl-nav-btn"        id="nav-soporte"       onclick="abrirTicketSoporte()" style="display:none;"><i class="ti ti-message-report"></i> Reportar un problema</button>
     <button class="wl-nav-btn"        id="nav-admin"          onclick="goPage('admin')" style="display:none;"><i class="ti ti-shield-cog"></i> Administración</button>
   </div>
@@ -1484,6 +1484,10 @@
   </div>
 
   <div id="inv-lista-vista">
+    <div id="inv-lista-toggle" style="display:none;margin-bottom:12px;">
+      <button class="btn btn-sm" id="inv-toggle-mias" onclick="cambiarAlcanceInvestigaciones('mias')">Mis investigaciones</button>
+      <button class="btn btn-ghost btn-sm" id="inv-toggle-estudiantes" onclick="cambiarAlcanceInvestigaciones('estudiantes')">De mis estudiantes</button>
+    </div>
     <div id="inv-lista-cont"><div class="auth-hint">Cargando…</div></div>
   </div>
 
