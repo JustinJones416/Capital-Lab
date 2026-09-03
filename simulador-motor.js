@@ -4027,6 +4027,23 @@ async function redactarInvestigacionConIA(){
   const boton = document.getElementById('inv-btn-ia');
   boton.disabled = true;
   boton.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Redactando…';
+  // Pantalla completa además del botón — redactar un informe entero
+  // (introducción, marco teórico, resultados, discusión, conclusiones)
+  // tarda varios segundos, tiempo suficiente para que el cambio en el
+  // botón pase desapercibido si el usuario ya no lo está mirando.
+  const overlayCarga = document.createElement('div');
+  overlayCarga.id = 'inv-ia-overlay-carga';
+  overlayCarga.style.cssText = 'position:fixed;inset:0;background:rgba(11,14,20,.85);z-index:9998;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;';
+  overlayCarga.innerHTML = `
+    <i class="ti ti-loader-2" style="font-size:36px;color:var(--gold, #e8b94a);animation:girarSimIA 1.1s linear infinite;"></i>
+    <div style="font-size:14px;color:var(--t1, #e8edf8);font-weight:600;">Redactando tu investigación con IA…</div>
+    <div style="font-size:12px;color:var(--t3, #7a8ab0);max-width:280px;text-align:center;">Objetivos, introducción, marco teórico, resultados, discusión y conclusiones — puede tardar hasta medio minuto.</div>`;
+  document.body.appendChild(overlayCarga);
+  if(!document.getElementById('sim-ia-estilo-girar')){
+    const st=document.createElement('style'); st.id='sim-ia-estilo-girar';
+    st.textContent='@keyframes girarSimIA{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
   try {
     const encuestaId = document.getElementById('inv-encuesta-vinculada').value;
     let fuentesResumen = '';
@@ -4085,6 +4102,7 @@ async function redactarInvestigacionConIA(){
   } finally {
     boton.disabled = false;
     boton.innerHTML = '<i class="ti ti-sparkles"></i> Redactar borrador con IA';
+    document.getElementById('inv-ia-overlay-carga')?.remove();
   }
 }
 

@@ -253,6 +253,15 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
   .news-panel-overlay-movil.activo{display:block;}
 }
 .page{display:none;padding:20px 24px;max-width:1280px;margin:0 auto;}
+/* Investigación usa textareas largas de prosa académica — a
+   diferencia de las tarjetas en cuadrícula del resto de la app, un
+   ancho MODERADO (no el máximo posible) es lo que mejora la
+   legibilidad de un párrafo largo: líneas de texto demasiado anchas
+   son más difíciles de seguir con la vista al leer o escribir. En
+   pantallas grandes se permite un poco más de aire, sin llegar al
+   ancho completo de 1280px del resto de la app. */
+#page-investigacion{max-width:900px;}
+@media (min-width:1400px){ #page-investigacion{max-width:1020px;} }
 .page.active{display:block;animation:fadeIn .2s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .page-header{margin-bottom:20px;}
@@ -404,8 +413,9 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .field-row .val{font-family:var(--font-mono);font-size:12px;min-width:56px;text-align:right;color:var(--accent2);}
 input[type=range]{flex:1;-webkit-appearance:none;height:3px;border-radius:2px;background:var(--c5);outline:none;cursor:pointer;}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent2);cursor:pointer;border:2px solid var(--c0);}
-select,input[type=number],input[type=text]{width:100%;padding:7px 10px;background:var(--c3);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:13px;outline:none;transition:border .15s;}
-select:focus,input:focus{border-color:var(--accent2);}
+select,input[type=number],input[type=text],textarea{width:100%;padding:7px 10px;background:var(--c3);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-family:var(--font-body);font-size:13px;outline:none;transition:border .15s;}
+textarea{line-height:1.55;resize:vertical;min-height:60px;}
+select:focus,input:focus,textarea:focus{border-color:var(--accent2);}
 input[type=number]{font-family:var(--font-mono);}
 
 /* ── BUTTONS ── */
