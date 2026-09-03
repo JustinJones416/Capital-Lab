@@ -289,6 +289,8 @@ function authGuestEnter(role){
   badge.className = 'role-badge guest';
   const navProfesor = document.getElementById('nav-profesor');
   if(navProfesor) navProfesor.style.display = (role==='estudiante') ? 'none' : '';
+  const navInvestigacionG = document.getElementById('nav-investigacion');
+  if(navInvestigacionG) navInvestigacionG.style.display = (role==='estudiante') ? 'none' : '';
   const navSoporte = document.getElementById('nav-soporte');
   if(navSoporte) navSoporte.style.display = (role==='estudiante') ? 'none' : '';
   const seccionGestionG = document.getElementById('wl-nav-section-gestion');
@@ -351,6 +353,8 @@ async function authLoadProfileAndEnter(){
   // El modo profesor solo es visible para docentes y superadministradores
   const navProfesor = document.getElementById('nav-profesor');
   if(navProfesor) navProfesor.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
+  const navInvestigacion = document.getElementById('nav-investigacion');
+  if(navInvestigacion) navInvestigacion.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
   const navSoporte = document.getElementById('nav-soporte');
   if(navSoporte) navSoporte.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
   const navAdmin = document.getElementById('nav-admin');
@@ -3701,6 +3705,474 @@ async function renderPosicionesPage(){
 // Exporta el ranking ya cargado en pantalla a CSV — pensado para que el
 // docente se lleve una copia del desempeño de la clase a un momento
 // dado, sin depender de volver a entrar a la aplicación para verlo.
+// Escapa una celda para CSV de verdad — a diferencia del resto de
+// exportaciones CSV de la app (que solo envuelven nombres en comillas
+// a mano, sin escapar comillas internas), las respuestas de texto
+// libre de una encuesta pueden traer comas, comillas, o saltos de
+// línea reales — sin esto, esos caracteres rompían las columnas del
+// archivo al abrirlo en Excel/Sheets.
+function celdaCSV(valor){
+  const texto = (valor === null || valor === undefined) ? '' : String(valor);
+  if(/[",\n\r]/.test(texto)) return '"' + texto.replace(/"/g, '""') + '"';
+  return texto;
+}
+function descargarBlobCSV(csv, nombreArchivo){
+  const blob = new Blob(['\uFEFF' + csv], { type:'text/csv;charset=utf-8;' }); // BOM al inicio, para que Excel reconozca bien los acentos
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombreArchivo;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Datos crudos de una encuesta, en formato "ancho" (una fila por
+// estudiante, una columna por pregunta) — el formato que de verdad
+// sirve para análisis estadístico externo (SPSS, R, Excel), a
+// diferencia de la vista agregada del modal de resultados, que solo
+// sirve para leer, no para procesar.
+async function exportarEncuestaCSV(encuestaId){
+  try {
+    const { data: encuesta } = await sb.from('encuestas_completas').select('*').eq('id', encuestaId).maybeSingle();
+    const { data: respuestas, error } = await sb.from('encuestas_completas_respuestas').select('*, usuarios(nombre, correo)').eq('encuesta_id', encuestaId);
+    if(error) throw error;
+    if(!respuestas || !respuestas.length){ notify('Todavía no hay respuestas que exportar.', 'error'); return; }
+
+    const encabezados = ['Estudiante', 'Correo', 'Fecha de respuesta', ...encuesta.preguntas.map(p => p.texto)];
+    const filas = respuestas.map(r => {
+      const base = [r.usuarios?.nombre || '', r.usuarios?.correo || '', new Date(r.respondido_en).toLocaleString('es-PA')];
+      const porPregunta = encuesta.preguntas.map(p => {
+        const v = r.respuestas[p.id];
+        if(v === undefined || v === null) return '';
+        return Array.isArray(v) ? v.join('; ') : v; // selección múltiple: varias opciones separadas por punto y coma
+      });
+      return [...base, ...porPregunta].map(celdaCSV).join(',');
+    });
+    const csv = [encabezados.map(celdaCSV).join(','), ...filas].join('\r\n');
+    descargarBlobCSV(csv, `encuesta-datos-crudos-${encuesta.titulo.replace(/[^a-z0-9]/gi,'-')}.csv`);
+    notify('Datos exportados — listos para análisis estadístico.', 'success');
+  } catch(e){
+    notify('No se pudo exportar: ' + (e.message||e), 'error');
+  }
+}
+
+// Datos de investigación consolidados por estudiante — combina, en
+// una sola fila por estudiante, sus resultados reales del Laboratorio
+// (retorno, si cumplió la meta, calificación) con sus respuestas a
+// TODAS las encuestas propias de la sesión, para poder correlacionar
+// percepción declarada (lo que dijo en la encuesta) contra desempeño
+// real (lo que efectivamente logró en el simulador) — el tipo de
+// cruce que una investigación académica real necesita hacer, y que
+// antes no era posible porque cada fuente de datos vivía aislada.
+async function exportarDatosInvestigacionCSV(){
+  if(!currentUser?.sesion_id){ notify('No hay sesión activa.', 'error'); return; }
+  try {
+    const [{ data: estudiantes }, { data: resultadosLab }, { data: encuestas }] = await Promise.all([
+      sb.from('usuarios').select('id, nombre, correo').eq('sesion_id', currentUser.sesion_id).eq('rol', 'estudiante'),
+      sb.from('laboratorio_resultados').select('usuario_id, retorno_pct, cumplio_meta, calificacion, seccion_id, laboratorio_secciones(titulo)').in('seccion_id',
+        (await sb.from('laboratorio_secciones').select('id').eq('sesion_id', currentUser.sesion_id)).data?.map(s=>s.id) || []),
+      sb.from('encuestas_completas').select('id, titulo, preguntas').eq('sesion_id', currentUser.sesion_id).is('google_form_url', null),
+    ]);
+    if(!estudiantes || !estudiantes.length){ notify('No hay estudiantes en esta sesión todavía.', 'error'); return; }
+
+    let respuestasPorEncuesta = {};
+    if(encuestas && encuestas.length){
+      const { data: todasLasRespuestas } = await sb.from('encuestas_completas_respuestas').select('*').in('encuesta_id', encuestas.map(e=>e.id));
+      (todasLasRespuestas||[]).forEach(r => {
+        respuestasPorEncuesta[r.encuesta_id] = respuestasPorEncuesta[r.encuesta_id] || {};
+        respuestasPorEncuesta[r.encuesta_id][r.usuario_id] = r.respuestas;
+      });
+    }
+
+    // Columnas de Laboratorio: una por sección (para no mezclar
+    // resultados de secciones distintas en una sola celda).
+    const seccionesUnicas = [...new Map((resultadosLab||[]).map(r => [r.seccion_id, r.laboratorio_secciones?.titulo || 'Sección'])).entries()];
+    const columnasLab = seccionesUnicas.flatMap(([id, titulo]) => [`Lab: ${titulo} — Retorno %`, `Lab: ${titulo} — Calificación`]);
+    const columnasEncuestas = (encuestas||[]).flatMap(e => e.preguntas.map(p => `Encuesta "${e.titulo}": ${p.texto}`));
+
+    const encabezados = ['Estudiante', 'Correo', ...columnasLab, ...columnasEncuestas];
+    const filas = estudiantes.map(est => {
+      const celdasLab = seccionesUnicas.flatMap(([seccionId]) => {
+        const r = (resultadosLab||[]).find(x => x.usuario_id === est.id && x.seccion_id === seccionId);
+        return [r ? r.retorno_pct : '', r?.calificacion ?? ''];
+      });
+      const celdasEncuestas = (encuestas||[]).flatMap(e => e.preguntas.map(p => {
+        const resp = respuestasPorEncuesta[e.id]?.[est.id];
+        const v = resp ? resp[p.id] : undefined;
+        if(v === undefined || v === null) return '';
+        return Array.isArray(v) ? v.join('; ') : v;
+      }));
+      return [est.nombre, est.correo, ...celdasLab, ...celdasEncuestas].map(celdaCSV).join(',');
+    });
+
+    const csv = [encabezados.map(celdaCSV).join(','), ...filas].join('\r\n');
+    descargarBlobCSV(csv, `datos-investigacion-${(currentUser.sesion_nombre||'sesion').replace(/[^a-z0-9]/gi,'-')}.csv`);
+    notify('Datos de investigación exportados.', 'success');
+  } catch(e){
+    notify('No se pudo exportar: ' + (e.message||e), 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// INVESTIGACIÓN — informes académicos completos (objetivos,
+// metodología formal, desarrollo, resultados, conclusiones),
+// exportables en Word y PDF, con el docente como autor registrado en
+// las propiedades del archivo. Solo docentes y superadmin.
+// ══════════════════════════════════════════════════
+let investigacionesCache = {};
+let investigacionEditandoId = null;
+
+async function cargarListaInvestigaciones(){
+  const cont = document.getElementById('inv-lista-cont');
+  if(!sb || !currentUser?.usuario_id || !cont) return;
+  cont.innerHTML = '<div class="auth-hint">Cargando…</div>';
+  try {
+    const query = currentUser.rol === 'superadmin'
+      ? sb.from('investigaciones').select('*').order('actualizado_en', {ascending:false})
+      : sb.from('investigaciones').select('*').eq('autor_id', currentUser.usuario_id).order('actualizado_en', {ascending:false});
+    const { data: investigaciones, error } = await query;
+    if(error) throw error;
+    if(!investigaciones || !investigaciones.length){
+      cont.innerHTML = '<div class="card"><div class="auth-hint">Todavía no has creado ninguna investigación. Usa "Nueva investigación" para empezar.</div></div>';
+      return;
+    }
+    investigacionesCache = {};
+    investigaciones.forEach(i => { investigacionesCache[i.id] = i; });
+
+    cont.innerHTML = investigaciones.map(inv => `
+      <div class="card" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <b>${inv.titulo}</b>
+            <div style="font-size:11px;color:var(--t3);margin-top:2px;">${inv.tema||''} · ${inv.tipo_metodologia||''} · Actualizado: ${new Date(inv.actualizado_en).toLocaleDateString('es-PA')}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+            <button class="btn btn-sm" onclick="editarInvestigacion('${inv.id}')"><i class="ti ti-pencil"></i> Editar</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportarInvestigacionDOCX('${inv.id}')" title="Exportar a Word"><i class="ti ti-file-type-docx"></i></button>
+            <button class="btn btn-ghost btn-sm" onclick="exportarInvestigacionPDF('${inv.id}')" title="Exportar a PDF"><i class="ti ti-file-type-pdf"></i></button>
+            <button class="btn btn-ghost btn-sm" onclick="eliminarInvestigacion('${inv.id}')" title="Eliminar" style="color:var(--red);"><i class="ti ti-trash"></i></button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
+  }
+}
+
+async function cargarSelectorEncuestasInvestigacion(){
+  const sel = document.getElementById('inv-encuesta-vinculada');
+  if(!sb || !currentUser?.sesion_id || !sel) return;
+  try {
+    const { data: encuestas } = await sb.from('encuestas_completas').select('id, titulo').eq('sesion_id', currentUser.sesion_id).is('google_form_url', null);
+    sel.innerHTML = '<option value="">Ninguna</option>' + (encuestas||[]).map(e => `<option value="${e.id}">${e.titulo}</option>`).join('');
+  } catch(e){ console.error('No se pudieron cargar las encuestas vinculables:', e.message||e); }
+}
+
+function nuevaInvestigacion(){
+  investigacionEditandoId = null;
+  document.getElementById('inv-editor-titulo-modo').textContent = 'Nueva investigación';
+  ['inv-titulo','inv-tema','inv-poblacion','inv-muestra','inv-instrumentos'].forEach(id => document.getElementById(id).value = '');
+  ['inv-objetivo-general','inv-objetivos-especificos','inv-procedimiento','inv-metodologia-texto','inv-introduccion','inv-marco-teorico','inv-resultados','inv-discusion','inv-conclusiones'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('inv-tipo-metodologia').value = 'Cuantitativa';
+  document.getElementById('inv-diseno').value = 'Descriptivo';
+  document.getElementById('inv-encuesta-vinculada').value = '';
+  cargarSelectorEncuestasInvestigacion();
+  document.getElementById('inv-lista-vista').style.display = 'none';
+  document.getElementById('inv-editor-vista').style.display = '';
+}
+
+async function editarInvestigacion(id){
+  const inv = investigacionesCache[id];
+  if(!inv){ notify('No se encontró la investigación.', 'error'); return; }
+  investigacionEditandoId = id;
+  document.getElementById('inv-editor-titulo-modo').textContent = 'Editando investigación';
+  document.getElementById('inv-titulo').value = inv.titulo || '';
+  document.getElementById('inv-tema').value = inv.tema || '';
+  document.getElementById('inv-tipo-metodologia').value = inv.tipo_metodologia || 'Cuantitativa';
+  document.getElementById('inv-diseno').value = inv.diseno || 'Descriptivo';
+  document.getElementById('inv-objetivo-general').value = inv.objetivos?.general || '';
+  document.getElementById('inv-objetivos-especificos').value = (inv.objetivos?.especificos || []).join('\n');
+  document.getElementById('inv-poblacion').value = inv.metodologia?.poblacion || '';
+  document.getElementById('inv-muestra').value = inv.metodologia?.muestra || '';
+  document.getElementById('inv-instrumentos').value = inv.metodologia?.instrumentos || '';
+  document.getElementById('inv-procedimiento').value = inv.metodologia?.procedimiento || '';
+  document.getElementById('inv-metodologia-texto').value = inv.metodologia?.redaccion || '';
+  document.getElementById('inv-introduccion').value = inv.contenido?.introduccion || '';
+  document.getElementById('inv-marco-teorico').value = inv.contenido?.marcoTeorico || '';
+  document.getElementById('inv-resultados').value = inv.contenido?.resultados || '';
+  document.getElementById('inv-discusion').value = inv.contenido?.discusion || '';
+  document.getElementById('inv-conclusiones').value = inv.contenido?.conclusiones || '';
+  await cargarSelectorEncuestasInvestigacion();
+  document.getElementById('inv-encuesta-vinculada').value = (inv.fuentes_datos?.encuestaIds || [])[0] || '';
+  document.getElementById('inv-lista-vista').style.display = 'none';
+  document.getElementById('inv-editor-vista').style.display = '';
+}
+
+function volverListaInvestigaciones(){
+  document.getElementById('inv-editor-vista').style.display = 'none';
+  document.getElementById('inv-lista-vista').style.display = '';
+  cargarListaInvestigaciones();
+}
+
+function recopilarDatosFormularioInvestigacion(){
+  const titulo = document.getElementById('inv-titulo').value.trim();
+  const encuestaId = document.getElementById('inv-encuesta-vinculada').value;
+  return {
+    titulo,
+    tema: document.getElementById('inv-tema').value.trim() || null,
+    tipo_metodologia: document.getElementById('inv-tipo-metodologia').value,
+    diseno: document.getElementById('inv-diseno').value,
+    objetivos: {
+      general: document.getElementById('inv-objetivo-general').value.trim(),
+      especificos: document.getElementById('inv-objetivos-especificos').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    },
+    metodologia: {
+      poblacion: document.getElementById('inv-poblacion').value.trim(),
+      muestra: document.getElementById('inv-muestra').value.trim(),
+      instrumentos: document.getElementById('inv-instrumentos').value.trim(),
+      procedimiento: document.getElementById('inv-procedimiento').value.trim(),
+      redaccion: document.getElementById('inv-metodologia-texto').value.trim(),
+    },
+    contenido: {
+      introduccion: document.getElementById('inv-introduccion').value.trim(),
+      marcoTeorico: document.getElementById('inv-marco-teorico').value.trim(),
+      resultados: document.getElementById('inv-resultados').value.trim(),
+      discusion: document.getElementById('inv-discusion').value.trim(),
+      conclusiones: document.getElementById('inv-conclusiones').value.trim(),
+    },
+    fuentes_datos: { encuestaIds: encuestaId ? [encuestaId] : [] },
+  };
+}
+
+async function guardarInvestigacion(){
+  const datos = recopilarDatosFormularioInvestigacion();
+  if(!datos.titulo){ notify('Ponle un título a la investigación.', 'error'); return; }
+  try {
+    if(investigacionEditandoId){
+      const { error } = await sb.from('investigaciones').update({ ...datos, actualizado_en: new Date().toISOString() }).eq('id', investigacionEditandoId);
+      if(error) throw error;
+      notify('Investigación actualizada.', 'success');
+    } else {
+      const { error } = await sb.from('investigaciones').insert({ ...datos, autor_id: currentUser.usuario_id, sesion_id: currentUser.sesion_id || null });
+      if(error) throw error;
+      notify('Investigación creada.', 'success');
+    }
+    volverListaInvestigaciones();
+  } catch(e){
+    notify('No se pudo guardar: ' + (e.message||e), 'error');
+  }
+}
+
+async function eliminarInvestigacion(id){
+  if(!confirm('¿Eliminar esta investigación? No se puede deshacer.')) return;
+  try {
+    const { error } = await sb.from('investigaciones').delete().eq('id', id);
+    if(error) throw error;
+    notify('Investigación eliminada.', 'success');
+    cargarListaInvestigaciones();
+  } catch(e){
+    notify('No se pudo eliminar: ' + (e.message||e), 'error');
+  }
+}
+
+async function redactarInvestigacionConIA(){
+  const titulo = document.getElementById('inv-titulo').value.trim();
+  const tema = document.getElementById('inv-tema').value.trim();
+  if(!titulo || !tema){ notify('Escribe el título y el tema primero — la IA los necesita a ambos.', 'error'); return; }
+  const boton = document.getElementById('inv-btn-ia');
+  boton.disabled = true;
+  boton.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Redactando…';
+  try {
+    const encuestaId = document.getElementById('inv-encuesta-vinculada').value;
+    let fuentesResumen = '';
+    if(encuestaId){
+      const { data: encuesta } = await sb.from('encuestas_completas').select('*').eq('id', encuestaId).maybeSingle();
+      const { data: respuestas } = await sb.from('encuestas_completas_respuestas').select('respuestas').eq('encuesta_id', encuestaId);
+      if(encuesta && respuestas?.length){
+        // Mismo resumen agregado (promedios/conteos, nunca datos crudos
+        // por estudiante) que usa el análisis de encuestas — así el
+        // informe de investigación cita cifras reales, nunca inventadas.
+        fuentesResumen = `Encuesta "${encuesta.titulo}" (n=${respuestas.length}):\n` + encuesta.preguntas.map(p => {
+          const valores = respuestas.map(r => r.respuestas[p.id]).filter(v => v !== undefined && v !== null && v !== '');
+          if(p.tipo === 'escala'){
+            const prom = valores.length ? (valores.reduce((s,v)=>s+Number(v),0)/valores.length).toFixed(2) : 'sin datos';
+            return `- "${p.texto}": promedio ${prom} (n=${valores.length})`;
+          }
+          if(p.tipo === 'abierta') return `- "${p.texto}": ${valores.length} respuesta(s) de texto libre recibidas`;
+          const conteo = {};
+          valores.forEach(v => { (Array.isArray(v)?v:[v]).forEach(op => { conteo[op] = (conteo[op]||0)+1; }); });
+          return `- "${p.texto}": ${Object.entries(conteo).map(([k,v])=>`${k}=${v}`).join(', ')}`;
+        }).join('\n');
+      }
+    }
+    const resp = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SIM_IA_ANON_KEY, 'Authorization': `Bearer ${SIM_IA_ANON_KEY}` },
+      body: JSON.stringify({
+        modo: 'generar_investigacion',
+        datos: {
+          titulo, tema,
+          tipoMetodologia: document.getElementById('inv-tipo-metodologia').value,
+          diseno: document.getElementById('inv-diseno').value,
+          objetivoGeneral: document.getElementById('inv-objetivo-general').value.trim(),
+          objetivosEspecificos: document.getElementById('inv-objetivos-especificos').value.split('\n').map(s=>s.trim()).filter(Boolean),
+          poblacion: document.getElementById('inv-poblacion').value.trim(),
+          muestra: document.getElementById('inv-muestra').value.trim(),
+          instrumentos: document.getElementById('inv-instrumentos').value.trim(),
+          fuentesResumen,
+        },
+      }),
+    });
+    const d = await resp.json();
+    if(!d.ok) throw new Error(d.error || 'Error desconocido.');
+    document.getElementById('inv-objetivo-general').value = d.objetivoGeneral || '';
+    if(Array.isArray(d.objetivosEspecificos) && d.objetivosEspecificos.length) document.getElementById('inv-objetivos-especificos').value = d.objetivosEspecificos.join('\n');
+    document.getElementById('inv-introduccion').value = d.introduccion || '';
+    document.getElementById('inv-marco-teorico').value = d.marcoTeorico || '';
+    document.getElementById('inv-metodologia-texto').value = d.metodologia || '';
+    document.getElementById('inv-resultados').value = d.resultados || '';
+    document.getElementById('inv-discusion').value = d.discusion || '';
+    document.getElementById('inv-conclusiones').value = d.conclusiones || '';
+    notify(fuentesResumen ? 'Borrador redactado con los datos reales de la encuesta.' : 'Borrador redactado — vincula una encuesta para que incluya resultados con cifras reales.', 'success');
+  } catch(e){
+    notify('No se pudo redactar: ' + (e.message||e), 'error');
+  } finally {
+    boton.disabled = false;
+    boton.innerHTML = '<i class="ti ti-sparkles"></i> Redactar borrador con IA';
+  }
+}
+
+
+async function exportarInvestigacionDOCX(id){
+  const inv = investigacionesCache[id] || (await sb.from('investigaciones').select('*').eq('id', id).maybeSingle()).data;
+  if(!inv){ notify('No se encontró la investigación.', 'error'); return; }
+  try {
+    let nombreAutor = currentUser?.nombre || 'CapitalLab';
+    if(inv.autor_id !== currentUser?.usuario_id){
+      const { data: autor } = await sb.from('usuarios').select('nombre').eq('id', inv.autor_id).maybeSingle();
+      if(autor?.nombre) nombreAutor = autor.nombre;
+    }
+
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, PageBreak, AlignmentType } = docx;
+    // Los saltos de línea dobles (\n\n) marcan párrafos lógicos
+    // distintos, con más separación visual; los simples (\n), como
+    // en una lista de objetivos específicos, deben quedar como salto
+    // de línea DENTRO del mismo bloque — sin este manejo, un \n
+    // suelto dentro de un TextRun se ignora visualmente en Word y el
+    // texto queda corrido en una sola línea, justo lo que se pidió
+    // evitar.
+    const parrafo = (texto, opciones={}) => new Paragraph({
+      children: (texto||'—').split('\n\n').flatMap((p, i, arr) => {
+        const lineas = p.trim().split('\n');
+        const runs = lineas.flatMap((linea, j) => j < lineas.length-1 ? [new TextRun({ text: linea, size: 24 }), new TextRun({ break: 1 })] : [new TextRun({ text: linea, size: 24 })]);
+        return i < arr.length-1 ? [...runs, new TextRun({ break: 2 })] : runs;
+      }),
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 240, line: 360 }, // interlineado 1.5, estándar académico
+      ...opciones,
+    });
+    const titulo1 = (texto) => new Paragraph({ text: texto, heading: HeadingLevel.HEADING_1, spacing: { before: 240, after: 160 } });
+
+    const objEspecificosTexto = (inv.objetivos?.especificos || []).map((o,i) => `${i+1}. ${o}`).join('\n');
+    const metodologiaCompleta = [
+      inv.metodologia?.redaccion,
+      inv.metodologia?.poblacion ? `Población: ${inv.metodologia.poblacion}.` : '',
+      inv.metodologia?.muestra ? `Muestra: ${inv.metodologia.muestra}.` : '',
+      inv.metodologia?.instrumentos ? `Instrumentos: ${inv.metodologia.instrumentos}.` : '',
+      inv.metodologia?.procedimiento ? `Procedimiento: ${inv.metodologia.procedimiento}` : '',
+    ].filter(Boolean).join('\n\n');
+
+    const doc = new Document({
+      creator: nombreAutor, // el profesor que genera el documento queda como autor en las propiedades del archivo, como se pidió
+      title: inv.titulo,
+      subject: inv.tema || '',
+      description: `Investigación académica generada en CapitalLab. Metodología: ${inv.tipo_metodologia||''} — ${inv.diseno||''}.`,
+      sections: [{
+        properties: {},
+        children: [
+          new Paragraph({ text: inv.titulo, heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER, spacing: { after: 120 } }),
+          new Paragraph({ text: inv.tema||'', alignment: AlignmentType.CENTER, spacing: { after: 60 }, children: [new TextRun({ text: inv.tema||'', italics: true, size: 22 })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: [new TextRun({ text: `${nombreAutor} · ${new Date(inv.creado_en).toLocaleDateString('es-PA', {year:'numeric', month:'long', day:'numeric'})}`, size: 20, color: '555555' })] }),
+
+          titulo1('Objetivos'),
+          parrafo(`Objetivo general: ${inv.objetivos?.general || '—'}`),
+          objEspecificosTexto ? parrafo(`Objetivos específicos:\n${objEspecificosTexto}`) : parrafo('Objetivos específicos: no especificados.'),
+
+          new Paragraph({ children: [new PageBreak()] }), // salto forzado antes de cada sección grande — evita secciones corridas
+          titulo1('Introducción'),
+          parrafo(inv.contenido?.introduccion),
+
+          new Paragraph({ children: [new PageBreak()] }),
+          titulo1('Marco teórico'),
+          parrafo(inv.contenido?.marcoTeorico),
+
+          new Paragraph({ children: [new PageBreak()] }),
+          titulo1('Metodología'),
+          new Paragraph({ text: `Tipo: ${inv.tipo_metodologia||'no especificado'}. Diseño: ${inv.diseno||'no especificado'}.`, spacing: { after: 160 } }),
+          parrafo(metodologiaCompleta),
+
+          new Paragraph({ children: [new PageBreak()] }),
+          titulo1('Resultados'),
+          parrafo(inv.contenido?.resultados),
+
+          new Paragraph({ children: [new PageBreak()] }),
+          titulo1('Discusión'),
+          parrafo(inv.contenido?.discusion),
+
+          new Paragraph({ children: [new PageBreak()] }),
+          titulo1('Conclusiones'),
+          parrafo(inv.contenido?.conclusiones),
+        ],
+      }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${inv.titulo.replace(/[^a-z0-9]/gi,' ').trim()}.docx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    notify('Documento Word generado.', 'success');
+  } catch(e){
+    notify('No se pudo exportar a Word: ' + (e.message||e), 'error');
+  }
+}
+
+async function exportarInvestigacionPDF(id){
+  const inv = investigacionesCache[id] || (await sb.from('investigaciones').select('*').eq('id', id).maybeSingle()).data;
+  if(!inv){ notify('No se encontró la investigación.', 'error'); return; }
+  let nombreAutor = currentUser?.nombre || 'CapitalLab';
+  if(inv.autor_id !== currentUser?.usuario_id){
+    const { data: autor } = await sb.from('usuarios').select('nombre').eq('id', inv.autor_id).maybeSingle();
+    if(autor?.nombre) nombreAutor = autor.nombre;
+  }
+  const objEspecificosTexto = (inv.objetivos?.especificos || []).map((o,i) => `${i+1}. ${o}`).join('<br>');
+  const seccionTexto = (titulo, texto) => `
+    <div class="section" style="page-break-before:always;break-before:page;"><div class="section-title">${titulo}</div></div>
+    <div class="info-box">${(texto||'—').split('\n\n').map(p=>`<p style="margin:0 0 10px 0;text-align:justify;">${p}</p>`).join('')}</div>`;
+  const metodologiaCompleta = [
+    inv.metodologia?.redaccion,
+    inv.metodologia?.poblacion ? `Población: ${inv.metodologia.poblacion}.` : '',
+    inv.metodologia?.muestra ? `Muestra: ${inv.metodologia.muestra}.` : '',
+    inv.metodologia?.instrumentos ? `Instrumentos: ${inv.metodologia.instrumentos}.` : '',
+    inv.metodologia?.procedimiento ? `Procedimiento: ${inv.metodologia.procedimiento}` : '',
+  ].filter(Boolean).join('\n\n');
+
+  const body = pdfHeader(inv.titulo)
+    + `<div class="section-sub" style="margin-bottom:14px;">${inv.tema||''} · ${nombreAutor} · ${new Date(inv.creado_en).toLocaleDateString('es-PA')}</div>`
+    + `<div class="section"><div class="section-title">Objetivos</div></div>`
+    + `<div class="info-box"><p style="margin:0 0 10px 0;"><b>Objetivo general:</b> ${inv.objetivos?.general||'—'}</p>${objEspecificosTexto?`<p style="margin:0;"><b>Objetivos específicos:</b><br>${objEspecificosTexto}</p>`:''}</div>`
+    + seccionTexto('Introducción', inv.contenido?.introduccion)
+    + seccionTexto('Marco teórico', inv.contenido?.marcoTeorico)
+    + `<div class="section" style="page-break-before:always;break-before:page;"><div class="section-title">Metodología</div><div class="section-sub">Tipo: ${inv.tipo_metodologia||'no especificado'} · Diseño: ${inv.diseno||'no especificado'}</div></div>`
+    + `<div class="info-box">${metodologiaCompleta.split('\n\n').map(p=>`<p style="margin:0 0 10px 0;text-align:justify;">${p}</p>`).join('')}</div>`
+    + seccionTexto('Resultados', inv.contenido?.resultados)
+    + seccionTexto('Discusión', inv.contenido?.discusion)
+    + seccionTexto('Conclusiones', inv.contenido?.conclusiones)
+    + pdfFooter();
+  await descargarPDFDesdeHTML(body, inv.titulo.replace(/[^a-z0-9]/gi,'-'));
+}
+
 function exportarRankingCSV(){
   if(!rankingPosicionesCache || !rankingPosicionesCache.length){ notify('Todavía no hay datos del ranking para exportar.', 'error'); return; }
   const filas = rankingPosicionesCache.map((p,i) => [i+1, '"'+p.nombre+'"', p.retorno.toFixed(2), (p.valor||0).toFixed(2)].join(','));

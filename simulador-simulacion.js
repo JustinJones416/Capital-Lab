@@ -643,6 +643,7 @@ function goPage(p){
   if(p==='laboratorio'){intentar(renderLabHistory);intentar(renderLabPicker);intentar(cargarSeccionesLaboratorio);}
   if(p==='profesor'){ intentar(renderTeacher); intentar(cargarRosterProfesor); intentar(iniciarRealtimeProfesor); }
   else { intentar(detenerRealtimeProfesor); intentar(detenerSalaEnVivo); }
+  if(p==='investigacion'){ intentar(cargarListaInvestigaciones); intentar(() => { document.getElementById('inv-editor-vista').style.display='none'; document.getElementById('inv-lista-vista').style.display=''; }); }
   if(p==='inicio') intentar(renderInicioPage);
   if(p==='mercado' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_mercado_'+currentUser.sesion_id, '1');
   if(p==='calificaciones' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_calificaciones_'+currentUser.sesion_id, '1');
@@ -3371,10 +3372,63 @@ async function abrirResponderEncuesta(encuestaId){
   overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
 
   document.getElementById('responder-encuesta-preguntas').innerHTML = encuesta.preguntas.map(p => {
-    if(p.tipo === 'escala') return `<div style="margin-bottom:14px;"><div style="font-size:13px;margin-bottom:6px;">${p.texto}</div><div style="display:flex;gap:6px;">${[1,2,3,4,5].map(n=>`<button type="button" class="btn btn-ghost btn-sm escala-opcion" data-pregunta="${p.id}" data-valor="${n}" onclick="this.parentElement.querySelectorAll('.escala-opcion').forEach(b=>b.classList.remove('active'));this.classList.add('active');this.dataset.marcado='1';" style="flex:1;">${n}</button>`).join('')}</div></div>`;
+    if(p.tipo === 'escala') return `<div style="margin-bottom:14px;"><div style="font-size:13px;margin-bottom:6px;">${p.texto}</div><div style="display:flex;gap:6px;">${[1,2,3,4,5].map(n=>`<button type="button" class="btn btn-sm escala-opcion" data-pregunta="${p.id}" data-valor="${n}" onclick="marcarEscalaEncuesta(this)" style="flex:1;background:var(--c2, #161b26);border:1.5px solid var(--c4, #242d42);color:var(--t1, #e8edf8);transition:all .12s;">${n}</button>`).join('')}</div></div>`;
     if(p.tipo === 'abierta') return `<div style="margin-bottom:14px;"><div style="font-size:13px;margin-bottom:6px;">${p.texto}</div><textarea data-pregunta="${p.id}" class="respuesta-abierta" rows="2" style="width:100%;padding:8px 10px;background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:8px;color:var(--t1, #e8edf8);font-size:12.5px;"></textarea></div>`;
-    return `<div style="margin-bottom:14px;"><div style="font-size:13px;margin-bottom:6px;">${p.texto}</div>${(p.opciones||[]).map(op => `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;cursor:pointer;"><input type="${p.tipo==='multiple'?'checkbox':'radio'}" name="pregunta-${p.id}" value="${op}" data-pregunta="${p.id}" class="respuesta-opcion" style="width:auto;"> ${op}</label>`).join('')}</div>`;
+    // Opción única/múltiple: antes era un radio/checkbox nativo diminuto
+    // junto al texto — difícil de notar cuál quedó marcado, sobre todo
+    // en un tema oscuro. Ahora toda la fila es una tarjeta clicable
+    // (no solo el círculo), y al seleccionarse se resalta completa en
+    // el azul de marca de Capital One (#004977) — inconfundible.
+    return `<div style="margin-bottom:14px;"><div style="font-size:13px;margin-bottom:6px;">${p.texto}</div>${(p.opciones||[]).map(op => `
+      <label class="opcion-encuesta-tarjeta" data-pregunta="${p.id}" onclick="marcarOpcionEncuesta(this, ${p.tipo==='multiple'})" style="display:flex;align-items:center;gap:9px;padding:9px 12px;margin-bottom:6px;border-radius:8px;border:1.5px solid var(--c4, #242d42);background:var(--c2, #161b26);cursor:pointer;font-size:12.5px;transition:all .12s;">
+        <input type="${p.tipo==='multiple'?'checkbox':'radio'}" name="pregunta-${p.id}" value="${op}" data-pregunta="${p.id}" class="respuesta-opcion" style="width:15px;height:15px;accent-color:#004977;flex-shrink:0;">
+        <span>${op}</span>
+      </label>`).join('')}</div>`;
   }).join('');
+}
+
+// Marca visualmente la opción de escala 1-5 elegida — azul de marca
+// (Capital One #004977) sólido en la seleccionada, el resto vuelve a
+// su estado neutro.
+function marcarEscalaEncuesta(boton){
+  boton.parentElement.querySelectorAll('.escala-opcion').forEach(b => {
+    b.classList.remove('active');
+    b.style.background = 'var(--c2, #161b26)';
+    b.style.borderColor = 'var(--c4, #242d42)';
+    b.style.color = 'var(--t1, #e8edf8)';
+    delete b.dataset.marcado;
+  });
+  boton.classList.add('active');
+  boton.style.background = '#004977';
+  boton.style.borderColor = '#004977';
+  boton.style.color = '#fff';
+  boton.dataset.marcado = '1';
+}
+
+// Marca visualmente la tarjeta de opción elegida — en radio (opción
+// única), desmarca las demás de la misma pregunta primero; en
+// checkbox (selección múltiple), cada tarjeta se alterna sola.
+function marcarOpcionEncuesta(tarjeta, esMultiple){
+  const input = tarjeta.querySelector('.respuesta-opcion');
+  if(!esMultiple){
+    document.querySelectorAll(`.opcion-encuesta-tarjeta[data-pregunta="${tarjeta.dataset.pregunta}"]`).forEach(t => {
+      t.style.background = 'var(--c2, #161b26)';
+      t.style.borderColor = 'var(--c4, #242d42)';
+      t.style.fontWeight = '400';
+    });
+    input.checked = true;
+  } else {
+    input.checked = !input.checked;
+  }
+  if(input.checked){
+    tarjeta.style.background = 'rgba(0,73,119,.22)';
+    tarjeta.style.borderColor = '#004977';
+    tarjeta.style.fontWeight = '600';
+  } else {
+    tarjeta.style.background = 'var(--c2, #161b26)';
+    tarjeta.style.borderColor = 'var(--c4, #242d42)';
+    tarjeta.style.fontWeight = '400';
+  }
 }
 
 async function enviarRespuestaEncuesta(encuestaId){

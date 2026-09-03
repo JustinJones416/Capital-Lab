@@ -10,6 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 <link rel="stylesheet" href="simulador-estilos.css">
 <script>
 // Respaldo para Firefox, que históricamente no soporta "zoom" en CSS
@@ -322,6 +323,7 @@
 
     <div class="wl-nav-section" id="wl-nav-section-gestion" onclick="alternarSeccionNav(this)" style="display:none;"><i class="ti ti-chevron-down wl-nav-section-flecha"></i> Gestión</div>
     <button class="wl-nav-btn"        id="nav-profesor"      onclick="goPage('profesor')" style="display:none;"><i class="ti ti-school"></i> Modo Profesor</button>
+    <button class="wl-nav-btn"        id="nav-investigacion" onclick="goPage('investigacion')" style="display:none;"><i class="ti ti-microscope"></i> Investigación</button>
     <button class="wl-nav-btn"        id="nav-soporte"       onclick="abrirTicketSoporte()" style="display:none;"><i class="ti ti-message-report"></i> Reportar un problema</button>
     <button class="wl-nav-btn"        id="nav-admin"          onclick="goPage('admin')" style="display:none;"><i class="ti ti-shield-cog"></i> Administración</button>
   </div>
@@ -1417,6 +1419,137 @@
         </div>
       </div>
       <div id="prof-detail-body" class="prof-detail-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ INVESTIGACIÓN ════════
+     Informes de investigación académica completos — objetivos,
+     metodología formal, desarrollo, resultados (opcionalmente
+     apoyados en los datos reales de una encuesta ya publicada),
+     conclusiones y recomendaciones. Distinta de una encuesta o de un
+     análisis puntual: esto es el documento final que se entrega o
+     presenta, exportable en Word y PDF, con el docente como autor
+     registrado en las propiedades del archivo. Solo visible para
+     docentes y superadmin. -->
+<div id="page-investigacion" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <div>
+      <div class="page-title">Investigación</div>
+      <div class="page-sub">Informes de investigación académica — objetivos, metodología, desarrollo, resultados y conclusiones, listos para exportar</div>
+    </div>
+    <button class="btn btn-primary" onclick="nuevaInvestigacion()"><i class="ti ti-file-plus"></i> Nueva investigación</button>
+  </div>
+
+  <div id="inv-lista-vista">
+    <div id="inv-lista-cont"><div class="auth-hint">Cargando…</div></div>
+  </div>
+
+  <div id="inv-editor-vista" style="display:none;">
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="card-title" style="margin-bottom:0;" id="inv-editor-titulo-modo">Nueva investigación</div>
+        <button class="btn btn-ghost btn-sm" onclick="volverListaInvestigaciones()"><i class="ti ti-arrow-left"></i> Volver a la lista</button>
+      </div>
+
+      <div class="field" style="margin-bottom:10px;">
+        <label>Título de la investigación</label>
+        <input type="text" id="inv-titulo" placeholder="Ej: Percepción de riesgo financiero en estudiantes universitarios">
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Tema</label>
+        <input type="text" id="inv-tema" placeholder="Ej: Educación financiera y tolerancia al riesgo">
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:16px;">
+        <div class="field" style="flex:1;">
+          <label>Tipo de metodología</label>
+          <select id="inv-tipo-metodologia">
+            <option value="Cuantitativa">Cuantitativa</option>
+            <option value="Cualitativa">Cualitativa</option>
+            <option value="Mixta">Mixta</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1;">
+          <label>Diseño</label>
+          <select id="inv-diseno">
+            <option value="Descriptivo">Descriptivo</option>
+            <option value="Correlacional">Correlacional</option>
+            <option value="Experimental">Experimental</option>
+            <option value="Cuasiexperimental">Cuasiexperimental</option>
+            <option value="Exploratorio">Exploratorio</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom:16px;">
+        <label>Vincular con una encuesta ya publicada (opcional — trae los resultados reales para el análisis)</label>
+        <select id="inv-encuesta-vinculada"><option value="">Ninguna</option></select>
+      </div>
+
+      <div class="card-title" style="margin-bottom:10px;">Objetivos</div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Objetivo general</label>
+        <textarea id="inv-objetivo-general" rows="2" placeholder="Ej: Determinar la relación entre la percepción de riesgo y las decisiones de inversión de los estudiantes"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:16px;">
+        <label>Objetivos específicos (uno por línea)</label>
+        <textarea id="inv-objetivos-especificos" rows="3" placeholder="Un objetivo específico por línea"></textarea>
+      </div>
+
+      <div class="card-title" style="margin-bottom:10px;">Metodología</div>
+      <div style="display:flex;gap:10px;margin-bottom:10px;">
+        <div class="field" style="flex:1;">
+          <label>Población</label>
+          <input type="text" id="inv-poblacion" placeholder="Ej: Estudiantes de la Facultad de Economía">
+        </div>
+        <div class="field" style="flex:1;">
+          <label>Muestra</label>
+          <input type="text" id="inv-muestra" placeholder="Ej: 45 estudiantes de Finanzas y Banca">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Instrumentos</label>
+        <input type="text" id="inv-instrumentos" placeholder="Ej: Encuesta estructurada aplicada mediante CapitalLab">
+      </div>
+      <div class="field" style="margin-bottom:16px;">
+        <label>Procedimiento</label>
+        <textarea id="inv-procedimiento" rows="2" placeholder="Cómo se llevó a cabo la recolección de datos"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:16px;">
+        <label>Metodología (redacción para el informe)</label>
+        <textarea id="inv-metodologia-texto" rows="4" placeholder="Párrafo formal describiendo el diseño, la población, la muestra, los instrumentos y el procedimiento"></textarea>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:0;">Contenido del informe</div>
+        <button class="btn btn-ghost btn-sm" onclick="redactarInvestigacionConIA()" id="inv-btn-ia"><i class="ti ti-sparkles"></i> Redactar borrador con IA</button>
+      </div>
+      <div style="font-size:10.5px;color:var(--t3);margin-bottom:10px;">La IA redacta un borrador a partir del título, el tema, los objetivos y los resultados de la encuesta vinculada (si hay una) — el texto queda completamente editable después, siempre en registro académico.</div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Introducción</label>
+        <textarea id="inv-introduccion" rows="3"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Marco teórico</label>
+        <textarea id="inv-marco-teorico" rows="4"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Resultados</label>
+        <textarea id="inv-resultados" rows="4"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Discusión</label>
+        <textarea id="inv-discusion" rows="4"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:16px;">
+        <label>Conclusiones</label>
+        <textarea id="inv-conclusiones" rows="3"></textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" onclick="guardarInvestigacion()"><i class="ti ti-device-floppy"></i> Guardar</button>
+      </div>
     </div>
   </div>
 </div>
