@@ -313,7 +313,7 @@ async function authResendConfirmation(){
 async function authLogout(){
   if(guestMode){ location.reload(); return; }
   if(!confirm('¿Cerrar tu sesión? Tu progreso ya está guardado, puedes volver a entrar cuando quieras.')) return;
-  if(sb){ try { await sb.auth.signOut(); } catch(e){} }
+  if(sb){ try { await sb.auth.signOut(); } catch(e){ console.error('signOut falló al cerrar sesión (se recarga la página de todas formas):', e.message||e); } }
   currentUser = null;
   location.reload();
 }
@@ -1086,7 +1086,7 @@ function mostrarFormularioCompletarPerfil(user){
     // no basta con cerrar la ventana: hay que cerrar esa sesión también,
     // o si no, la próxima vez que entre va a caer otra vez aquí mismo.
     overlay.remove();
-    try { await sb.auth.signOut(); } catch(e){}
+    try { await sb.auth.signOut(); } catch(e){ console.error('signOut falló al cancelar el perfil (se recarga la página de todas formas):', e.message||e); }
     location.reload();
   };
   const cerrarConEscape = (e) => { if(e.key==='Escape'){ document.removeEventListener('keydown', cerrarConEscape); overlay.querySelector('#cp-cancelar').click(); } };
