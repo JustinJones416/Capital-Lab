@@ -1450,7 +1450,7 @@ function cambiarTabProfesor(tab){
   if(tab==='vivo') iniciarSalaEnVivo(); else detenerSalaEnVivo();
   if(tab==='laboratorio') cargarSeccionesLabDocente();
   if(tab==='correos') prepararPanelCorreos();
-  if(tab==='encuestas') cargarEncuestasDocente();
+  if(tab==='encuestas') { cargarEncuestasDocente(); if(typeof irAPasoEncuesta==='function') irAPasoEncuesta(1); }
   if(tab==='bitacora') cargarBitacoraDocente();
 }
 

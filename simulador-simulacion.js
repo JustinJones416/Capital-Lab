@@ -2956,6 +2956,36 @@ const PLANTILLAS_ENCUESTA = {
   },
 };
 
+const ENC_NOMBRES_PASOS = ['Origen','Detalles','Preguntas'];
+let encPasoActual = 1;
+
+function renderIndicadorPasosEncuesta(){
+  const cont = document.getElementById('enc-pasos-indicador');
+  if(!cont) return;
+  cont.innerHTML = ENC_NOMBRES_PASOS.map((nombre, i) => {
+    const paso = i+1;
+    const activo = paso === encPasoActual;
+    return `<button type="button" onclick="irAPasoEncuesta(${paso})" title="${nombre}" style="width:28px;height:28px;border-radius:50%;border:1.5px solid ${activo?'#004977':'var(--c4, #242d42)'};background:${activo?'#004977':'var(--c2, #161b26)'};color:${activo?'#fff':'var(--t2, #b8c4dc)'};font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;">${paso}</button>`;
+  }).join('');
+}
+
+function irAPasoEncuesta(paso){
+  if(paso < 1 || paso > ENC_NOMBRES_PASOS.length) return;
+  document.getElementById(`enc-paso-${encPasoActual}`).style.display = 'none';
+  encPasoActual = paso;
+  document.getElementById(`enc-paso-${encPasoActual}`).style.display = '';
+  document.getElementById('enc-paso-contador').textContent = `Paso ${encPasoActual} de ${ENC_NOMBRES_PASOS.length} — ${ENC_NOMBRES_PASOS[encPasoActual-1]}`;
+  document.getElementById('enc-btn-anterior').style.visibility = encPasoActual === 1 ? 'hidden' : 'visible';
+  const esUltimo = encPasoActual === ENC_NOMBRES_PASOS.length;
+  document.getElementById('enc-btn-siguiente').style.display = esUltimo ? 'none' : '';
+  document.getElementById('encuesta-btn-publicar').style.display = esUltimo ? '' : 'none';
+  renderIndicadorPasosEncuesta();
+}
+
+function cambiarPasoEncuesta(delta){
+  irAPasoEncuesta(encPasoActual + delta);
+}
+
 function alCambiarPlantillaEncuesta(){
   const clave = document.getElementById('encuesta-plantilla').value;
   const esGoogleForm = clave === 'google_form';
@@ -2963,6 +2993,8 @@ function alCambiarPlantillaEncuesta(){
   document.getElementById('encuesta-campos-propios').style.display = esGoogleForm ? 'none' : '';
   document.getElementById('encuesta-campo-google-form').style.display = esGoogleForm ? '' : 'none';
   document.getElementById('encuesta-campo-generar-ia').style.display = esGenerarIA ? '' : 'none';
+  document.getElementById('encuesta-paso3-preguntas').style.display = esGoogleForm ? 'none' : '';
+  document.getElementById('encuesta-paso3-google-form-aviso').style.display = esGoogleForm ? '' : 'none';
   if(esGenerarIA){ return; } // se espera a que el docente pida la redacción con IA — no se toca preguntasEncuestaActual todavía
   if(esGoogleForm || !clave) { if(!clave) preguntasEncuestaActual = []; renderPreguntasEncuesta(); return; }
   const plantilla = PLANTILLAS_ENCUESTA[clave];
@@ -3107,6 +3139,7 @@ function editarEncuesta(id){
       renderPreguntasEncuesta();
     }
     document.getElementById('prof-panel-encuestas').scrollIntoView({behavior:'smooth', block:'start'});
+    irAPasoEncuesta(2); // en edición no aplica elegir "origen" — se salta directo a los datos reales
   } catch(e){
     notify('No se pudo abrir la encuesta para editar: ' + (e.message||e), 'error');
   }
@@ -3125,6 +3158,7 @@ function cancelarEdicionEncuesta(){
   document.getElementById('encuesta-gf-url').value = '';
   preguntasEncuestaActual = [];
   alCambiarPlantillaEncuesta();
+  irAPasoEncuesta(1);
 }
 
 // Bitácora de decisiones — lo que los estudiantes escribieron ANTES
