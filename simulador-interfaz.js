@@ -3634,28 +3634,39 @@ async function exportarTodoParaOffline(){
 // sin que el profesor tenga que saber cuál es cuál de antemano.
 function importarDatosCompletosProfesor(data){
   let importados = 0;
-  (data.estudiantes || []).forEach(est => {
-    const resultadosDeEste = (data.resultadosLaboratorio || []).filter(r => r.usuario_id === est.id);
-    const respuestasDeEste = (data.respuestasEncuestas || []).filter(r => r.usuario_id === est.id).map(r => {
-      const enc = (data.encuestas || []).find(e => e.id === r.encuesta_id);
-      return { titulo: enc?.titulo, preguntas: enc?.preguntas, respuestas: r.respuestas, respondidoEn: r.respondido_en };
+  try {
+    (data.estudiantes || []).forEach(est => {
+      const resultadosDeEste = (data.resultadosLaboratorio || []).filter(r => r.usuario_id === est.id);
+      const respuestasDeEste = (data.respuestasEncuestas || []).filter(r => r.usuario_id === est.id).map(r => {
+        const enc = (data.encuestas || []).find(e => e.id === r.encuesta_id);
+        return { titulo: enc?.titulo, preguntas: enc?.preguntas, respuestas: r.respuestas, respondidoEn: r.respondido_en };
+      });
+      const entry = {
+        student: est.nombre, section: data.sesionNombre || '', group: '',
+        retPct: 0, sharpe: 0, pnl: 0, sigma: 0, var95: 0, txCount: 0, posCount: 0, portVal: 0, capital: 0,
+        holdingsDetail: [], txLog: [], navCurve: [],
+        labRuns: resultadosDeEste.map(r => ({ date: r.completado_en, finalValue: r.capital_final, achieved: r.retorno_pct, target: null, passed: r.cumplio_meta })),
+        encuestasRespondidas: respuestasDeEste,
+        version: 'importado-de-profesor',
+        importedAt: new Date().toLocaleString('es-PA'),
+      };
+      const existing = teacherRoster.findIndex(r=>r.student.toLowerCase()===est.nombre.toLowerCase());
+      if(existing>=0) teacherRoster[existing]=entry; else teacherRoster.push(entry);
+      importados++;
     });
-    const entry = {
-      student: est.nombre, section: data.sesionNombre || '', group: '',
-      retPct: 0, sharpe: 0, pnl: 0, sigma: 0, var95: 0, txCount: 0, posCount: 0, portVal: 0, capital: 0,
-      holdingsDetail: [], txLog: [], navCurve: [],
-      labRuns: resultadosDeEste.map(r => ({ date: r.completado_en, finalValue: r.capital_final, achieved: r.retorno_pct, target: null, passed: r.cumplio_meta })),
-      encuestasRespondidas: respuestasDeEste,
-      version: 'importado-de-profesor',
-      importedAt: new Date().toLocaleString('es-PA'),
-    };
-    const existing = teacherRoster.findIndex(r=>r.student.toLowerCase()===est.nombre.toLowerCase());
-    if(existing>=0) teacherRoster[existing]=entry; else teacherRoster.push(entry);
-    importados++;
-  });
-  saveTeacherRoster();
-  renderTeacher();
-  notify(`Datos completos importados: ${importados} estudiante(s), ${(data.encuestas||[]).length} encuesta(s).`, 'success');
+    saveTeacherRoster();
+    renderTeacher();
+    notify(`Datos completos importados: ${importados} estudiante(s), ${(data.encuestas||[]).length} encuesta(s).`, 'success');
+  } catch(e){
+    // Se guarda lo que sí se alcanzó a procesar antes del error, en
+    // vez de perder todo el lote — y se avisa con un mensaje
+    // específico, distinto del genérico "archivo inválido" que daría
+    // el try/catch de importStudent() si esta excepción se le
+    // escapara sin manejar aquí.
+    saveTeacherRoster();
+    renderTeacher();
+    notify(`Se importaron ${importados} estudiante(s) antes de un error: ${e.message||e}`, 'error');
+  }
 }
 
 function setTeacherSort(key){ teacherSortKey=key; renderTeacher(); }

@@ -3086,26 +3086,30 @@ async function publicarEncuesta(){
 function editarEncuesta(id){
   const datos = encuestasDocenteCache[id];
   if(!datos){ notify('No se encontró la encuesta.', 'error'); return; }
-  encuestaEditandoId = id;
-  document.getElementById('encuesta-campo-plantilla-wrap').style.display = 'none'; // editando, no eligiendo desde dónde empezar
-  document.getElementById('encuesta-form-titulo-modo').textContent = 'Editando encuesta';
-  document.getElementById('encuesta-btn-publicar').innerHTML = '<i class="ti ti-device-floppy"></i> Guardar cambios';
-  document.getElementById('encuesta-btn-cancelar-edicion').style.display = '';
+  try {
+    encuestaEditandoId = id;
+    document.getElementById('encuesta-campo-plantilla-wrap').style.display = 'none'; // editando, no eligiendo desde dónde empezar
+    document.getElementById('encuesta-form-titulo-modo').textContent = 'Editando encuesta';
+    document.getElementById('encuesta-btn-publicar').innerHTML = '<i class="ti ti-device-floppy"></i> Guardar cambios';
+    document.getElementById('encuesta-btn-cancelar-edicion').style.display = '';
 
-  if(datos.google_form_url){
-    document.getElementById('encuesta-campos-propios').style.display = 'none';
-    document.getElementById('encuesta-campo-google-form').style.display = '';
-    document.getElementById('encuesta-gf-titulo').value = datos.titulo;
-    document.getElementById('encuesta-gf-url').value = datos.google_form_url;
-  } else {
-    document.getElementById('encuesta-campos-propios').style.display = '';
-    document.getElementById('encuesta-campo-google-form').style.display = 'none';
-    document.getElementById('encuesta-titulo').value = datos.titulo;
-    document.getElementById('encuesta-descripcion').value = datos.descripcion || '';
-    preguntasEncuestaActual = datos.preguntas.map(p => ({...p}));
-    renderPreguntasEncuesta();
+    if(datos.google_form_url){
+      document.getElementById('encuesta-campos-propios').style.display = 'none';
+      document.getElementById('encuesta-campo-google-form').style.display = '';
+      document.getElementById('encuesta-gf-titulo').value = datos.titulo;
+      document.getElementById('encuesta-gf-url').value = datos.google_form_url;
+    } else {
+      document.getElementById('encuesta-campos-propios').style.display = '';
+      document.getElementById('encuesta-campo-google-form').style.display = 'none';
+      document.getElementById('encuesta-titulo').value = datos.titulo;
+      document.getElementById('encuesta-descripcion').value = datos.descripcion || '';
+      preguntasEncuestaActual = (datos.preguntas || []).map(p => ({...p}));
+      renderPreguntasEncuesta();
+    }
+    document.getElementById('prof-panel-encuestas').scrollIntoView({behavior:'smooth', block:'start'});
+  } catch(e){
+    notify('No se pudo abrir la encuesta para editar: ' + (e.message||e), 'error');
   }
-  document.getElementById('prof-panel-encuestas').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 function cancelarEdicionEncuesta(){
@@ -3416,8 +3420,16 @@ async function cargarEncuestasPendientesEstudiante(){
 }
 
 async function abrirResponderEncuesta(encuestaId){
-  const { data: encuesta } = await sb.from('encuestas_completas').select('*').eq('id', encuestaId).maybeSingle();
-  if(!encuesta) return;
+  let encuesta;
+  try {
+    const resp = await sb.from('encuestas_completas').select('*').eq('id', encuestaId).maybeSingle();
+    if(resp.error) throw resp.error;
+    encuesta = resp.data;
+  } catch(e){
+    notify('No se pudo abrir la encuesta: ' + (e.message||e), 'error');
+    return;
+  }
+  if(!encuesta){ notify('Esta encuesta ya no está disponible.', 'error'); return; }
   const overlay = document.createElement('div');
   overlay.className = 'grade-modal-overlay';
   overlay.innerHTML = `<div class="grade-modal" style="max-width:520px;">

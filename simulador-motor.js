@@ -4185,38 +4185,42 @@ async function exportarInvestigacionDOCX(id){
 }
 
 async function exportarInvestigacionPDF(id){
-  const inv = investigacionesCache[id] || (await sb.from('investigaciones').select('*').eq('id', id).maybeSingle()).data;
-  if(!inv){ notify('No se encontró la investigación.', 'error'); return; }
-  let nombreAutor = currentUser?.nombre || 'CapitalLab';
-  if(inv.autor_id !== currentUser?.usuario_id){
-    const { data: autor } = await sb.from('usuarios').select('nombre').eq('id', inv.autor_id).maybeSingle();
-    if(autor?.nombre) nombreAutor = autor.nombre;
-  }
-  const objEspecificosTexto = (inv.objetivos?.especificos || []).map((o,i) => `${i+1}. ${o}`).join('<br>');
-  const seccionTexto = (titulo, texto) => `
+  try {
+    const inv = investigacionesCache[id] || (await sb.from('investigaciones').select('*').eq('id', id).maybeSingle()).data;
+    if(!inv){ notify('No se encontró la investigación.', 'error'); return; }
+    let nombreAutor = currentUser?.nombre || 'CapitalLab';
+    if(inv.autor_id !== currentUser?.usuario_id){
+      const { data: autor } = await sb.from('usuarios').select('nombre').eq('id', inv.autor_id).maybeSingle();
+      if(autor?.nombre) nombreAutor = autor.nombre;
+    }
+    const objEspecificosTexto = (inv.objetivos?.especificos || []).map((o,i) => `${i+1}. ${o}`).join('<br>');
+    const seccionTexto = (titulo, texto) => `
     <div class="section" style="page-break-before:always;break-before:page;"><div class="section-title">${titulo}</div></div>
     <div class="info-box">${(texto||'—').split('\n\n').map(p=>`<p style="margin:0 0 10px 0;text-align:justify;">${p}</p>`).join('')}</div>`;
-  const metodologiaCompleta = [
-    inv.metodologia?.redaccion,
-    inv.metodologia?.poblacion ? `Población: ${inv.metodologia.poblacion}.` : '',
-    inv.metodologia?.muestra ? `Muestra: ${inv.metodologia.muestra}.` : '',
-    inv.metodologia?.instrumentos ? `Instrumentos: ${inv.metodologia.instrumentos}.` : '',
-    inv.metodologia?.procedimiento ? `Procedimiento: ${inv.metodologia.procedimiento}` : '',
-  ].filter(Boolean).join('\n\n');
+    const metodologiaCompleta = [
+      inv.metodologia?.redaccion,
+      inv.metodologia?.poblacion ? `Población: ${inv.metodologia.poblacion}.` : '',
+      inv.metodologia?.muestra ? `Muestra: ${inv.metodologia.muestra}.` : '',
+      inv.metodologia?.instrumentos ? `Instrumentos: ${inv.metodologia.instrumentos}.` : '',
+      inv.metodologia?.procedimiento ? `Procedimiento: ${inv.metodologia.procedimiento}` : '',
+    ].filter(Boolean).join('\n\n');
 
-  const body = pdfHeader(inv.titulo)
-    + `<div class="section-sub" style="margin-bottom:14px;">${inv.tema||''} · ${nombreAutor} · ${new Date(inv.creado_en).toLocaleDateString('es-PA')}</div>`
-    + `<div class="section"><div class="section-title">Objetivos</div></div>`
-    + `<div class="info-box"><p style="margin:0 0 10px 0;"><b>Objetivo general:</b> ${inv.objetivos?.general||'—'}</p>${objEspecificosTexto?`<p style="margin:0;"><b>Objetivos específicos:</b><br>${objEspecificosTexto}</p>`:''}</div>`
-    + seccionTexto('Introducción', inv.contenido?.introduccion)
-    + seccionTexto('Marco teórico', inv.contenido?.marcoTeorico)
-    + `<div class="section" style="page-break-before:always;break-before:page;"><div class="section-title">Metodología</div><div class="section-sub">Tipo: ${inv.tipo_metodologia||'no especificado'} · Diseño: ${inv.diseno||'no especificado'}</div></div>`
-    + `<div class="info-box">${metodologiaCompleta.split('\n\n').map(p=>`<p style="margin:0 0 10px 0;text-align:justify;">${p}</p>`).join('')}</div>`
-    + seccionTexto('Resultados', inv.contenido?.resultados)
-    + seccionTexto('Discusión', inv.contenido?.discusion)
-    + seccionTexto('Conclusiones', inv.contenido?.conclusiones)
-    + pdfFooter();
-  await descargarPDFDesdeHTML(body, inv.titulo.replace(/[^a-z0-9]/gi,'-'));
+    const body = pdfHeader(inv.titulo)
+      + `<div class="section-sub" style="margin-bottom:14px;">${inv.tema||''} · ${nombreAutor} · ${new Date(inv.creado_en).toLocaleDateString('es-PA')}</div>`
+      + `<div class="section"><div class="section-title">Objetivos</div></div>`
+      + `<div class="info-box"><p style="margin:0 0 10px 0;"><b>Objetivo general:</b> ${inv.objetivos?.general||'—'}</p>${objEspecificosTexto?`<p style="margin:0;"><b>Objetivos específicos:</b><br>${objEspecificosTexto}</p>`:''}</div>`
+      + seccionTexto('Introducción', inv.contenido?.introduccion)
+      + seccionTexto('Marco teórico', inv.contenido?.marcoTeorico)
+      + `<div class="section" style="page-break-before:always;break-before:page;"><div class="section-title">Metodología</div><div class="section-sub">Tipo: ${inv.tipo_metodologia||'no especificado'} · Diseño: ${inv.diseno||'no especificado'}</div></div>`
+      + `<div class="info-box">${metodologiaCompleta.split('\n\n').map(p=>`<p style="margin:0 0 10px 0;text-align:justify;">${p}</p>`).join('')}</div>`
+      + seccionTexto('Resultados', inv.contenido?.resultados)
+      + seccionTexto('Discusión', inv.contenido?.discusion)
+      + seccionTexto('Conclusiones', inv.contenido?.conclusiones)
+      + pdfFooter();
+    await descargarPDFDesdeHTML(body, inv.titulo.replace(/[^a-z0-9]/gi,'-'));
+  } catch(e){
+    notify('No se pudo exportar a PDF: ' + (e.message||e), 'error');
+  }
 }
 
 function exportarRankingCSV(){
