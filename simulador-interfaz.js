@@ -4131,6 +4131,17 @@ let _appInitialized = false;
 function initApp() {
   if (_appInitialized) return; // evita reinicializar si ya se cargó tras el login
   _appInitialized = true;
+  // Contador de palabras en vivo para el editor de Investigación —
+  // se adjunta una sola vez gracias a la guarda de arriba, aunque
+  // initApp() se llame más de una vez por sesión.
+  ['inv-objetivo-general','inv-introduccion','inv-marco-teorico','inv-metodologia-texto','inv-resultados','inv-discusion','inv-conclusiones'].forEach(id => {
+    const campo = document.getElementById(id);
+    if(campo) campo.addEventListener('input', () => { if(typeof actualizarContadoresPalabrasInvestigacion === 'function') actualizarContadoresPalabrasInvestigacion(); });
+  });
+  // Guardado automático periódico — cubre el caso de escribir mucho
+  // rato en un solo paso sin cambiar de pestaña (que es el único otro
+  // punto donde se guarda el borrador).
+  setInterval(() => { if(typeof guardarBorradorInvestigacionLocal === 'function') guardarBorradorInvestigacionLocal(); }, 20000);
   try { computePrices(6); } catch(e) { console.error('computePrices failed', e); }
   try { loadTeacherRoster(); } catch(e) { console.error('loadTeacherRoster failed', e); }
   // Load saved progress BEFORE rendering

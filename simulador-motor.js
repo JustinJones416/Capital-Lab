@@ -3905,10 +3905,112 @@ function irAPasoInvestigacion(paso){
   document.getElementById('inv-btn-siguiente').style.display = esUltimo ? 'none' : '';
   document.getElementById('inv-btn-guardar').style.display = esUltimo ? '' : 'none';
   renderIndicadorPasosInvestigacion();
+  guardarBorradorInvestigacionLocal(); // cada cambio de paso es un buen punto natural para guardar sin interrumpir la escritura
 }
 
 function cambiarPasoInvestigacion(delta){
   irAPasoInvestigacion(invPasoActual + delta);
+}
+
+// ── Guardado automático de borrador (localStorage) ──
+// Antes, si el docente cerraba la pestaña o navegaba a otra página
+// por error a mitad de redactar, todo el trabajo no guardado se
+// perdía sin aviso — un informe académico largo puede tardar mucho
+// en escribirse. Se guarda en el navegador, no en la base de datos
+// (así funciona incluso antes del primer "Guardar" real), y se limpia
+// solo cuando la investigación se guarda de verdad o se descarta.
+const INV_BORRADOR_CLAVE = 'capitallab_borrador_investigacion';
+
+function guardarBorradorInvestigacionLocal(){
+  if(document.getElementById('inv-editor-vista')?.style.display === 'none') return;
+  try {
+    const datos = recopilarDatosFormularioInvestigacion();
+    localStorage.setItem(INV_BORRADOR_CLAVE, JSON.stringify({ ...datos, editandoId: investigacionEditandoId, guardadoEn: Date.now() }));
+    const aviso = document.getElementById('inv-borrador-aviso');
+    if(aviso){ aviso.textContent = 'Borrador guardado automáticamente · ' + new Date().toLocaleTimeString('es-PA'); }
+  } catch(e){ /* el guardado automático nunca debe interrumpir la escritura, aunque falle */ }
+}
+
+function ofrecerRecuperarBorradorInvestigacion(){
+  let crudo;
+  try { crudo = localStorage.getItem(INV_BORRADOR_CLAVE); } catch(e){ return; }
+  if(!crudo) return;
+  let borrador;
+  try { borrador = JSON.parse(crudo); } catch(e){ localStorage.removeItem(INV_BORRADOR_CLAVE); return; }
+  if(!borrador?.titulo && !borrador?.tema) { localStorage.removeItem(INV_BORRADOR_CLAVE); return; }
+  const hace = Math.round((Date.now() - (borrador.guardadoEn||0)) / 60000);
+  if(!confirm(`Hay un borrador sin guardar de "${borrador.titulo || 'una investigación'}" (hace ${hace<1?'menos de 1':hace} minuto(s)). ¿Recuperarlo?`)) {
+    localStorage.removeItem(INV_BORRADOR_CLAVE);
+    return;
+  }
+  document.getElementById('inv-titulo').value = borrador.titulo || '';
+  document.getElementById('inv-tema').value = borrador.tema || '';
+  document.getElementById('inv-tipo-metodologia').value = borrador.tipo_metodologia || 'Cuantitativa';
+  document.getElementById('inv-diseno').value = borrador.diseno || 'Descriptivo';
+  document.getElementById('inv-objetivo-general').value = borrador.objetivos?.general || '';
+  document.getElementById('inv-objetivos-especificos').value = (borrador.objetivos?.especificos||[]).join('\n');
+  document.getElementById('inv-poblacion').value = borrador.metodologia?.poblacion || '';
+  document.getElementById('inv-muestra').value = borrador.metodologia?.muestra || '';
+  document.getElementById('inv-instrumentos').value = borrador.metodologia?.instrumentos || '';
+  document.getElementById('inv-procedimiento').value = borrador.metodologia?.procedimiento || '';
+  document.getElementById('inv-metodologia-texto').value = borrador.metodologia?.redaccion || '';
+  document.getElementById('inv-introduccion').value = borrador.contenido?.introduccion || '';
+  document.getElementById('inv-marco-teorico').value = borrador.contenido?.marcoTeorico || '';
+  document.getElementById('inv-resultados').value = borrador.contenido?.resultados || '';
+  document.getElementById('inv-discusion').value = borrador.contenido?.discusion || '';
+  document.getElementById('inv-conclusiones').value = borrador.contenido?.conclusiones || '';
+  if(borrador.editandoId) investigacionEditandoId = borrador.editandoId;
+  actualizarContadoresPalabrasInvestigacion();
+  notify('Borrador recuperado.', 'success');
+}
+
+function limpiarBorradorInvestigacionLocal(){
+  try { localStorage.removeItem(INV_BORRADOR_CLAVE); } catch(e){}
+}
+
+// ── Contador de palabras por sección ──
+// Un informe académico tiene extensiones esperadas por sección (una
+// introducción de 3 párrafos no es lo mismo que una de 3 líneas) — el
+// contador ayuda a calibrar eso sin tener que adivinar mientras se
+// escribe.
+const INV_CAMPOS_CONTADOR = ['inv-objetivo-general','inv-introduccion','inv-marco-teorico','inv-metodologia-texto','inv-resultados','inv-discusion','inv-conclusiones'];
+
+function contarPalabras(texto){
+  const t = (texto||'').trim();
+  return t ? t.split(/\s+/).length : 0;
+}
+
+function actualizarContadoresPalabrasInvestigacion(){
+  INV_CAMPOS_CONTADOR.forEach(id => {
+    const campo = document.getElementById(id);
+    const contador = document.getElementById(id + '-contador');
+    if(campo && contador) contador.textContent = `${contarPalabras(campo.value)} palabra(s)`;
+  });
+}
+
+function abrirVistaPreviaInvestigacion(){
+  const datos = recopilarDatosFormularioInvestigacion();
+  if(!datos.titulo){ notify('Ponle un título antes de ver la vista previa.', 'error'); return; }
+  const objEsp = (datos.objetivos.especificos||[]).map((o,i)=>`${i+1}. ${o}`).join('<br>');
+  const seccion = (titulo, texto) => `<div style="margin-bottom:18px;"><h4 style="color:var(--gold, #e8b94a);margin-bottom:6px;">${titulo}</h4><div style="white-space:pre-wrap;line-height:1.6;color:var(--t1, #e8edf8);">${texto || '<span style="color:var(--t3);">(sin contenido todavía)</span>'}</div></div>`;
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.innerHTML = `<div class="export-modal" style="max-width:720px;">
+    <button class="modal-close" onclick="this.closest('.export-modal-overlay').remove();"><i class="ti ti-x"></i></button>
+    <h2 style="text-align:center;">${datos.titulo}</h2>
+    <div style="text-align:center;color:var(--t3, #7a8ab0);font-size:12px;margin-bottom:20px;">${datos.tema||''}</div>
+    <div style="max-height:60vh;overflow-y:auto;padding:0 6px;">
+      ${seccion('Objetivos', `<b>General:</b> ${datos.objetivos.general||'—'}${objEsp?`<br><br><b>Específicos:</b><br>${objEsp}`:''}`)}
+      ${seccion('Introducción', datos.contenido.introduccion)}
+      ${seccion('Marco teórico', datos.contenido.marcoTeorico)}
+      ${seccion('Metodología', datos.metodologia.redaccion)}
+      ${seccion('Resultados', datos.contenido.resultados)}
+      ${seccion('Discusión', datos.contenido.discusion)}
+      ${seccion('Conclusiones', datos.contenido.conclusiones)}
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
 }
 
 function nuevaInvestigacion(){
@@ -3922,7 +4024,9 @@ function nuevaInvestigacion(){
   cargarSelectorEncuestasInvestigacion();
   document.getElementById('inv-lista-vista').style.display = 'none';
   document.getElementById('inv-editor-vista').style.display = '';
+  ofrecerRecuperarBorradorInvestigacion(); // antes de ir al paso 1 — irAPasoInvestigacion ya guarda el borrador, y no debe sobrescribir uno anterior sin ofrecerlo primero
   irAPasoInvestigacion(1);
+  actualizarContadoresPalabrasInvestigacion();
 }
 
 async function editarInvestigacion(id){
@@ -3951,6 +4055,7 @@ async function editarInvestigacion(id){
   document.getElementById('inv-lista-vista').style.display = 'none';
   document.getElementById('inv-editor-vista').style.display = '';
   irAPasoInvestigacion(1);
+  actualizarContadoresPalabrasInvestigacion();
 }
 
 function volverListaInvestigaciones(){
@@ -4002,6 +4107,7 @@ async function guardarInvestigacion(){
       if(error) throw error;
       notify('Investigación creada.', 'success');
     }
+    limpiarBorradorInvestigacionLocal();
     volverListaInvestigaciones();
   } catch(e){
     notify('No se pudo guardar: ' + (e.message||e), 'error');
@@ -4097,6 +4203,7 @@ async function redactarInvestigacionConIA(){
     document.getElementById('inv-conclusiones').value = d.conclusiones || '';
     notify(fuentesResumen ? 'Borrador redactado con los datos reales de la encuesta.' : 'Borrador redactado — vincula una encuesta para que incluya resultados con cifras reales.', 'success');
     irAPasoInvestigacion(4); // salta directo a Introducción — si el usuario seguía en Identificación, el resultado quedaría fuera de vista
+    actualizarContadoresPalabrasInvestigacion();
   } catch(e){
     notify('No se pudo redactar: ' + (e.message||e), 'error');
   } finally {
