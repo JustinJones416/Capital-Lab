@@ -1159,6 +1159,7 @@
       <div class="auth-tab" id="prof-tab-laboratorio" onclick="cambiarTabProfesor('laboratorio')" style="flex:none;padding:8px 16px;white-space:nowrap;"><i class="ti ti-flask" style="font-size:12px;margin-right:4px;"></i>Laboratorio</div>
       <div class="auth-tab" id="prof-tab-correos" onclick="cambiarTabProfesor('correos')" style="flex:none;padding:8px 16px;white-space:nowrap;"><i class="ti ti-mail" style="font-size:12px;margin-right:4px;"></i>Correos</div>
       <div class="auth-tab" id="prof-tab-encuestas" onclick="cambiarTabProfesor('encuestas')" style="flex:none;padding:8px 16px;white-space:nowrap;"><i class="ti ti-clipboard-text" style="font-size:12px;margin-right:4px;"></i>Encuestas</div>
+      <div class="auth-tab" id="prof-tab-bitacora" onclick="cambiarTabProfesor('bitacora')" style="flex:none;padding:8px 16px;white-space:nowrap;"><i class="ti ti-notebook" style="font-size:12px;margin-right:4px;"></i>Bitácora</div>
     </div>
     <button class="btn btn-sm" onclick="abrirModoPresentacion()" style="background:rgba(212,175,55,.12);color:var(--gold);border:1px solid rgba(212,175,55,.3);"><i class="ti ti-presentation"></i> Presentar</button>
   </div>
@@ -1364,6 +1365,25 @@
       <button class="btn btn-ghost btn-sm" onclick="exportarDatosInvestigacionCSV()" title="Combina Laboratorio + todas las encuestas de la sesión en un solo archivo, listo para análisis estadístico"><i class="ti ti-database-export"></i> Exportar datos de investigación</button>
     </div>
     <div id="encuesta-lista-docente"><div class="auth-hint">Cargando…</div></div>
+  </div>
+
+  <!-- Bitácora de decisiones — lo que los estudiantes escribieron
+       ANTES de comprar o vender, con el nivel de riesgo que ellos
+       mismos declararon. Sirve para que el docente evalúe qué tan
+       razonado es el riesgo que están tomando, no solo el resultado
+       final de sus operaciones. -->
+  <div id="prof-panel-bitacora" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+      <div class="card-title" style="margin-bottom:0;">Bitácora de decisiones</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="bitacora-filtro-riesgo" onchange="cargarBitacoraDocente()" style="font-size:11.5px;padding:5px 10px;">
+          <option value="">Todos los niveles de riesgo</option>
+          <option value="4">Alto (4-5) solamente</option>
+        </select>
+      </div>
+    </div>
+    <div id="bitacora-resumen" style="margin-bottom:12px;"></div>
+    <div id="bitacora-lista-docente"><div class="auth-hint">Cargando…</div></div>
   </div>
 
   <div class="info-box" style="margin-bottom:14px;">

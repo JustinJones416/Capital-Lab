@@ -267,6 +267,29 @@ async function authLogout(){
 
 let guestMode = false;
 
+// Se usa en el login de invitado, el login real, y de nuevo justo
+// después de restaurar qué secciones del menú quedaron colapsadas de
+// una visita anterior — sin esta última llamada, un botón de menú
+// nuevo (como Investigación cuando se agregó) podía quedar oculto si
+// la sección "Gestión" ya estaba colapsada en localStorage de antes:
+// el rol lo mostraba primero, pero restaurarSeccionesNavColapsadas()
+// se ejecutaba después y volvía a ocultar TODO lo de esa sección,
+// incluido el botón nuevo, hasta que el usuario contraía y expandía
+// la sección a mano. Reaplicar el rol al final es lo que evita esa
+// carrera, sin importar el orden real de ejecución.
+function aplicarVisibilidadNavPorRol(rol){
+  const navProfesor = document.getElementById('nav-profesor');
+  if(navProfesor) navProfesor.style.display = (rol==='estudiante') ? 'none' : '';
+  const navInvestigacion = document.getElementById('nav-investigacion');
+  if(navInvestigacion) navInvestigacion.style.display = (rol==='estudiante') ? 'none' : '';
+  const navSoporte = document.getElementById('nav-soporte');
+  if(navSoporte) navSoporte.style.display = (rol==='estudiante') ? 'none' : '';
+  const navAdmin = document.getElementById('nav-admin');
+  if(navAdmin) navAdmin.style.display = (rol==='superadmin') ? '' : 'none';
+  const seccionGestion = document.getElementById('wl-nav-section-gestion');
+  if(seccionGestion) seccionGestion.style.display = (rol==='estudiante') ? 'none' : '';
+}
+
 // Entra directo al simulador sin pasar por Supabase — solo para probar la interfaz.
 // El progreso se sigue guardando en localStorage como siempre, igual que antes de
 // añadir el inicio de sesión; simplemente no queda vinculado a ninguna cuenta real.
@@ -287,15 +310,9 @@ function authGuestEnter(role){
   const badge = document.getElementById('user-role-badge');
   badge.textContent = 'invitado';
   badge.className = 'role-badge guest';
-  const navProfesor = document.getElementById('nav-profesor');
-  if(navProfesor) navProfesor.style.display = (role==='estudiante') ? 'none' : '';
-  const navInvestigacionG = document.getElementById('nav-investigacion');
-  if(navInvestigacionG) navInvestigacionG.style.display = (role==='estudiante') ? 'none' : '';
-  const navSoporte = document.getElementById('nav-soporte');
-  if(navSoporte) navSoporte.style.display = (role==='estudiante') ? 'none' : '';
-  const seccionGestionG = document.getElementById('wl-nav-section-gestion');
-  if(seccionGestionG) seccionGestionG.style.display = (role==='estudiante') ? 'none' : '';
+  aplicarVisibilidadNavPorRol(role);
   if(typeof initApp === 'function') initApp();
+  aplicarVisibilidadNavPorRol(role); // de nuevo, después de initApp — ver la nota junto a la definición de la función
   renderInicioPage();
   aplicarEnlaceDirectoCapitalLab();
   setTimeout(()=>{ if(typeof notify==='function') notify('Modo de prueba: el progreso no se sincroniza con ninguna cuenta.', 'success'); }, 900);
@@ -350,20 +367,13 @@ async function authLoadProfileAndEnter(){
   const badge = document.getElementById('user-role-badge');
   badge.textContent = currentUser.rol;
   badge.className = 'role-badge ' + currentUser.rol;
-  // El modo profesor solo es visible para docentes y superadministradores
-  const navProfesor = document.getElementById('nav-profesor');
-  if(navProfesor) navProfesor.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
-  const navInvestigacion = document.getElementById('nav-investigacion');
-  if(navInvestigacion) navInvestigacion.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
-  const navSoporte = document.getElementById('nav-soporte');
-  if(navSoporte) navSoporte.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
-  const navAdmin = document.getElementById('nav-admin');
-  if(navAdmin) navAdmin.style.display = (currentUser.rol==='superadmin') ? '' : 'none';
-  const seccionGestion = document.getElementById('wl-nav-section-gestion');
-  if(seccionGestion) seccionGestion.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
+  // El modo profesor e Investigación solo son visibles para docentes
+  // y superadministradores.
+  aplicarVisibilidadNavPorRol(currentUser.rol);
   const capHint = document.querySelector('.cap-edit-hint');
   if(capHint) capHint.style.display = (currentUser.rol==='estudiante') ? 'none' : '';
   if(typeof initApp === 'function') initApp();
+  aplicarVisibilidadNavPorRol(currentUser.rol); // de nuevo, después de initApp — ver la nota junto a la definición de la función
   actualizarBadgeNotificaciones();
   renderInicioPage();
   aplicarEnlaceDirectoCapitalLab();
@@ -1429,8 +1439,8 @@ function cerrarModoPresentacion(){
 }
 
 function cambiarTabProfesor(tab){
-  const tabs = { lista:'prof-tab-lista', vivo:'prof-tab-vivo', laboratorio:'prof-tab-laboratorio', correos:'prof-tab-correos', encuestas:'prof-tab-encuestas' };
-  const paneles = { lista:'prof-panel-lista', vivo:'prof-panel-vivo', laboratorio:'prof-panel-laboratorio', correos:'prof-panel-correos', encuestas:'prof-panel-encuestas' };
+  const tabs = { lista:'prof-tab-lista', vivo:'prof-tab-vivo', laboratorio:'prof-tab-laboratorio', correos:'prof-tab-correos', encuestas:'prof-tab-encuestas', bitacora:'prof-tab-bitacora' };
+  const paneles = { lista:'prof-panel-lista', vivo:'prof-panel-vivo', laboratorio:'prof-panel-laboratorio', correos:'prof-panel-correos', encuestas:'prof-panel-encuestas', bitacora:'prof-panel-bitacora' };
   Object.keys(tabs).forEach(t => {
     const tabEl = document.getElementById(tabs[t]);
     const panelEl = document.getElementById(paneles[t]);
@@ -1441,6 +1451,7 @@ function cambiarTabProfesor(tab){
   if(tab==='laboratorio') cargarSeccionesLabDocente();
   if(tab==='correos') prepararPanelCorreos();
   if(tab==='encuestas') cargarEncuestasDocente();
+  if(tab==='bitacora') cargarBitacoraDocente();
 }
 
 async function iniciarSalaEnVivo(){

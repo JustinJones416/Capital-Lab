@@ -3123,6 +3123,61 @@ function cancelarEdicionEncuesta(){
   alCambiarPlantillaEncuesta();
 }
 
+// Bitácora de decisiones — lo que los estudiantes escribieron ANTES
+// de operar, con el nivel de riesgo que ellos mismos declararon. El
+// resumen agregado ayuda al docente a detectar de un vistazo si el
+// grupo en general está tomando decisiones bien fundamentadas o no,
+// antes de entrar a leer cada entrada una por una.
+async function cargarBitacoraDocente(){
+  const cont = document.getElementById('bitacora-lista-docente');
+  const resumenCont = document.getElementById('bitacora-resumen');
+  if(!sb || !currentUser?.sesion_id || !cont) return;
+  cont.innerHTML = '<div class="auth-hint">Cargando…</div>';
+  try {
+    let query = sb.from('bitacora_decisiones').select('*, usuarios(nombre)').eq('sesion_id', currentUser.sesion_id).order('creado_en', {ascending:false});
+    const filtroRiesgo = document.getElementById('bitacora-filtro-riesgo')?.value;
+    if(filtroRiesgo) query = query.gte('nivel_riesgo_percibido', +filtroRiesgo);
+    const { data: entradas, error } = await query;
+    if(error) throw error;
+
+    if(!entradas || !entradas.length){
+      resumenCont.innerHTML = '';
+      cont.innerHTML = '<div class="card"><div class="auth-hint">Todavía no hay entradas registradas — aparecen cuando un estudiante deja su razonamiento antes de comprar o vender.</div></div>';
+      return;
+    }
+
+    const conRiesgo = entradas.filter(e => e.nivel_riesgo_percibido != null);
+    const promRiesgo = conRiesgo.length ? (conRiesgo.reduce((s,e)=>s+e.nivel_riesgo_percibido,0)/conRiesgo.length).toFixed(1) : '—';
+    const cantidadAlto = conRiesgo.filter(e => e.nivel_riesgo_percibido >= 4).length;
+    resumenCont.innerHTML = `
+      <div class="card" style="padding:12px 14px;display:flex;gap:22px;flex-wrap:wrap;">
+        <div><div style="font-size:10.5px;color:var(--t3);">Entradas registradas</div><div style="font-size:18px;font-weight:700;">${entradas.length}</div></div>
+        <div><div style="font-size:10.5px;color:var(--t3);">Riesgo percibido promedio</div><div style="font-size:18px;font-weight:700;">${promRiesgo} / 5</div></div>
+        <div><div style="font-size:10.5px;color:var(--t3);">Decisiones de riesgo alto (4-5)</div><div style="font-size:18px;font-weight:700;color:${cantidadAlto>0?'var(--amber, #e8b94a)':'var(--t1)'};">${cantidadAlto}</div></div>
+      </div>`;
+
+    const colorRiesgo = (n) => n>=4 ? 'var(--red, #ff4757)' : n===3 ? 'var(--amber, #e8b94a)' : 'var(--green, #1e8e5a)';
+    cont.innerHTML = entradas.map(e => `
+      <div class="card" style="margin-bottom:8px;padding:10px 12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:5px;">
+          <div>
+            <b>${e.usuarios?.nombre || '—'}</b>
+            <span class="nav-badge" style="margin-left:6px;">${e.tipo_operacion === 'compra' ? 'Compra' : 'Venta'} de ${e.activo_ticker || e.activo_nombre || ''}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            ${e.nivel_riesgo_percibido ? `<span style="font-size:11px;font-weight:600;color:${colorRiesgo(e.nivel_riesgo_percibido)};">Riesgo ${e.nivel_riesgo_percibido}/5</span>` : ''}
+            <span style="font-size:10.5px;color:var(--t3);">${new Date(e.creado_en).toLocaleString('es-PA')}</span>
+          </div>
+        </div>
+        <div style="font-size:12.5px;color:var(--t2);line-height:1.5;">${e.razonamiento}</div>
+        ${e.monto_estimado ? `<div style="font-size:10.5px;color:var(--t3);margin-top:4px;">Monto estimado: $${fmt(e.monto_estimado)}</div>` : ''}
+      </div>
+    `).join('');
+  } catch(e){
+    cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
+  }
+}
+
 async function cargarEncuestasDocente(idContenedor){
   idContenedor = idContenedor || 'encuesta-lista-docente';
   const cont = document.getElementById(idContenedor);
@@ -3262,6 +3317,12 @@ async function analizarEncuestaConIA(encuestaId){
   const cont = document.getElementById('encuesta-ia-resultado');
   boton.disabled = true;
   boton.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Analizando…';
+  // Antes el área de resultado se quedaba completamente vacía
+  // mientras cargaba — solo el botón cambiaba, lo cual es fácil de
+  // pasar por alto si la mirada ya está puesta más abajo, esperando
+  // el resultado. Ahora también hay un indicador dentro del propio
+  // espacio donde va a aparecer el análisis.
+  cont.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:20px 10px;color:var(--t2, #b8c4dc);font-size:12.5px;"><i class="ti ti-loader-2" style="font-size:15px;animation:girarSimIA 1s linear infinite;color:var(--gold, #e8b94a);"></i><span>Analizando las respuestas…</span></div>';
   try {
     const { data: encuesta } = await sb.from('encuestas_completas').select('*').eq('id', encuestaId).maybeSingle();
     const { data: respuestas } = await sb.from('encuestas_completas_respuestas').select('respuestas').eq('encuesta_id', encuestaId);
@@ -3642,10 +3703,84 @@ function mostrarDeshacerToast(snapshot, mensaje){
   };
 }
 
+// Espacio para que el estudiante deje su razonamiento ANTES de
+// ejecutar la orden — llega directo al profesor (bitacora_decisiones),
+// para que pueda evaluar qué tan razonable es el riesgo que están
+// tomando sus estudiantes al invertir, no solo el resultado final.
+// No es obligatorio: "Omitir y continuar" ejecuta la orden igual, sin
+// bloquear el flujo normal de trading.
+function abrirRegistroDecisionPrevia(op, qty, alContinuar){
+  const mid = selectedAsset.currentPrice || selectedAsset.price;
+  const montoEstimado = mid * qty;
+  const overlay = document.createElement('div');
+  overlay.className = 'grade-modal-overlay';
+  overlay.id = 'decision-previa-overlay';
+  overlay.innerHTML = `<div class="grade-modal" style="max-width:480px;">
+    <h3><i class="ti ti-notebook"></i> Antes de ${op==='buy'?'comprar':'vender'}</h3>
+    <div class="sub">${selectedAsset.name} (${selectedAsset.ticker}) · ${qty} unidad(es) · ≈ $${fmt(montoEstimado)}</div>
+    <div style="margin:14px 0;">
+      <div style="font-size:12.5px;margin-bottom:6px;">¿Por qué estás tomando esta decisión?</div>
+      <textarea id="decision-previa-razonamiento" rows="3" placeholder="Ej: Creo que el precio va a subir porque..." style="width:100%;padding:8px 10px;background:var(--c2, #161b26);border:1px solid var(--c4, #242d42);border-radius:8px;color:var(--t1, #e8edf8);font-size:12.5px;"></textarea>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12.5px;margin-bottom:6px;">¿Qué tan riesgosa sientes que es esta decisión?</div>
+      <div style="display:flex;gap:6px;">${[1,2,3,4,5].map(n=>`<button type="button" class="btn btn-sm decision-previa-riesgo" data-valor="${n}" onclick="this.parentElement.querySelectorAll('.decision-previa-riesgo').forEach(b=>{b.classList.remove('active');b.style.background='var(--c2, #161b26)';b.style.borderColor='var(--c4, #242d42)';b.style.color='var(--t1, #e8edf8)';delete b.dataset.marcado;});this.classList.add('active');this.style.background='#004977';this.style.borderColor='#004977';this.style.color='#fff';this.dataset.marcado='1';" style="flex:1;background:var(--c2, #161b26);border:1.5px solid var(--c4, #242d42);color:var(--t1, #e8edf8);">${n}</button>`).join('')}</div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-top:3px;"><span>Muy seguro</span><span>Muy riesgoso</span></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost" style="flex:1;" onclick="continuarSinRegistrarDecision()">Omitir y continuar</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="guardarDecisionPreviaYContinuar()">Registrar y continuar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  window.__decisionPreviaContexto = { op, qty, montoEstimado, alContinuar };
+}
+
+function continuarSinRegistrarDecision(){
+  const ctx = window.__decisionPreviaContexto;
+  document.getElementById('decision-previa-overlay')?.remove();
+  if(ctx?.alContinuar) ctx.alContinuar();
+}
+
+async function guardarDecisionPreviaYContinuar(){
+  const ctx = window.__decisionPreviaContexto;
+  const razonamiento = document.getElementById('decision-previa-razonamiento').value.trim();
+  const nivelRiesgo = document.querySelector('.decision-previa-riesgo[data-marcado="1"]')?.dataset.valor;
+  if(!razonamiento){ notify('Escribe tu razonamiento, o usa "Omitir y continuar".', 'error'); return; }
+  try {
+    await sb.from('bitacora_decisiones').insert({
+      usuario_id: currentUser.usuario_id, sesion_id: currentUser.sesion_id || null,
+      activo_ticker: selectedAsset.ticker, activo_nombre: selectedAsset.name,
+      tipo_operacion: ctx.op === 'buy' ? 'compra' : 'venta',
+      razonamiento, nivel_riesgo_percibido: nivelRiesgo ? +nivelRiesgo : null,
+      monto_estimado: ctx.montoEstimado,
+    });
+  } catch(e){
+    console.error('No se pudo guardar la decisión en la bitácora:', e.message||e);
+    // No se bloquea la operación por esto — el registro es un
+    // complemento, no un requisito para poder operar.
+  }
+  document.getElementById('decision-previa-overlay')?.remove();
+  if(ctx?.alContinuar) ctx.alContinuar();
+}
+
 function executeDirect(op){
   if(!selectedAsset){notify('Selecciona un activo primero','error');return;}
   const qty=+document.getElementById('trade-qty').value;
   if(qty<=0){notify('Ingresa una cantidad válida','error');return;}
+  // Con cuenta real conectada, antes de ejecutar se ofrece dejar por
+  // escrito el razonamiento de la decisión — llega directo al
+  // profesor (bitacora_decisiones), a diferencia del diario de
+  // trading de siempre, que es posterior a la operación y se queda
+  // solo en el navegador del estudiante, sin que nadie más lo vea.
+  if(sb && currentUser?.usuario_id && !guestMode){
+    abrirRegistroDecisionPrevia(op, qty, () => ejecutarOrdenDirecta(op, qty));
+    return;
+  }
+  ejecutarOrdenDirecta(op, qty);
+}
+
+function ejecutarOrdenDirecta(op, qty){
   const mid=selectedAsset.currentPrice||selectedAsset.price;      // precio medio de mercado
   const px =execPrice(mid, selectedAsset.type, op);               // precio efectivo (cruza el spread)
   const gross=qty*px;                                            // valor bruto a precio de ejecución
