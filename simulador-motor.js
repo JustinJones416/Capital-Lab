@@ -79,6 +79,59 @@ function conTiempoLimite(promesa, segundos=12){
   ]);
 }
 
+// Mejora estructural: antes, la protección de conTiempoLimite() era
+// opcional — cada función que consultaba la base de datos tenía que
+// acordarse de envolver la llamada a mano, y de las 215 consultas
+// reales de la app, solo 37 lo hacían. El mismo patrón de olvido se
+// repitió varias veces en distintas partes de la app a lo largo del
+// desarrollo (una pantalla que se quedaba "Cargando…" para siempre
+// sin avisar nada si la red fallaba o iba muy lenta). En vez de
+// revisar los ~178 lugares restantes uno por uno — lento, propenso a
+// dejar pasar alguno, y el problema volvería a aparecer con la
+// próxima función que alguien agregue sin acordarse — se resuelve de
+// raíz aquí: se intercepta ÚNICAMENTE sb.from(), el punto de entrada
+// de TODA consulta a una tabla (select/insert/update/delete/upsert),
+// para que el límite de tiempo se aplique automáticamente sin que
+// nadie tenga que escribirlo. Deliberadamente se deja sb.auth,
+// sb.functions, sb.storage y sb.channel (tiempo real) sin tocar —
+// esos subsistemas tienen su propio comportamiento interno complejo
+// (sesiones, tokens, streams) y no deben pasar por este mecanismo.
+function envolverConsultaConTimeout(objetivo, segundos){
+  if(objetivo === null || (typeof objetivo !== 'object' && typeof objetivo !== 'function')) return objetivo;
+  return new Proxy(objetivo, {
+    get(target, prop, receiver){
+      const valor = Reflect.get(target, prop, receiver);
+      if(prop === 'then' && typeof valor === 'function'){
+        // Punto terminal de la cadena — aquí es donde de verdad se
+        // aplica el timeout, sin importar cuántos .eq()/.order()/etc.
+        // vinieron antes en la cadena.
+        return function(onResolve, onReject){
+          return conTiempoLimite(Promise.resolve(target), segundos).then(onResolve, onReject);
+        };
+      }
+      if(typeof valor === 'function'){
+        // Método intermedio de la cadena (select, eq, order, in, is,
+        // insert, update, delete, upsert, maybeSingle, single...) —
+        // se liga al objeto REAL (no al proxy) como "this", para no
+        // romper el estado interno del constructor de consultas, y
+        // el resultado se envuelve también de forma recursiva.
+        return function(...args){
+          const resultado = valor.apply(target, args);
+          return envolverConsultaConTimeout(resultado, segundos);
+        };
+      }
+      return valor;
+    }
+  });
+}
+
+function aplicarTimeoutAutomaticoATodasLasConsultas(cliente, segundos){
+  const fromOriginal = cliente.from.bind(cliente);
+  cliente.from = function(tabla){
+    return envolverConsultaConTimeout(fromOriginal(tabla), segundos);
+  };
+}
+
 async function authSignup(){
   if(!authConfigured()){ authMsg('Supabase aún no está configurado en este archivo. Revisa SUPABASE_URL y SUPABASE_ANON_KEY.', 'error'); return; }
   const nombre = document.getElementById('signup-name').value.trim();
@@ -5687,6 +5740,7 @@ async function authBoot(){
   }
   try {
     sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    aplicarTimeoutAutomaticoATodasLasConsultas(sb, 12);
     // Esta llamada específica —la que procesa el regreso desde Google
     // tras el inicio de sesión— no tenía límite de tiempo, a
     // diferencia de las demás en authLoadProfileAndEnter(). Si se
