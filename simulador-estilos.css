@@ -123,6 +123,9 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .an-class-btn:hover{border-color:var(--accent2);color:var(--t1);}
 .an-class-btn.active{background:var(--accent2);border-color:var(--accent2);color:#05121f;font-weight:600;}
 .an-class-btn i{font-size:15px;}
+.an-tab-btn{padding:10px 4px;margin-right:22px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--t3);font-size:13px;font-weight:500;font-family:var(--font-body);cursor:pointer;white-space:nowrap;transition:color .15s,border-color .15s;}
+.an-tab-btn:hover{color:var(--t1);}
+.an-tab-btn.active{color:var(--accent2);border-bottom-color:var(--accent2);font-weight:600;}
 .an-asset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:18px;}
 .an-asset-card{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);padding:12px 14px;cursor:pointer;transition:all .15s;}
 .an-asset-card:hover{border-color:var(--accent2);transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.25);}

@@ -586,7 +586,7 @@
   <div class="an-asset-grid" id="an-asset-grid"></div>
   <div id="analysis-body" style="display:none;">
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
-      <button class="btn btn-sm" onclick="abrirComparadorActivos()"><i class="ti ti-arrows-left-right"></i> Comparar</button>
+      <button class="btn btn-sm" onclick="abrirComparacionActivos(anSelectedId, anCurrentClass)"><i class="ti ti-arrows-left-right"></i> Comparar</button>
       <button class="btn btn-sm" onclick="copiarResumenActivo()" title="Copiar resumen al portapapeles"><i class="ti ti-clipboard-text"></i></button>
       <button class="btn btn-sm" onclick="alternarTodasLasTarjetas('analysis-body')" title="Expandir o colapsar todas las tarjetas"><i class="ti ti-arrows-vertical"></i></button>
       <button class="btn btn-sm" onclick="exportarHistorialPreciosCSV()" title="Exportar historial de precios a CSV"><i class="ti ti-file-spreadsheet"></i></button>
@@ -598,16 +598,39 @@
       <div class="metric"><div class="metric-label">Riesgo (σ)</div><div class="metric-val a" id="an-risk">—</div></div>
       <div class="metric"><div class="metric-label">Ratio Sharpe</div><div class="metric-val" id="an-sharpe">—</div></div>
     </div>
-    <div class="grid2" style="margin-bottom:14px;">
-      <div class="card"><div class="card-title"><i class="ti ti-chart-line"></i> Proyección de precio (5 años)</div><div class="chart-box-lg"><canvas id="an-price-chart"></canvas></div></div>
-      <div class="card"><div class="card-title"><i class="ti ti-target"></i> Riesgo vs Rentabilidad</div><div class="chart-box-lg"><canvas id="an-rv-chart"></canvas></div></div>
+    <!-- Navegación por pestañas, al estilo de las fichas de activo de
+         Yahoo Finance — antes toda esta información (financieros,
+         prospecto de bono, contexto macro, especificaciones de
+         contrato, griegas...) vivía apilada verticalmente en un
+         scroll larguísimo de una sola columna, sin ninguna forma de
+         ir directo a lo que se busca. -->
+    <div class="an-tabs" id="an-tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--c4);margin-bottom:14px;overflow-x:auto;">
+      <button class="an-tab-btn active" data-tab="resumen" onclick="cambiarTabAnalisisActivo('resumen',this)">Resumen</button>
+      <button class="an-tab-btn" data-tab="estadisticas" onclick="cambiarTabAnalisisActivo('estadisticas',this)">Estadísticas</button>
+      <button class="an-tab-btn" data-tab="perfil" onclick="cambiarTabAnalisisActivo('perfil',this)">Perfil y detalle</button>
     </div>
-    <div class="card" id="an-calificacion-card" style="margin-bottom:14px;"></div>
-    <div class="grid2" style="margin-bottom:14px;">
-      <div class="card"><div class="card-title"><i class="ti ti-info-circle"></i> Perfil del emisor</div><div id="an-profile"></div></div>
-      <div class="card"><div class="card-title"><i class="ti ti-gauge"></i> Indicadores clave</div><div id="an-indicators"></div></div>
+
+    <div id="an-tab-resumen" class="an-tab-panel">
+      <div class="grid2" style="margin-bottom:14px;">
+        <div class="card"><div class="card-title"><i class="ti ti-chart-line"></i> Proyección de precio (5 años)</div><div class="chart-box-lg"><canvas id="an-price-chart"></canvas></div></div>
+        <div class="card"><div class="card-title"><i class="ti ti-target"></i> Riesgo vs Rentabilidad</div><div class="chart-box-lg"><canvas id="an-rv-chart"></canvas></div></div>
+      </div>
+      <div class="card" id="an-calificacion-card" style="margin-bottom:14px;"></div>
     </div>
-    <div class="card"><div class="card-title"><i class="ti ti-table"></i> Estadísticas históricas</div><table><thead><tr><th>Indicador</th><th>Valor</th><th>Referencia</th><th>Evaluación</th></tr></thead><tbody id="an-stats-table"></tbody></table></div>
+
+    <div id="an-tab-estadisticas" class="an-tab-panel" style="display:none;">
+      <div class="card" style="margin-bottom:14px;"><div class="card-title"><i class="ti ti-gauge"></i> Indicadores clave</div><div id="an-indicators"></div></div>
+      <div class="card"><div class="card-title"><i class="ti ti-table"></i> Estadísticas históricas</div><table><thead><tr><th>Indicador</th><th>Valor</th><th>Referencia</th><th>Evaluación</th></tr></thead><tbody id="an-stats-table"></tbody></table></div>
+    </div>
+
+    <div id="an-tab-perfil" class="an-tab-panel" style="display:none;">
+      <div class="card" id="an-profile-card" style="margin-bottom:14px;"><div class="card-title"><i class="ti ti-info-circle"></i> Perfil del emisor</div><div id="an-profile"></div></div>
+      <!-- Los paneles específicos de cada tipo de activo (Estados
+           financieros, Prospecto del bono, Contexto macro,
+           Especificaciones de contrato, Griegas...) se insertan aquí
+           dinámicamente desde renderAnalysis(), según el tipo del
+           activo que se esté viendo. -->
+    </div>
   </div>
 </div>
 

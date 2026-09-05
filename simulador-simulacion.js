@@ -4275,78 +4275,109 @@ function assetsByClass(cls){
 // "¿cuál de estos dos me conviene más?", sin tener que ir y volver entre
 // dos pantallas de Análisis por separado.
 // ══════════════════════════════════════════════════
-function abrirComparadorActivos(){
-  const activoA = allAssets().find(a=>a.id===anSelectedId);
-  if(!activoA){ notify('Selecciona primero un activo en Análisis.', 'error'); return; }
-  const overlay = document.createElement('div');
-  overlay.className = 'grade-modal-overlay';
-  overlay.innerHTML = `<div class="grade-modal" style="max-width:520px;">
-    <h3>Comparar activos</h3>
-    <div class="sub">${activoA.name} contra el activo que elijas, de cualquier clase.</div>
-    <div class="grade-field">
-      <label>Comparar con</label>
-      <input type="text" id="cmp-buscar" placeholder="Busca por nombre o ticker…" autocomplete="off">
-      <div id="cmp-resultados" style="max-height:180px;overflow-y:auto;margin-top:6px;"></div>
-    </div>
-    <div id="cmp-tabla"><div class="auth-hint" style="text-align:center;padding:14px;">Busca un activo arriba para ver la comparación.</div></div>
-    <button class="btn btn-ghost" id="cmp-cerrar" style="width:100%;margin-top:12px;">Cerrar</button>
-  </div>`;
-  document.body.appendChild(overlay);
-  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
-  overlay.querySelector('#cmp-cerrar').onclick = () => overlay.remove();
-  setTimeout(()=>overlay.querySelector('#cmp-buscar')?.focus(), 150);
-
-  overlay.querySelector('#cmp-buscar').oninput = (e) => {
-    const q = e.target.value.toLowerCase().trim();
-    const cont = overlay.querySelector('#cmp-resultados');
-    if(!q){ cont.innerHTML=''; return; }
-    const resultados = allAssets().filter(a => a.id!==activoA.id && (a.name.toLowerCase().includes(q) || (a.ticker||'').toLowerCase().includes(q))).slice(0,8);
-    cont.innerHTML = resultados.map(a => `<div class="cmdk-item" style="cursor:pointer;" onclick="renderComparadorTabla('${activoA.id}','${a.id}')"><i class="ti ti-chart-line"></i><span>${a.name}</span> <span class="badge ${typeBadgeCls(a.type)}" style="font-size:8px;">${a.type}</span></div>`).join('');
+function abrirComparacionActivos(preseleccionarId, preseleccionarType){
+  const todos = allAssets();
+  const opcionesPorTipo = {
+    accion: { etiqueta: 'Acciones', lista: [] }, bono: { etiqueta: 'Bonos', lista: [] },
+    divisa: { etiqueta: 'Divisas', lista: [] }, futuro: { etiqueta: 'Futuros', lista: [] },
+    derivado: { etiqueta: 'Derivados', lista: [] },
   };
+  todos.forEach(a => { if(opcionesPorTipo[a.type]) opcionesPorTipo[a.type].lista.push(a); });
+  const construirOptgroups = () => Object.values(opcionesPorTipo).map(grupo => grupo.lista.length ? `
+    <optgroup label="${grupo.etiqueta}">
+      ${grupo.lista.sort((a,b)=>a.name.localeCompare(b.name,'es')).map(a => `<option value="${a.id}|${a.type}">${a.name} (${a.ticker||a.name})</option>`).join('')}
+    </optgroup>` : '').join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.innerHTML = `
+    <div class="export-modal" style="max-width:900px;width:95%;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="card-title" style="margin-bottom:0;"><i class="ti ti-columns-3"></i> Comparar activos</div>
+        <button class="btn btn-ghost btn-sm" onclick="this.closest('.export-modal-overlay').remove()"><i class="ti ti-x"></i></button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
+        <select id="comp-activo-1" class="wl-search" onchange="renderizarComparacionActivos()"><option value="">Elige un activo…</option>${construirOptgroups()}</select>
+        <select id="comp-activo-2" class="wl-search" onchange="renderizarComparacionActivos()"><option value="">Elige un activo…</option>${construirOptgroups()}</select>
+        <select id="comp-activo-3" class="wl-search" onchange="renderizarComparacionActivos()"><option value="">Elige un activo (opcional)…</option>${construirOptgroups()}</select>
+      </div>
+      <div id="comp-resultado"><div class="auth-hint">Elige al menos 2 activos para compararlos.</div></div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Si se abre desde el análisis de un activo ya visible en pantalla
+  // (el botón "Comparar" dentro de la vista de un activo), se
+  // pre-rellena el primer selector con ese mismo activo — comodidad
+  // que el sistema de comparación anterior (uno-contra-uno) sí tenía,
+  // y que vale la pena conservar aunque ahora se permitan hasta 3.
+  if(preseleccionarId && preseleccionarType){
+    document.getElementById('comp-activo-1').value = `${preseleccionarId}|${preseleccionarType}`;
+  }
 }
 
-function renderComparadorTabla(idA, idB){
-  const a = allAssets().find(x=>x.id===idA);
-  const b = allAssets().find(x=>x.id===idB);
-  const cont = document.querySelector('#cmp-tabla');
-  const buscador = document.querySelector('#cmp-buscar');
-  const resultados = document.querySelector('#cmp-resultados');
-  if(!a || !b || !cont) return;
-  if(buscador) buscador.value = b.name;
-  if(resultados) resultados.innerHTML = '';
-  const sharpeOf = x => (x.sigma>0 ? (x.ret/x.sigma).toFixed(2) : '—');
-  const filas = [
-    ['Clase', x=>x.type, false],
-    ['Precio actual', x=>'$'+(x.currentPrice||x.price).toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2}), false],
-    ['Rendimiento esperado', x=>(x.ret||0).toFixed(1)+'%', true],
-    ['Riesgo (σ)', x=>(x.sigma||0).toFixed(1)+'%', false],
-    ['Ratio Sharpe (aprox.)', x=>sharpeOf(x), true],
-    ['Calificación', x=>x.rating||'—', false],
-    ['País / Región', x=>x.country||'—', false],
-  ];
-  cont.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">
-    <thead><tr>
-      <th style="text-align:left;padding:6px;color:var(--t3);">Indicador</th>
-      <th style="text-align:right;padding:6px;">${a.name}</th>
-      <th style="text-align:right;padding:6px;">${b.name}</th>
-    </tr></thead>
-    <tbody>
-      ${filas.map(([label, fn, mayorEsMejor]) => {
-        const va = fn(a), vb = fn(b);
-        let colA = '', colB = '';
-        if(mayorEsMejor && !isNaN(parseFloat(va)) && !isNaN(parseFloat(vb))){
-          const na = parseFloat(va), nb = parseFloat(vb);
-          colA = na>nb ? 'color:var(--green);font-weight:600;' : na<nb ? 'color:var(--red);' : '';
-          colB = nb>na ? 'color:var(--green);font-weight:600;' : nb<na ? 'color:var(--red);' : '';
-        }
-        return `<tr style="border-top:1px solid var(--c3);">
-          <td style="padding:6px;color:var(--t2);">${label}</td>
-          <td class="mono" style="padding:6px;text-align:right;${colA}">${va}</td>
-          <td class="mono" style="padding:6px;text-align:right;${colB}">${vb}</td>
-        </tr>`;
-      }).join('')}
-    </tbody>
-  </table>`;
+function renderizarComparacionActivos(){
+  const cont = document.getElementById('comp-resultado');
+  if(!cont) return;
+  const seleccion = ['comp-activo-1','comp-activo-2','comp-activo-3']
+    .map(idSel => document.getElementById(idSel).value)
+    .filter(Boolean)
+    .map(v => { const [id, type] = v.split('|'); return allAssets().find(a=>a.id===id && a.type===type); })
+    .filter(Boolean);
+
+  if(seleccion.length < 2){
+    cont.innerHTML = '<div class="auth-hint">Elige al menos 2 activos para compararlos.</div>';
+    return;
+  }
+
+  const filas = seleccion.map(a => {
+    const p = a.currentPrice || a.price;
+    const sh = computeSharpe(a);
+    const varInfo = computeHistVaR(a, 0.95);
+    const calif = calificarActivoCapitalLab(a);
+    return { activo: a, precio: p, sharpe: sh, var95: varInfo.pct, calif };
+  });
+
+  // Resalta en verde/rojo cuál activo queda mejor parado en cada
+  // métrica — detalle que sí tenía el comparador anterior (uno contra
+  // uno) y que se conserva aquí, ahora generalizado para hasta 3.
+  const colorearMejor = (valores, mayorEsMejor) => {
+    const numeros = valores.map(v => parseFloat(v));
+    if(numeros.some(isNaN)) return valores.map(()=>'');
+    const mejor = mayorEsMejor ? Math.max(...numeros) : Math.min(...numeros);
+    const empate = numeros.every(n => n === numeros[0]);
+    return numeros.map(n => empate ? '' : n === mejor ? 'g' : '');
+  };
+
+  const filaMetrica = (etiqueta, obtenerValor, mayorEsMejor) => {
+    const valores = filas.map(obtenerValor);
+    const colores = mayorEsMejor !== undefined ? colorearMejor(valores, mayorEsMejor) : valores.map(()=>'');
+    return `<tr>
+      <td style="color:var(--t2);">${etiqueta}</td>
+      ${valores.map((v,i) => `<td class="mono ${colores[i]}" style="text-align:right;">${v}</td>`).join('')}
+    </tr>`;
+  };
+
+  cont.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table style="width:100%;">
+      <tr>
+        <th></th>
+        ${filas.map(f => `<th style="text-align:right;">${f.activo.name}<div style="font-size:10px;color:var(--t3);font-weight:400;">${f.activo.ticker||''}</div></th>`).join('')}
+      </tr>
+      ${filaMetrica('Precio actual', f => '$'+fmt(f.precio))}
+      ${filaMetrica('Retorno esperado', f => f.activo.ret.toFixed(1)+'%', true)}
+      ${filaMetrica('Riesgo σ anual', f => f.activo.sigma.toFixed(1)+'%', false)}
+      ${filaMetrica('Ratio Sharpe', f => f.sharpe.toFixed(2), true)}
+      ${filaMetrica('VaR 95%', f => f.var95.toFixed(1)+'%', false)}
+      ${filaMetrica('Calificación CapitalLab', f => f.calif ? `<span style="color:${f.calif.color};font-weight:700;">${f.calif.letra}</span> — ${f.calif.titulo}` : '—')}
+      ${filas.some(f=>f.activo.rating) ? filaMetrica('Calificación crediticia', f => f.activo.rating || '—') : ''}
+      ${filas.some(f=>f.activo.type==='accion') ? filaMetrica('Dividendo', f => f.activo.type==='accion' ? '$'+f.activo.dividend : '—') : ''}
+      ${filas.some(f=>f.activo.type==='accion') ? filaMetrica('Beta', f => f.activo.type==='accion' ? f.activo.beta.toFixed(2) : '—') : ''}
+      ${filas.some(f=>f.activo.type==='bono') ? filaMetrica('Cupón', f => f.activo.type==='bono' ? f.activo.coupon+'%' : '—') : ''}
+    </table>
+    </div>
+    <div class="info-box" style="margin-top:14px;">La Calificación CapitalLab combina retorno y riesgo en una sola letra usando el Ratio Sharpe real de cada activo — nunca premia solo el retorno más alto sin considerar el riesgo que se asumió para llegar ahí. Esta comparación no constituye una recomendación financiera.</div>
+  `;
 }
 
 // Favoritos de Análisis — se guardan en este mismo navegador (no en la
@@ -4381,98 +4412,6 @@ function copiarResumenActivo(){
     () => notify('Resumen copiado al portapapeles.', 'success'),
     () => notify('No se pudo copiar.', 'error')
   );
-}
-
-// ══════════════════════════════════════════════════
-// COMPARACIÓN DE ACTIVOS LADO A LADO — pedido urgente del cliente.
-// Antes, comparar dos opciones de inversión requería abrir una en
-// Análisis, memorizar sus números, cerrar, y abrir la siguiente. Este
-// modal deja elegir hasta 3 activos de cualquier tipo y ver sus
-// métricas clave uno junto al otro, reutilizando exactamente los
-// mismos cálculos que ya usa Análisis (computeSharpe, computeHistVaR,
-// calificarActivoCapitalLab) — nunca un número recalculado aparte que
-// pudiera desviarse del que el estudiante ya vio en Análisis.
-// ══════════════════════════════════════════════════
-function abrirComparacionActivos(){
-  const todos = allAssets();
-  const opcionesPorTipo = {
-    accion: { etiqueta: 'Acciones', lista: [] }, bono: { etiqueta: 'Bonos', lista: [] },
-    divisa: { etiqueta: 'Divisas', lista: [] }, futuro: { etiqueta: 'Futuros', lista: [] },
-    derivado: { etiqueta: 'Derivados', lista: [] },
-  };
-  todos.forEach(a => { if(opcionesPorTipo[a.type]) opcionesPorTipo[a.type].lista.push(a); });
-  const construirOptgroups = () => Object.values(opcionesPorTipo).map(grupo => grupo.lista.length ? `
-    <optgroup label="${grupo.etiqueta}">
-      ${grupo.lista.sort((a,b)=>a.name.localeCompare(b.name,'es')).map(a => `<option value="${a.id}|${a.type}">${a.name} (${a.ticker||a.name})</option>`).join('')}
-    </optgroup>` : '').join('');
-
-  const overlay = document.createElement('div');
-  overlay.className = 'export-modal-overlay';
-  overlay.innerHTML = `
-    <div class="export-modal" style="max-width:900px;width:95%;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <div class="card-title" style="margin-bottom:0;"><i class="ti ti-columns-3"></i> Comparar activos</div>
-        <button class="btn btn-ghost btn-sm" onclick="this.closest('.export-modal-overlay').remove()"><i class="ti ti-x"></i></button>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
-        <select id="comp-activo-1" class="wl-search" onchange="renderizarComparacionActivos()"><option value="">Elige un activo…</option>${construirOptgroups()}</select>
-        <select id="comp-activo-2" class="wl-search" onchange="renderizarComparacionActivos()"><option value="">Elige un activo…</option>${construirOptgroups()}</select>
-        <select id="comp-activo-3" class="wl-search" onchange="renderizarComparacionActivos()"><option value="">Elige un activo (opcional)…</option>${construirOptgroups()}</select>
-      </div>
-      <div id="comp-resultado"><div class="auth-hint">Elige al menos 2 activos para compararlos.</div></div>
-    </div>`;
-  document.body.appendChild(overlay);
-}
-
-function renderizarComparacionActivos(){
-  const cont = document.getElementById('comp-resultado');
-  if(!cont) return;
-  const seleccion = ['comp-activo-1','comp-activo-2','comp-activo-3']
-    .map(idSel => document.getElementById(idSel).value)
-    .filter(Boolean)
-    .map(v => { const [id, type] = v.split('|'); return allAssets().find(a=>a.id===id && a.type===type); })
-    .filter(Boolean);
-
-  if(seleccion.length < 2){
-    cont.innerHTML = '<div class="auth-hint">Elige al menos 2 activos para compararlos.</div>';
-    return;
-  }
-
-  const filas = seleccion.map(a => {
-    const p = a.currentPrice || a.price;
-    const sh = computeSharpe(a);
-    const varInfo = computeHistVaR(a, 0.95);
-    const calif = calificarActivoCapitalLab(a);
-    return { activo: a, precio: p, sharpe: sh, var95: varInfo.pct, calif };
-  });
-
-  const filaMetrica = (etiqueta, obtenerValor, obtenerColor) => `
-    <tr>
-      <td style="color:var(--t2);">${etiqueta}</td>
-      ${filas.map(f => `<td class="mono ${obtenerColor?obtenerColor(f):''}" style="text-align:right;">${obtenerValor(f)}</td>`).join('')}
-    </tr>`;
-
-  cont.innerHTML = `
-    <div style="overflow-x:auto;">
-    <table style="width:100%;">
-      <tr>
-        <th></th>
-        ${filas.map(f => `<th style="text-align:right;">${f.activo.name}<div style="font-size:10px;color:var(--t3);font-weight:400;">${f.activo.ticker||''}</div></th>`).join('')}
-      </tr>
-      ${filaMetrica('Precio actual', f => '$'+fmt(f.precio))}
-      ${filaMetrica('Retorno esperado', f => f.activo.ret.toFixed(1)+'%', f => f.activo.ret>=8?'g':'a')}
-      ${filaMetrica('Riesgo σ anual', f => f.activo.sigma.toFixed(1)+'%', f => f.activo.sigma<15?'g':f.activo.sigma<30?'a':'r')}
-      ${filaMetrica('Ratio Sharpe', f => f.sharpe.toFixed(2), f => f.sharpe>0.5?'g':f.sharpe>0?'a':'r')}
-      ${filaMetrica('VaR 95%', f => f.var95.toFixed(1)+'%', () => 'r')}
-      ${filaMetrica('Calificación CapitalLab', f => f.calif ? `<span style="color:${f.calif.color};font-weight:700;">${f.calif.letra}</span> — ${f.calif.titulo}` : '—')}
-      ${filas.some(f=>f.activo.rating) ? filaMetrica('Calificación crediticia', f => f.activo.rating || '—') : ''}
-      ${filas.some(f=>f.activo.type==='accion') ? filaMetrica('Dividendo', f => f.activo.type==='accion' ? '$'+f.activo.dividend : '—', f => 'g') : ''}
-      ${filas.some(f=>f.activo.type==='accion') ? filaMetrica('Beta', f => f.activo.type==='accion' ? f.activo.beta.toFixed(2) : '—') : ''}
-      ${filas.some(f=>f.activo.type==='bono') ? filaMetrica('Cupón', f => f.activo.type==='bono' ? f.activo.coupon+'%' : '—', f => 'g') : ''}
-    </table>
-    </div>
-    <div class="info-box" style="margin-top:14px;">La Calificación CapitalLab combina retorno y riesgo en una sola letra usando el Ratio Sharpe real de cada activo — nunca premia solo el retorno más alto sin considerar el riesgo que se asumió para llegar ahí. Esta comparación no constituye una recomendación financiera.</div>
-  `;
 }
 
 function renderAnalysisGrid(){
@@ -4522,6 +4461,10 @@ function ensureAnalysisBody(){
   const body=document.getElementById('analysis-body');
   if(!body)return;
   if(document.getElementById('an-price'))return;   // ya construido
+  // Misma estructura de pestañas del HTML estático — esta función es
+  // solo una red de seguridad para el caso (hoy inusual) de que el
+  // contenedor llegue vacío; si alguna vez se dispara, no debe
+  // reconstruir la versión vieja sin pestañas.
   body.innerHTML=`
     <div class="metric-grid">
       <div class="metric"><div class="metric-label">Precio actual</div><div class="metric-val mono" id="an-price">—</div></div>
@@ -4529,16 +4472,41 @@ function ensureAnalysisBody(){
       <div class="metric"><div class="metric-label">Riesgo (σ)</div><div class="metric-val a" id="an-risk">—</div></div>
       <div class="metric"><div class="metric-label">Ratio Sharpe</div><div class="metric-val" id="an-sharpe">—</div></div>
     </div>
-    <div class="grid2" style="margin-bottom:14px;">
-      <div class="card"><div class="card-title"><i class="ti ti-chart-line"></i> Proyección de precio (5 años)</div><div class="chart-box-lg"><canvas id="an-price-chart"></canvas></div></div>
-      <div class="card"><div class="card-title"><i class="ti ti-target"></i> Riesgo vs Rentabilidad</div><div class="chart-box-lg"><canvas id="an-rv-chart"></canvas></div></div>
+    <div class="an-tabs" id="an-tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--c4);margin-bottom:14px;overflow-x:auto;">
+      <button class="an-tab-btn active" data-tab="resumen" onclick="cambiarTabAnalisisActivo('resumen',this)">Resumen</button>
+      <button class="an-tab-btn" data-tab="estadisticas" onclick="cambiarTabAnalisisActivo('estadisticas',this)">Estadísticas</button>
+      <button class="an-tab-btn" data-tab="perfil" onclick="cambiarTabAnalisisActivo('perfil',this)">Perfil y detalle</button>
     </div>
-    <div class="card" id="an-calificacion-card" style="margin-bottom:14px;"></div>
-    <div class="grid2" style="margin-bottom:14px;">
-      <div class="card"><div class="card-title"><i class="ti ti-info-circle"></i> Perfil del emisor</div><div id="an-profile"></div></div>
-      <div class="card"><div class="card-title"><i class="ti ti-gauge"></i> Indicadores clave</div><div id="an-indicators"></div></div>
+    <div id="an-tab-resumen" class="an-tab-panel">
+      <div class="grid2" style="margin-bottom:14px;">
+        <div class="card"><div class="card-title"><i class="ti ti-chart-line"></i> Proyección de precio (5 años)</div><div class="chart-box-lg"><canvas id="an-price-chart"></canvas></div></div>
+        <div class="card"><div class="card-title"><i class="ti ti-target"></i> Riesgo vs Rentabilidad</div><div class="chart-box-lg"><canvas id="an-rv-chart"></canvas></div></div>
+      </div>
+      <div class="card" id="an-calificacion-card" style="margin-bottom:14px;"></div>
     </div>
-    <div class="card"><div class="card-title"><i class="ti ti-table"></i> Estadísticas históricas</div><table><thead><tr><th>Indicador</th><th>Valor</th><th>Referencia</th><th>Evaluación</th></tr></thead><tbody id="an-stats-table"></tbody></table></div>`;
+    <div id="an-tab-estadisticas" class="an-tab-panel" style="display:none;">
+      <div class="card" style="margin-bottom:14px;"><div class="card-title"><i class="ti ti-gauge"></i> Indicadores clave</div><div id="an-indicators"></div></div>
+      <div class="card"><div class="card-title"><i class="ti ti-table"></i> Estadísticas históricas</div><table><thead><tr><th>Indicador</th><th>Valor</th><th>Referencia</th><th>Evaluación</th></tr></thead><tbody id="an-stats-table"></tbody></table></div>
+    </div>
+    <div id="an-tab-perfil" class="an-tab-panel" style="display:none;">
+      <div class="card" id="an-profile-card" style="margin-bottom:14px;"><div class="card-title"><i class="ti ti-info-circle"></i> Perfil del emisor</div><div id="an-profile"></div></div>
+    </div>`;
+}
+
+// Navegación por pestañas de la ficha de activo, al estilo Yahoo
+// Finance — antes toda la información (financieros, prospecto de
+// bono, contexto macro, especificaciones de contrato, griegas...)
+// vivía apilada en una sola columna larguísima. Al cambiar de activo
+// siempre se vuelve a "Resumen" (mismo comportamiento que Yahoo:
+// nunca te deja en la pestaña de Financieros de la acción anterior
+// al abrir una nueva).
+function cambiarTabAnalisisActivo(tab, btn){
+  document.querySelectorAll('#an-tabs .an-tab-btn').forEach(b => b.classList.remove('active'));
+  (btn || document.querySelector(`#an-tabs [data-tab="${tab}"]`))?.classList.add('active');
+  ['resumen','estadisticas','perfil'].forEach(t => {
+    const panel = document.getElementById('an-tab-'+t);
+    if(panel) panel.style.display = (t===tab) ? '' : 'none';
+  });
 }
 
 function renderAnalysis(id,type){
@@ -4546,6 +4514,15 @@ function renderAnalysis(id,type){
   if(!id){ if(!anSelectedId)return; id=anSelectedId; type=anCurrentClass; }
   const asset=allAssets().find(a=>a.id===id&&a.type===type);if(!asset)return;
   ensureAnalysisBody();
+  // Al cambiar de ACTIVO se vuelve siempre a "Resumen" (igual que
+  // Yahoo Finance). Pero esta función también se llama muchas veces
+  // para refrescar el precio del MISMO activo en vivo — si se
+  // reseteara la pestaña en cada refresco, sacaría al usuario de
+  // "Estadísticas" o "Perfil" cada pocos segundos sin que lo pidiera.
+  if(window.__anUltimoActivoRenderizado !== id+'|'+type){
+    window.__anUltimoActivoRenderizado = id+'|'+type;
+    cambiarTabAnalisisActivo('resumen');
+  }
   document.getElementById('analysis-body').style.display='block';
   const p=asset.currentPrice||asset.price;const sh=computeSharpe(asset);
   document.getElementById('an-price').textContent='$'+fmt(p);
@@ -4617,7 +4594,10 @@ function renderAnalysis(id,type){
 
   // ── Remove previous extra panels ──
   ['an-financials','an-gdp','an-specs','an-bond-doc','an-fut-mkt','an-deriv-greeks','an-cashflow'].forEach(id=>{const el=document.getElementById(id);if(el)el.remove();});
-  const body=document.getElementById('analysis-body');
+  // Estos paneles van dentro de la pestaña "Perfil y detalle" — antes
+  // vivían apilados directamente en analysis-body, mezclados con todo
+  // lo demás en una sola columna sin organización.
+  const body=document.getElementById('an-tab-perfil')||document.getElementById('analysis-body');
 
   // ── ESTADOS FINANCIEROS (acciones) ──
   if(type==='accion'&&asset.fs){
