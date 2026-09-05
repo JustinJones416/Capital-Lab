@@ -2323,6 +2323,74 @@ function pdfFooter(){
 // funcionan las exportaciones a CSV — mismo comportamiento confiable
 // en computadora y en celular, sin depender de ningún diálogo del
 // sistema operativo.
+// Variante de descargarPDFDesdeHTML que devuelve los BYTES del PDF en
+// vez de descargarlo directamente — necesaria para poder fusionar
+// varios documentos generados por separado en uno solo con pdf-lib
+// (ver generarInformeSalonFusionado). Comparte el mismo contenedor y
+// hoja de estilos temporal, solo cambia el paso final (outputPdf en
+// vez de save).
+async function generarPDFBuffer(bodyHtml){
+  if(typeof html2pdf === 'undefined') throw new Error('No se pudo cargar el generador de PDF.');
+  const capa = document.createElement('div');
+  capa.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0F1420;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;font-family:Inter,Arial,sans-serif;';
+  capa.innerHTML = `<div class="auth-spinner" style="width:32px;height:32px;"></div><div style="font-size:13px;color:#9FB0CC;">Generando PDF…</div>`;
+
+  const contenedor = document.createElement('div');
+  contenedor.className = 'capitallab-pdf-render';
+  contenedor.innerHTML = bodyHtml;
+
+  const estilo = document.createElement('style');
+  estilo.id = 'capitallab-pdf-estilos-temp-buffer';
+  estilo.textContent = pdfStyles();
+
+  document.head.appendChild(estilo);
+  document.body.appendChild(contenedor);
+  document.body.appendChild(capa);
+
+  try {
+    const buffer = await html2pdf().set({
+      margin: [10, 10, 12, 10],
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'avoid-all'] },
+    }).from(contenedor).outputPdf('arraybuffer');
+    return buffer;
+  } finally {
+    contenedor.remove();
+    estilo.remove();
+    capa.remove();
+  }
+}
+
+// Fusiona varios PDFs (cada uno como ArrayBuffer) en un solo documento,
+// copiando todas las páginas de cada uno en orden. Usa pdf-lib para
+// operar directamente sobre los bytes ya generados, sin volver a
+// renderizar nada — cada buffer de entrada ya es un documento PDF
+// completo y válido por sí solo.
+async function fusionarBuffersPDF(buffers){
+  const { PDFDocument } = PDFLib;
+  const documentoFinal = await PDFDocument.create();
+  for(const buffer of buffers){
+    const doc = await PDFDocument.load(buffer);
+    const paginas = await documentoFinal.copyPages(doc, doc.getPageIndices());
+    paginas.forEach(p => documentoFinal.addPage(p));
+  }
+  return documentoFinal.save();
+}
+
+function descargarBytesPDF(bytes, nombreArchivo){
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombreArchivo.endsWith('.pdf') ? nombreArchivo : nombreArchivo + '.pdf';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 async function descargarPDFDesdeHTML(bodyHtml, nombreArchivo){
   if(typeof html2pdf === 'undefined'){
     notify('No se pudo cargar el generador de PDF. Revisa tu conexión a internet.', 'error');
@@ -2359,7 +2427,7 @@ async function descargarPDFDesdeHTML(bodyHtml, nombreArchivo){
       image: { type: 'jpeg', quality: 0.95 },
       html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] },
+      pagebreak: { mode: ['css', 'avoid-all'] },
     }).from(contenedor).save();
     return true;
   } catch(e){

@@ -2834,12 +2834,6 @@ async function exportarInformeSalonPDF(){
       `;
     }
 
-    const detalle = estudiantes.map((e,i)=>
-      `<div style="${i>0?'page-break-before:always;':''}">` +
-      bloqueEstudiantePDF(e.nombre, e.correo, portMap[e.id], calMap[e.id]||[], portMap[e.id]?.lab_historial||[], asistMap[e.id]||[], historialMap[e.id]||[]) +
-      `</div>`
-    ).join('');
-
     // Bitácora de decisiones — agrupada por estudiante, como se
     // pidió explícitamente. Antes no aparecía en ningún informe
     // exportable, solo se podía consultar dentro de la app.
@@ -2856,15 +2850,49 @@ async function exportarInformeSalonPDF(){
         }).join('');
     }
 
-    const body = pdfHeader(sesion?.nombre || 'Informe del salón')
+    // Cada sección se genera como su PROPIO documento PDF completo
+    // (con su propio pdfHeader/pdfFooter), en vez de concatenar todo
+    // en un solo HTML larguísimo y dejar que html2pdf decida dónde
+    // cortar entre estudiantes. Esa forma anterior tenía un bug real
+    // reportado por el cliente y confirmado con capturas: el nombre
+    // del siguiente estudiante se "colaba" cortado al final de la
+    // página anterior, con una banda oscura encima — causado por el
+    // propio algoritmo de paginación de html2pdf.js, que inserta
+    // espacios en blanco calculados que pueden desincronizarse
+    // cuando hay un salto forzado y una protección "avoid" muy cerca
+    // uno del otro. Generando cada sección como documento
+    // independiente y fusionándolos con pdf-lib, html2pdf nunca
+    // tiene que calcular un corte dentro de un documento con varios
+    // estudiantes — el problema desaparece de raíz. Confirmado con
+    // evidencia visual real antes de aplicarlo aquí.
+    const buffers = [];
+    buffers.push(await generarPDFBuffer(
+      pdfHeader(sesion?.nombre || 'Informe del salón')
       + `<div class="section"><div class="section-title">Resumen general</div><div class="section-sub">${estudiantes.length} estudiante(s) · Código de sesión: ${sesion?.codigo||'—'}</div></div>`
       + `<table><tr><th>Estudiante</th><th class="right">Valor cartera</th><th class="right">Retorno</th><th class="right">Operac.</th><th class="right">Asistencia</th><th class="right">Calificaciones</th></tr>${resumenFilas}</table>`
-      + `<div style="page-break-before:always;"></div>`
-      + bloqueSeguimiento
-      + detalle
-      + bloqueBitacora
-      + pdfFooter();
-    return openPrintWindow(body, `Informe del salón — ${sesion?.nombre||''}`);
+      + pdfFooter()
+    ));
+
+    if(bloqueSeguimiento){
+      buffers.push(await generarPDFBuffer(
+        pdfHeader(sesion?.nombre || 'Informe del salón') + bloqueSeguimiento.replace('<div style="page-break-before:always;"></div>', '') + pdfFooter()
+      ));
+    }
+
+    for(let i=0; i<estudiantes.length; i++){
+      const e = estudiantes[i];
+      notify(`Generando informe del salón… (${i+1} de ${estudiantes.length} estudiantes)`, 'success');
+      const cuerpoEstudiante = bloqueEstudiantePDF(e.nombre, e.correo, portMap[e.id], calMap[e.id]||[], portMap[e.id]?.lab_historial||[], asistMap[e.id]||[], historialMap[e.id]||[]);
+      buffers.push(await generarPDFBuffer(pdfHeader(sesion?.nombre || 'Informe del salón') + cuerpoEstudiante + pdfFooter()));
+    }
+
+    if(bloqueBitacora){
+      buffers.push(await generarPDFBuffer(pdfHeader(sesion?.nombre || 'Informe del salón') + bloqueBitacora + pdfFooter()));
+    }
+
+    notify('Combinando el informe completo…', 'success');
+    const bytesFusionados = await fusionarBuffersPDF(buffers);
+    descargarBytesPDF(bytesFusionados, `Informe del salón — ${sesion?.nombre||''}`);
   } catch(e){
     notify('No se pudo generar el informe: ' + (e.message||e), 'error');
   }
@@ -4630,6 +4658,39 @@ async function exportarInvestigacionPDF(id){
       inv.metodologia?.procedimiento ? `Procedimiento: ${inv.metodologia.procedimiento}` : '',
     ].filter(Boolean).join('\n\n');
 
+    // Si la investigación tiene una encuesta vinculada, se agregan
+    // sus gráficos reales — antes esto solo vivía como texto narrativo
+    // en "Resultados", sin ninguna visualización, a diferencia de lo
+    // que ya se construyó para Encuestas (histograma de distribución
+    // para preguntas de escala, barras de proporción para opción
+    // múltiple). Se reutilizan las mismas funciones, en modo claro
+    // (igual que en la exportación de resultados de encuesta), para
+    // no duplicar la lógica de gráficos ni inventar un tercer estilo.
+    let bloqueEncuestaVinculada = '';
+    const encuestaVinculadaId = (inv.fuentes_datos?.encuestaIds || [])[0];
+    if(encuestaVinculadaId){
+      const { data: encuestaVinc } = await sb.from('encuestas_completas').select('*').eq('id', encuestaVinculadaId).maybeSingle();
+      const { data: respuestasVinc } = await sb.from('encuestas_completas_respuestas').select('respuestas').eq('encuesta_id', encuestaVinculadaId);
+      if(encuestaVinc && respuestasVinc?.length){
+        const n = respuestasVinc.length;
+        const graficosPreguntas = (encuestaVinc.preguntas||[]).map(p => {
+          const valores = respuestasVinc.map(r => r.respuestas[p.id]).filter(v => v !== undefined && v !== null && v !== '');
+          if(!valores.length || p.tipo === 'abierta') return '';
+          if(p.tipo === 'escala'){
+            const prom = (valores.reduce((s,v)=>s+Number(v),0)/valores.length).toFixed(1);
+            return `<div class="card" style="page-break-inside:avoid;break-inside:avoid;"><div class="section-title" style="font-size:10pt;">${p.texto}</div><div class="section-sub">Promedio: ${prom} sobre ${valores.length} respuesta(s)</div>${graficoDistribucionEscala(valores, true)}</div>`;
+          }
+          const conteo = {};
+          valores.forEach(v => { (Array.isArray(v)?v:[v]).forEach(op => { conteo[op] = (conteo[op]||0)+1; }); });
+          const conteoOrdenado = Object.entries(conteo).sort((a,b)=>b[1]-a[1]);
+          return `<div class="card" style="page-break-inside:avoid;break-inside:avoid;"><div class="section-title" style="font-size:10pt;">${p.texto}</div>${graficoBarrasProporcion(conteoOrdenado, valores.length, true)}</div>`;
+        }).filter(Boolean).join('<div style="height:10px;"></div>');
+        if(graficosPreguntas){
+          bloqueEncuestaVinculada = `<div class="section" style="page-break-before:always;break-before:page;"><div class="section-title">Datos de la encuesta vinculada</div><div class="section-sub">${encuestaVinc.titulo} · ${n} respuesta(s)</div></div>${graficosPreguntas}`;
+        }
+      }
+    }
+
     const body = pdfHeader(inv.titulo)
       + `<div class="section-sub" style="margin-bottom:14px;">${inv.tema||''} · ${nombreAutor} · ${new Date(inv.creado_en).toLocaleDateString('es-PA')}</div>`
       + `<div class="section"><div class="section-title">Objetivos</div></div>`
@@ -4639,6 +4700,7 @@ async function exportarInvestigacionPDF(id){
       + `<div class="section" style="page-break-before:always;break-before:page;"><div class="section-title">Metodología</div><div class="section-sub">Tipo: ${inv.tipo_metodologia||'no especificado'} · Diseño: ${inv.diseno||'no especificado'}</div></div>`
       + `<div class="info-box">${metodologiaCompleta.split('\n\n').map(p=>`<p style="margin:0 0 10px 0;text-align:justify;">${p}</p>`).join('')}</div>`
       + seccionTexto('Resultados', inv.contenido?.resultados)
+      + bloqueEncuestaVinculada
       + seccionTexto('Discusión', inv.contenido?.discusion)
       + seccionTexto('Conclusiones', inv.contenido?.conclusiones)
       + pdfFooter();
