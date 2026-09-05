@@ -3948,6 +3948,41 @@ function descargarBlobCSV(csv, nombreArchivo){
 // sirve para análisis estadístico externo (SPSS, R, Excel), a
 // diferencia de la vista agregada del modal de resultados, que solo
 // sirve para leer, no para procesar.
+async function exportarResultadosEncuestaPDF(encuestaId){
+  try {
+    const { data: encuesta } = await sb.from('encuestas_completas').select('*').eq('id', encuestaId).maybeSingle();
+    const { data: respuestas, error } = await sb.from('encuestas_completas_respuestas').select('respuestas').eq('encuesta_id', encuestaId);
+    if(error) throw error;
+    if(!respuestas || !respuestas.length){ notify('Todavía no hay respuestas que exportar.', 'error'); return; }
+
+    const n = respuestas.length;
+    const etiquetaMuestra = n<5 ? 'Muestra insuficiente' : n<15 ? 'Muestra limitada' : 'Muestra razonable';
+    const bloquesPreguntas = encuesta.preguntas.map(p => {
+      const valores = respuestas.map(r => r.respuestas[p.id]).filter(v => v !== undefined && v !== null && v !== '');
+      if(p.tipo === 'abierta'){
+        const lista = valores.map(v => `<div style="font-size:11.5px;color:#333;padding:4px 0;border-bottom:1px solid #e5e5e5;">"${v}"</div>`).join('') || '<div class="section-sub">Sin respuestas.</div>';
+        return `<div class="card" style="page-break-inside:avoid;break-inside:avoid;"><div class="section-title">${p.texto}</div><div class="info-box">${lista}</div></div>`;
+      }
+      if(p.tipo === 'escala'){
+        const prom = valores.length ? (valores.reduce((s,v)=>s+Number(v),0)/valores.length).toFixed(1) : '—';
+        return `<div class="card" style="page-break-inside:avoid;break-inside:avoid;"><div class="section-title">${p.texto}</div><div class="section-sub">Promedio: ${prom} sobre ${valores.length} respuesta(s)</div>${valores.length ? graficoDistribucionEscala(valores, true) : ''}</div>`;
+      }
+      const conteo = {};
+      valores.forEach(v => { (Array.isArray(v)?v:[v]).forEach(op => { conteo[op] = (conteo[op]||0)+1; }); });
+      const conteoOrdenado = Object.entries(conteo).sort((a,b)=>b[1]-a[1]);
+      return `<div class="card" style="page-break-inside:avoid;break-inside:avoid;"><div class="section-title">${p.texto}</div>${conteoOrdenado.length ? graficoBarrasProporcion(conteoOrdenado, valores.length, true) : '<div class="section-sub">Sin respuestas.</div>'}</div>`;
+    }).join('<div style="height:14px;"></div>');
+
+    const body = pdfHeader(encuesta.titulo)
+      + `<div class="section-sub" style="margin-bottom:14px;">${etiquetaMuestra} · ${n} respuesta(s) recibida(s)</div>`
+      + bloquesPreguntas
+      + pdfFooter();
+    await descargarPDFDesdeHTML(body, `resultados-${encuesta.titulo.replace(/[^a-z0-9]/gi,'-')}`);
+  } catch(e){
+    notify('No se pudo exportar: ' + (e.message||e), 'error');
+  }
+}
+
 async function exportarEncuestaCSV(encuestaId){
   try {
     const { data: encuesta } = await sb.from('encuestas_completas').select('*').eq('id', encuestaId).maybeSingle();

@@ -3303,7 +3303,7 @@ async function cargarEncuestasDocente(idContenedor){
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
-            ${!e.google_form_url ? `<button class="btn btn-sm" onclick="verResultadosEncuestaCompleta('${e.id}')">Ver resultados</button><button class="btn btn-ghost btn-sm" onclick="exportarEncuestaCSV('${e.id}')" title="Descargar datos crudos en CSV"><i class="ti ti-download"></i></button>` : `<a class="btn btn-sm" href="${e.google_form_url}" target="_blank">Abrir Form</a>`}
+            ${!e.google_form_url ? `<button class="btn btn-sm" onclick="verResultadosEncuestaCompleta('${e.id}')">Ver resultados</button><button class="btn btn-ghost btn-sm" onclick="exportarResultadosEncuestaPDF('${e.id}')" title="Exportar resultados con gráficos en PDF"><i class="ti ti-file-type-pdf"></i></button><button class="btn btn-ghost btn-sm" onclick="exportarEncuestaCSV('${e.id}')" title="Descargar datos crudos en CSV"><i class="ti ti-download"></i></button>` : `<a class="btn btn-sm" href="${e.google_form_url}" target="_blank">Abrir Form</a>`}
             <button class="btn btn-ghost btn-sm" onclick="editarEncuesta('${e.id}')" title="Editar"><i class="ti ti-pencil"></i></button>
             <button class="btn btn-ghost btn-sm" onclick="alternarActivaEncuesta('${e.id}', ${e.activa})">${e.activa?'Cerrar':'Reabrir'}</button>
             <button class="btn btn-ghost btn-sm" onclick="eliminarEncuesta('${e.id}', '${idContenedor}')" title="Eliminar" style="color:var(--red);"><i class="ti ti-trash"></i></button>
@@ -3339,6 +3339,54 @@ async function alternarActivaEncuesta(id, activaActual){
     await sb.from('encuestas_completas').update({ activa: !activaActual }).eq('id', id);
     cargarEncuestasDocente();
   } catch(e){ notify('No se pudo actualizar: ' + (e.message||e), 'error'); }
+}
+
+// Histograma de distribución para preguntas de escala 1-5 — un
+// promedio solo (lo único que había antes) puede ocultar mucho: un
+// promedio de 3.0 se ve igual si TODOS respondieron 3, o si la mitad
+// respondió 1 y la otra mitad 5 — casos con implicaciones pedagógicas
+// muy distintas. El color va de rojo (1) a verde (5), consistente con
+// cómo la app ya usa esos colores para "negativo/positivo" en otros
+// lados.
+function graficoDistribucionEscala(valores, modoClaro){
+  const conteo = [0,0,0,0,0];
+  valores.forEach(v => { const n = Math.round(Number(v)); if(n>=1 && n<=5) conteo[n-1]++; });
+  const maxConteo = Math.max(...conteo, 1);
+  const colores = ['#e02d2d','#e8873a','#e8b94a','#8bc34a','#00a86b'];
+  const colorEje = modoClaro ? '#555' : '#7a8ab0';
+  const colorConteo = modoClaro ? '#1a2233' : '#b8c4dc';
+  const alturaBarra = 70, anchoBarra = 44, espacio = 14, w = (anchoBarra+espacio)*5+espacio, h = alturaBarra+34;
+  const barras = conteo.map((c,i) => {
+    const alto = maxConteo ? Math.round((c/maxConteo)*alturaBarra) : 0;
+    const x = espacio + i*(anchoBarra+espacio);
+    const y = alturaBarra - alto + 14;
+    return `<rect x="${x}" y="${y}" width="${anchoBarra}" height="${alto||1}" fill="${colores[i]}" rx="3"></rect>
+      <text x="${x+anchoBarra/2}" y="${alturaBarra+28}" text-anchor="middle" font-size="11" fill="${colorEje}">${i+1}</text>
+      <text x="${x+anchoBarra/2}" y="${y-4}" text-anchor="middle" font-size="10" fill="${colorConteo}">${c}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="max-width:100%;">${barras}</svg>`;
+}
+
+// Barras de proporción para opción única/múltiple — a propósito
+// distinto del histograma de arriba (barras horizontales con un solo
+// color de marca, ancho = % de respuestas) en vez de repetir el mismo
+// tipo de gráfico vertical para un dato de naturaleza distinta
+// (categorías con nombre, no una escala numérica ordenada).
+function graficoBarrasProporcion(conteoOrdenado, total, modoClaro){
+  const anchoMax = 260, altoFila = 22;
+  const colorTexto = modoClaro ? '#1a2233' : '#b8c4dc';
+  const colorNumero = modoClaro ? '#555' : '#7a8ab0';
+  const colorFondoBarra = modoClaro ? '#E0E4ED' : '#242d42';
+  const filas = conteoOrdenado.map(([op, n], i) => {
+    const pct = total ? Math.round((n/total)*100) : 0;
+    const anchoBarra = Math.max(2, Math.round((pct/100)*anchoMax));
+    const y = i*altoFila;
+    return `<text x="0" y="${y+11}" font-size="11" fill="${colorTexto}">${op.length>28?op.slice(0,26)+'…':op}</text>
+      <rect x="0" y="${y+14}" width="${anchoMax}" height="6" rx="3" fill="${colorFondoBarra}"></rect>
+      <rect x="0" y="${y+14}" width="${anchoBarra}" height="6" rx="3" fill="#004977"></rect>
+      <text x="${anchoMax+8}" y="${y+20}" font-size="10" fill="${colorNumero}">${n} (${pct}%)</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${anchoMax+60} ${conteoOrdenado.length*altoFila}" width="${anchoMax+60}" height="${conteoOrdenado.length*altoFila}" style="max-width:100%;">${filas}</svg>`;
 }
 
 async function verResultadosEncuestaCompleta(encuestaId){
@@ -3393,14 +3441,16 @@ async function verResultadosEncuestaCompleta(encuestaId){
         return `<div class="card" style="margin-bottom:8px;padding:10px 12px;">
           <b style="font-size:12.5px;">${p.texto}</b>
           <div style="font-size:20px;font-weight:700;margin-top:4px;">${prom} <span style="font-size:11px;color:var(--t3);font-weight:400;">promedio de ${valores.length} respuesta(s)</span></div>
+          ${valores.length ? graficoDistribucionEscala(valores) : ''}
         </div>`;
       }
       // opción única / múltiple — conteo por opción
       const conteo = {};
       valores.forEach(v => { (Array.isArray(v)?v:[v]).forEach(op => { conteo[op] = (conteo[op]||0)+1; }); });
+      const conteoOrdenado = Object.entries(conteo).sort((a,b)=>b[1]-a[1]);
       return `<div class="card" style="margin-bottom:8px;padding:10px 12px;">
         <b style="font-size:12.5px;">${p.texto}</b>
-        <div style="margin-top:6px;">${Object.entries(conteo).sort((a,b)=>b[1]-a[1]).map(([op,n]) => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span>${op}</span><span class="mono">${n}</span></div>`).join('')}</div>
+        <div style="margin-top:8px;">${conteoOrdenado.length ? graficoBarrasProporcion(conteoOrdenado, valores.length) : '<span class="auth-hint">Sin respuestas.</span>'}</div>
       </div>`;
     }).join('');
   } catch(e){

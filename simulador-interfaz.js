@@ -2178,6 +2178,7 @@ function pdfStyles(){
   ${p} .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 7pt; font-weight: 700; color: #fff; }
   ${p} .rank-medal { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; font-size:8pt; font-weight:700; }
   ${p} .info-box { background: #EEF7FF; border-left: 3px solid #00C4FF; padding: 8px 11px; border-radius: 0 4px 4px 0; font-size: 8.5pt; margin: 10px 0; line-height: 1.55; color: #1a2233 !important; }
+  ${p} .card { background: #F5F7FA; border: 1px solid #E0E4ED; color: #1a2233; padding: 10px 14px; border-radius: 6px; margin-bottom: 10px; }
   ${p} .info-box b, ${p} .info-box strong, ${p} .info-box i, ${p} .info-box span { color: inherit !important; }
   ${p} .info-box.success { background: #EFFAF3; border-left-color: #00A86B; }
   ${p} .info-box.danger  { background: #FDF0F0; border-left-color: #E02D2D; }
