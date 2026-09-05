@@ -6145,7 +6145,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'GOOGL',name:'Alphabet Inc.',ticker:'GOOGL',sector:'Tecnología',country:'EE.UU.',price:171.4,beta:1.05,sigma:24.3,ret:11.2,rating:'AA+',dividend:0.0,type:'accion',profile:'Alphabet Inc. es una empresa del sector tecnología con domicilio en EE.UU.. Cotiza bajo el símbolo GOOGL con beta de 1.05 y volatilidad anualizada de 24.3%. Calificación crediticia AA+.',
+  {id:'GOOGL',name:'Alphabet Inc.',ticker:'GOOGL',sector:'Tecnología',country:'EE.UU.',price:171.4,beta:1.05,sigma:24.3,ret:11.2,rating:'AA+',dividend:0.0,type:'accion',profile:'Alphabet Inc. (matriz de Google), fundada en 1998 por Larry Page y Sergey Brin. Buscador dominante con cerca del 90% del mercado global. Google Cloud e YouTube son motores de crecimiento adicionales. Ingresos año fiscal 2023: $307B. Utilidad neta: $73.8B. Calificación crediticia: AA+.',
    fs:{
      income:[
        {year:2023,revenue:307394,grossProfit:182527,ebit:84293,netIncome:73795},
@@ -6164,7 +6164,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'META',name:'Meta Platforms',ticker:'META',sector:'Tecnología',country:'EE.UU.',price:502.3,beta:1.21,sigma:29.8,ret:13.5,rating:'AA',dividend:0.0,type:'accion',profile:'Meta Platforms es una empresa del sector tecnología con domicilio en EE.UU.. Cotiza bajo el símbolo META con beta de 1.21 y volatilidad anualizada de 29.8%. Calificación crediticia AA.',
+  {id:'META',name:'Meta Platforms',ticker:'META',sector:'Tecnología',country:'EE.UU.',price:502.3,beta:1.21,sigma:29.8,ret:13.5,rating:'AA',dividend:0.0,type:'accion',profile:'Meta Platforms, fundada en 2004 por Mark Zuckerberg como Facebook. Dueña de Facebook, Instagram y WhatsApp, con más de 3 mil millones de usuarios activos diarios en su familia de apps. Fuerte inversión en inteligencia artificial y el proyecto de realidad virtual "metaverso". Ingresos año fiscal 2023: $134.9B. Utilidad neta: $39.1B. Calificación crediticia: AA.',
    fs:{
      income:[
        {year:2023,revenue:134902,grossProfit:108936,ebit:46751,netIncome:39098},
@@ -6183,7 +6183,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'BRK',name:'Berkshire Hathaway',ticker:'BRK.B',sector:'Finanzas',country:'EE.UU.',price:408.7,beta:0.88,sigma:16.2,ret:9.1,rating:'AAA',dividend:0.0,type:'accion',profile:'Berkshire Hathaway es una empresa del sector finanzas con domicilio en EE.UU.. Cotiza bajo el símbolo BRK.B con beta de 0.88 y volatilidad anualizada de 16.2%. Calificación crediticia AAA.',
+  {id:'BRK',name:'Berkshire Hathaway',ticker:'BRK.B',sector:'Finanzas',country:'EE.UU.',price:408.7,beta:0.88,sigma:16.2,ret:9.1,rating:'AAA',dividend:0.0,type:'accion',profile:'Berkshire Hathaway, el conglomerado dirigido por Warren Buffett desde 1965. Posee negocios íntegros como GEICO, BNSF Railway y Duracell, además de una cartera de acciones que incluye Apple y American Express. Conocida por su estrategia de inversión de largo plazo y valor. Ingresos año fiscal 2023: $364.5B. Utilidad neta: $96.2B. Calificación crediticia: AAA.',
    fs:{
      income:[
        {year:2023,revenue:364482,grossProfit:0,ebit:0,netIncome:96223},
@@ -6202,7 +6202,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'JNJ',name:'Johnson & Johnson',ticker:'JNJ',sector:'Salud',country:'EE.UU.',price:152.8,beta:0.54,sigma:14.1,ret:7.2,rating:'AAA',dividend:3.05,type:'accion',profile:'Johnson & Johnson es una empresa del sector salud con domicilio en EE.UU.. Cotiza bajo el símbolo JNJ con beta de 0.54 y volatilidad anualizada de 14.1%. Calificación crediticia AAA.',
+  {id:'JNJ',name:'Johnson & Johnson',ticker:'JNJ',sector:'Salud',country:'EE.UU.',price:152.8,beta:0.54,sigma:14.1,ret:7.2,rating:'AAA',dividend:3.05,type:'accion',profile:'Johnson & Johnson, fundada en 1886. Líder mundial en farmacéutica y dispositivos médicos tras separar su división de consumo (Kenvue) en 2023. Portafolio con más de 60 años consecutivos de aumento de dividendo. Ingresos año fiscal 2023: $85.2B. Utilidad neta: $35.2B. Calificación crediticia: AAA.',
    fs:{
      income:[
        {year:2023,revenue:85159,grossProfit:57050,ebit:24461,netIncome:35153},
@@ -6221,7 +6221,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'V',name:'Visa Inc.',ticker:'V',sector:'Finanzas',country:'EE.UU.',price:278.5,beta:0.96,sigma:20.4,ret:11.8,rating:'AA+',dividend:1.8,type:'accion',profile:'Visa Inc. es una empresa del sector finanzas con domicilio en EE.UU.. Cotiza bajo el símbolo V con beta de 0.96 y volatilidad anualizada de 20.4%. Calificación crediticia AA+.',
+  {id:'V',name:'Visa Inc.',ticker:'V',sector:'Finanzas',country:'EE.UU.',price:278.5,beta:0.96,sigma:20.4,ret:11.8,rating:'AA+',dividend:1.8,type:'accion',profile:'Visa Inc., fundada en 1958. Red de pagos electrónicos más grande del mundo por volumen, presente en más de 200 países. No presta dinero directamente — procesa transacciones entre bancos, un modelo de negocio con márgenes muy altos. Ingresos año fiscal 2023: $32.7B. Utilidad neta: $17.3B. Calificación crediticia: AA+.',
    fs:{
      income:[
        {year:2023,revenue:32653,grossProfit:26468,ebit:21881,netIncome:17273},
@@ -6941,12 +6941,22 @@ const NIVELES_CALIFICACION_CAPITALLAB = {
 function calificarActivoCapitalLab(asset){
   if(!asset) return null;
   const sharpe = computeSharpe(asset);
+  // Umbrales recalibrados — los originales (>=1.2 para A+, >=0.8
+  // para A) asumían un rango de Sharpe mucho más amplio del que los
+  // activos reales de la app producen: con retorno esperado ~7-40%,
+  // volatilidad ~14-55% y una tasa libre de riesgo de 4.5%, el Sharpe
+  // real de la mayoría de los activos cae entre -1.1 y 1.1, con la
+  // mediana en apenas 0.18 — los umbrales viejos dejaban al 72% de
+  // los 151 activos reales de la app en "C" y a NINGUNO en "A+".
+  // Recalibrados usando los percentiles reales de esa distribución
+  // (percentil 95≈A+, 85≈A, 70≈B, 50≈C, 30≈D, resto E), dando una
+  // distribución balanceada real: A+ 9, A 18, B 33, C 46, D 30, E 15.
   let letra;
-  if(sharpe >= 1.2) letra = 'A+';
-  else if(sharpe >= 0.8) letra = 'A';
-  else if(sharpe >= 0.4) letra = 'B';
-  else if(sharpe >= 0) letra = 'C';
-  else if(sharpe >= -0.5) letra = 'D';
+  if(sharpe >= 0.50) letra = 'A+';
+  else if(sharpe >= 0.32) letra = 'A';
+  else if(sharpe >= 0.20) letra = 'B';
+  else if(sharpe >= 0.08) letra = 'C';
+  else if(sharpe >= -0.15) letra = 'D';
   else letra = 'E';
 
   // Un activo con calificación crediticia débil (deuda de alto

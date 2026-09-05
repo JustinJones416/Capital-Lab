@@ -747,7 +747,7 @@
   <div id="tesis-import-aviso" style="display:none;margin-bottom:16px;"></div>
 
   <div class="card" style="margin-bottom:18px;">
-    <div class="card-title"><i class="ti ti-plus"></i> Agregar una opción a tu tesis</div>
+    <div class="card-title" id="tesis-form-titulo-modo"><i class="ti ti-plus"></i> <span id="tesis-form-titulo-texto">Agregar una opción a tu tesis</span></div>
     <div class="grid3" style="margin-bottom:10px;">
       <div class="field">
         <label>Activo</label>
@@ -758,7 +758,10 @@
         <input type="text" id="tesis-form-razon" placeholder="Ej: Baja volatilidad y calificación AAA, buen ancla para el resto del portafolio…" style="width:100%;padding:10px 12px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:13px;">
       </div>
     </div>
-    <button class="btn" onclick="agregarOpcionTesis()"><i class="ti ti-notebook"></i> Agregar a mi tesis</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn" id="tesis-btn-guardar" onclick="agregarOpcionTesis()"><i class="ti ti-notebook"></i> Agregar a mi tesis</button>
+      <button class="btn btn-ghost" id="tesis-btn-cancelar-edicion" onclick="cancelarEdicionTesis()" style="display:none;">Cancelar edición</button>
+    </div>
   </div>
 
   <div class="section-label" style="margin-bottom:10px;">Tus opciones registradas</div>

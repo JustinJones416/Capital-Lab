@@ -771,7 +771,23 @@ const SIM_YAHOO_FUNCION = 'datos-yahoo-finance';
 // Solo los futuros de esta lista tienen una correspondencia real y
 // confiable — el resto se queda con su precio simulado, sin forzar
 // una sincronización que no sería de fiar.
-const FUTUROS_YAHOO_MAP = { 'CL1!':'CL=F', 'GC1!':'GC=F', 'ES1!':'ES=F', 'ZW1!':'ZW=F', '6E1!':'6E=F' };
+const FUTUROS_YAHOO_MAP = {
+  'CL1!':'CL=F', 'GC1!':'GC=F', 'ES1!':'ES=F', 'ZW1!':'ZW=F', '6E1!':'6E=F',
+  // Ampliado — antes solo 5 de ~30 futuros tenían cobertura real,
+  // dejando el resto siempre en precio simulado sin necesidad: estos
+  // son contratos CME/ICE/COMEX/CBOT estándar con símbolo confiable y
+  // bien documentado en Yahoo Finance. Se dejan fuera a propósito los
+  // índices internacionales (DAX, FTSE, Nikkei) y los futuros de
+  // cripto (Bitcoin, Ethereum) — Yahoo no tiene una fuente gratuita
+  // igual de confiable para esos contratos específicos, así que
+  // siguen con precio simulado, igual que bonos y derivados.
+  'NG1!':'NG=F', 'HG1!':'HG=F', 'SI1!':'SI=F', 'PL1!':'PL=F',
+  'ZC1!':'ZC=F', 'ZS1!':'ZS=F', 'KC1!':'KC=F', 'SB1!':'SB=F', 'CT1!':'CT=F', 'CC1!':'CC=F',
+  'NQ1!':'NQ=F', 'YM1!':'YM=F', 'RTY1!':'RTY=F',
+  'ZB1!':'ZB=F', 'ZN1!':'ZN=F',
+  '6J1!':'6J=F', '6B1!':'6B=F', '6C1!':'6C=F',
+  'RB1!':'RB=F', 'HO1!':'HO=F',
+};
 
 // Cuánto tiempo puede tener una cotización de Yahoo antes de
 // considerarla "congelada" (mercado cerrado) en vez de "real ahora
@@ -994,6 +1010,8 @@ function renderFormularioTesis(){
   select.innerHTML = opciones;
 }
 
+let tesisEditandoId = null; // null = agregando nueva; con valor = editando una existente
+
 function agregarOpcionTesis(){
   const select = document.getElementById('tesis-form-activo');
   const razon = document.getElementById('tesis-form-razon').value.trim();
@@ -1003,6 +1021,19 @@ function agregarOpcionTesis(){
   const asset = allAssets().find(a=>a.id===id && a.type===type);
   if(!asset) return;
   const lista = cargarMiTesis();
+  if(tesisEditandoId){
+    // Edición — antes esta función no existía en absoluto, la única
+    // forma de "cambiar" una tesis era eliminarla y volver a crearla
+    // desde cero, perdiendo la fecha original de cuando se redactó.
+    const idx = lista.findIndex(x => String(x.id) === String(tesisEditandoId));
+    if(idx === -1){ if(typeof notify==='function') notify('No se encontró la tesis a editar.', 'error'); cancelarEdicionTesis(); return; }
+    lista[idx] = { ...lista[idx], ticker: asset.ticker || asset.name, nombre: asset.name, tipo: asset.type, razon, origen: lista[idx].origen === 'analytics' || lista[idx].origen === 'academy' ? lista[idx].origen : 'manual' };
+    guardarMiTesis(lista);
+    renderMiTesis();
+    cancelarEdicionTesis();
+    if(typeof notify==='function') notify('Tesis actualizada ✓', 'success');
+    return;
+  }
   lista.unshift({
     id: Date.now(),
     ticker: asset.ticker || asset.name,
@@ -1017,6 +1048,37 @@ function agregarOpcionTesis(){
   document.getElementById('tesis-form-razon').value = '';
   renderMiTesis();
   if(typeof notify==='function') notify('Agregado a tu tesis de inversión ✓', 'success');
+}
+
+function editarOpcionTesis(id){
+  const lista = cargarMiTesis();
+  const op = lista.find(x => String(x.id) === String(id));
+  if(!op) return;
+  tesisEditandoId = id;
+  document.getElementById('tesis-form-titulo-texto').textContent = 'Editando tu tesis';
+  document.getElementById('tesis-btn-guardar').innerHTML = '<i class="ti ti-device-floppy"></i> Guardar cambios';
+  document.getElementById('tesis-btn-cancelar-edicion').style.display = '';
+  const select = document.getElementById('tesis-form-activo');
+  // El <option> usa "id|type" como value — se busca la opción real
+  // que corresponda a este ticker/tipo, ya que no se guardó el id
+  // exacto del activo en la tesis (solo ticker/nombre/tipo).
+  const opcionCoincidente = [...select.options].find(o => {
+    const [oid, otype] = o.value.split('|');
+    const asset = allAssets().find(a=>a.id===oid && a.type===otype);
+    return asset && (asset.ticker === op.ticker || asset.name === op.nombre) && asset.type === op.tipo;
+  });
+  if(opcionCoincidente) select.value = opcionCoincidente.value;
+  document.getElementById('tesis-form-razon').value = op.razon;
+  document.querySelector('#page-tesis .card')?.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function cancelarEdicionTesis(){
+  tesisEditandoId = null;
+  document.getElementById('tesis-form-titulo-texto').textContent = 'Agregar una opción a tu tesis';
+  document.getElementById('tesis-btn-guardar').innerHTML = '<i class="ti ti-notebook"></i> Agregar a mi tesis';
+  document.getElementById('tesis-btn-cancelar-edicion').style.display = 'none';
+  document.getElementById('tesis-form-activo').value = '';
+  document.getElementById('tesis-form-razon').value = '';
 }
 
 function quitarOpcionTesis(id){
@@ -1045,6 +1107,7 @@ function renderMiTesis(){
         <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
           <span style="font-size:10.5px;color:var(--t3);">${op.fecha}</span>
           <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:10.5px;" onclick="verTesisCompleta(${op.id})">Ver completa</button>
+          <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:10.5px;" onclick="editarOpcionTesis(${op.id})"><i class="ti ti-pencil"></i> Editar</button>
         </div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="quitarOpcionTesis(${op.id})" title="Quitar"><i class="ti ti-trash"></i></button>
