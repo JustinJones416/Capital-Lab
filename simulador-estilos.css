@@ -340,6 +340,11 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .mkt-qs-label{color:var(--t3);}
 .mkt-qs-val{font-family:var(--font-mono);color:var(--t1);}
 @media (max-width:640px){ .mkt-quote-summary{grid-template-columns:1fr;} .mkt-qs-row:nth-last-child(-n+2){border-bottom:1px solid rgba(255,255,255,.05);} .mkt-qs-row:last-child{border-bottom:none;} }
+/* Selectores del modal de comparación de activos — 3 columnas en
+   escritorio, pero en pantallas angostas se comprimían hasta ser
+   ilegibles ("Elige un" cortado); en móvil se apilan en 1 columna. */
+.comp-selectores-grid{display:grid;grid-template-columns:repeat(3,1fr);}
+@media (max-width:600px){ .comp-selectores-grid{grid-template-columns:1fr;} }
 .chart-panel{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);padding:14px;margin-bottom:14px;}
 .cp-title{font-size:12px;color:var(--t2);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
 .cp-title i{color:var(--accent2);}

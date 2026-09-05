@@ -4315,7 +4315,7 @@ function abrirComparacionActivos(preseleccionarId, preseleccionarType){
         <div class="card-title" style="margin-bottom:0;"><i class="ti ti-columns-3"></i> Comparar activos</div>
         <button class="btn btn-ghost btn-sm" onclick="this.closest('.export-modal-overlay').remove()"><i class="ti ti-x"></i></button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
+      <div class="comp-selectores-grid" style="gap:10px;margin-bottom:14px;">
         <select id="comp-activo-1" class="wl-search" onchange="renderizarComparacionActivos()"><option value="">Elige un activo…</option>${construirOptgroups()}</select>
         <select id="comp-activo-2" class="wl-search" onchange="renderizarComparacionActivos()"><option value="">Elige un activo…</option>${construirOptgroups()}</select>
         <select id="comp-activo-3" class="wl-search" onchange="renderizarComparacionActivos()"><option value="">Elige un activo (opcional)…</option>${construirOptgroups()}</select>
@@ -4377,11 +4377,11 @@ function renderizarComparacionActivos(){
   };
 
   cont.innerHTML = `
-    <div style="overflow-x:auto;">
-    <table style="width:100%;">
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+    <table style="width:100%;min-width:${100+filas.length*130}px;">
       <tr>
-        <th></th>
-        ${filas.map(f => `<th style="text-align:right;">${f.activo.name}<div style="font-size:10px;color:var(--t3);font-weight:400;">${f.activo.ticker||''}</div></th>`).join('')}
+        <th style="min-width:90px;"></th>
+        ${filas.map(f => `<th style="text-align:right;min-width:110px;">${f.activo.name}<div style="font-size:10px;color:var(--t3);font-weight:400;">${f.activo.ticker||''}</div></th>`).join('')}
       </tr>
       ${filaMetrica('Precio actual', f => '$'+fmt(f.precio))}
       ${filaMetrica('Retorno esperado', f => f.activo.ret.toFixed(1)+'%', true)}
