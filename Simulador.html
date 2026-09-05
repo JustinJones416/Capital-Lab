@@ -1134,6 +1134,16 @@
   </div>
   <div id="admin-resumen" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;"></div>
   <div class="card" style="margin-bottom:16px;">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span><i class="ti ti-report-analytics" style="color:var(--gold, #e8b94a);"></i> Informe final de la plataforma</span>
+    </div>
+    <div style="font-size:12px;color:var(--t3);margin-top:6px;margin-bottom:12px;">Reúne toda la información real de CapitalLab — sesiones, docentes, estudiantes, resultados de Laboratorio, encuestas y respuestas, bitácora de decisiones, e investigaciones — en un solo documento o archivo. Exclusivo de superadmin.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" onclick="exportarInformeFinalPlataformaPDF()"><i class="ti ti-file-type-pdf"></i> Informe completo en PDF</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportarInformeFinalPlataformaCSV()"><i class="ti ti-file-type-csv"></i> Datos crudos en CSV</button>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:16px;">
     <div class="card-title"><i class="ti ti-school" style="color:var(--accent2);"></i> Todas las sesiones de clase</div>
     <div id="admin-sesiones" style="margin-top:10px;"><div class="auth-hint">Cargando…</div></div>
   </div>
@@ -1397,10 +1407,15 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
       <div class="card-title" style="margin-bottom:0;">Bitácora de decisiones</div>
       <div style="display:flex;gap:8px;align-items:center;">
+        <select id="bitacora-orden" onchange="cargarBitacoraDocente()" style="font-size:11.5px;padding:5px 10px;">
+          <option value="estudiante">Ordenar por estudiante</option>
+          <option value="fecha">Ordenar por fecha</option>
+        </select>
         <select id="bitacora-filtro-riesgo" onchange="cargarBitacoraDocente()" style="font-size:11.5px;padding:5px 10px;">
           <option value="">Todos los niveles de riesgo</option>
           <option value="4">Alto (4-5) solamente</option>
         </select>
+        <button class="btn btn-ghost btn-sm" onclick="exportarBitacoraCSV()" title="Descargar todas las decisiones en CSV"><i class="ti ti-download"></i></button>
       </div>
     </div>
     <div id="bitacora-resumen" style="margin-bottom:12px;"></div>

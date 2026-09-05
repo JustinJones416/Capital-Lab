@@ -1505,7 +1505,7 @@ function cambiarTabProfesor(tab){
   if(tab==='laboratorio') cargarSeccionesLabDocente();
   if(tab==='correos') prepararPanelCorreos();
   if(tab==='encuestas') { cargarEncuestasDocente(); if(typeof irAPasoEncuesta==='function') irAPasoEncuesta(1); }
-  if(tab==='bitacora') cargarBitacoraDocente();
+  if(tab==='bitacora') { cargarBitacoraDocente(); if(currentUser?.sesion_id) localStorage.setItem('cl_visito_bitacora_'+currentUser.sesion_id, '1'); }
 }
 
 async function iniciarSalaEnVivo(){
@@ -2662,12 +2662,117 @@ async function exportarInformeEstudiantePDF(usuarioId, nombre, sesionId){
 
 // Informe de TODO el salón — un solo documento con cada estudiante en su
 // propia sección, para el archivo del docente o para presentar resultados.
+// ══════════════════════════════════════════════════
+// INFORME FINAL DE LA PLATAFORMA — solo superadmin. Reúne toda la
+// información real de CapitalLab en un solo documento: sesiones,
+// docentes, estudiantes, Laboratorio, encuestas, bitácora de
+// decisiones, e investigaciones. Distinto del informe de un salón
+// específico (exportarInformeSalonPDF) — este cubre TODA la
+// plataforma, todas las sesiones a la vez.
+// ══════════════════════════════════════════════════
+async function recopilarDatosInformeFinalPlataforma(){
+  const [
+    { data: sesiones }, { data: usuarios }, { data: seccionesLab }, { data: resultadosLab },
+    { data: encuestas }, { data: respuestasEncuestas }, { data: bitacora }, { data: investigaciones },
+  ] = await Promise.all([
+    sb.from('sesiones_clase').select('id, nombre, codigo, creado_en'),
+    sb.from('usuarios').select('id, nombre, rol, sesion_id, creado_en'),
+    sb.from('laboratorio_secciones').select('id, sesion_id, titulo, meta_pct'),
+    sb.from('laboratorio_resultados').select('seccion_id, usuario_id, retorno_pct, cumplio_meta, calificacion'),
+    sb.from('encuestas_completas').select('id, sesion_id, titulo, google_form_url, preguntas'),
+    sb.from('encuestas_completas_respuestas').select('encuesta_id, usuario_id'),
+    sb.from('bitacora_decisiones').select('sesion_id, usuario_id, nivel_riesgo_percibido, tipo_operacion'),
+    sb.from('investigaciones').select('id, autor_id, sesion_id, titulo, tema, creado_en'),
+  ]);
+  return { sesiones: sesiones||[], usuarios: usuarios||[], seccionesLab: seccionesLab||[], resultadosLab: resultadosLab||[],
+    encuestas: encuestas||[], respuestasEncuestas: respuestasEncuestas||[], bitacora: bitacora||[], investigaciones: investigaciones||[] };
+}
+
+async function exportarInformeFinalPlataformaPDF(){
+  if(currentUser?.rol !== 'superadmin'){ notify('Solo el superadministrador puede generar este informe.', 'error'); return; }
+  notify('Reuniendo toda la información de la plataforma…', 'success');
+  try {
+    const d = await recopilarDatosInformeFinalPlataforma();
+    const docentes = d.usuarios.filter(u=>u.rol==='docente');
+    const estudiantes = d.usuarios.filter(u=>u.rol==='estudiante');
+    const encuestasPropias = d.encuestas.filter(e=>!e.google_form_url);
+    const conRiesgo = d.bitacora.filter(b=>b.nivel_riesgo_percibido!=null);
+    const riesgoPromGlobal = conRiesgo.length ? (conRiesgo.reduce((s,b)=>s+b.nivel_riesgo_percibido,0)/conRiesgo.length).toFixed(1) : '—';
+    const conRetorno = d.resultadosLab.filter(r=>r.retorno_pct!=null);
+    const retornoPromLab = conRetorno.length ? (conRetorno.reduce((s,r)=>s+Number(r.retorno_pct),0)/conRetorno.length).toFixed(2) : '—';
+    const tasaMetaLab = d.resultadosLab.length ? Math.round(d.resultadosLab.filter(r=>r.cumplio_meta).length/d.resultadosLab.length*100) : 0;
+
+    const filasSesiones = d.sesiones.map(s => {
+      const estudiantesDeEsta = estudiantes.filter(e=>e.sesion_id===s.id).length;
+      const investigacionesDeEsta = d.investigaciones.filter(i=>i.sesion_id===s.id).length;
+      const encuestasDeEsta = d.encuestas.filter(e=>e.sesion_id===s.id).length;
+      return `<tr><td>${s.nombre}</td><td class="right">${estudiantesDeEsta}</td><td class="right">${encuestasDeEsta}</td><td class="right">${investigacionesDeEsta}</td><td>${new Date(s.creado_en).toLocaleDateString('es-PA')}</td></tr>`;
+    }).join('');
+
+    const filasInvestigaciones = d.investigaciones.slice(0,60).map(inv => {
+      const autor = d.usuarios.find(u=>u.id===inv.autor_id);
+      return `<tr><td>${inv.titulo}</td><td>${autor?.nombre||'—'}</td><td>${autor?.rol||'—'}</td><td>${inv.tema||'—'}</td><td>${new Date(inv.creado_en).toLocaleDateString('es-PA')}</td></tr>`;
+    }).join('');
+
+    const body = pdfHeader('Informe final de la plataforma')
+      + `<div class="section-sub" style="margin-bottom:14px;">Panorama completo de CapitalLab · Generado por ${currentUser.nombre}</div>`
+      + `<div class="section"><div class="section-title">Resumen general</div></div>`
+      + `<div class="kpi-grid">
+          <div class="kpi"><div class="kpi-lbl">Sesiones de clase</div><div class="kpi-val">${d.sesiones.length}</div></div>
+          <div class="kpi"><div class="kpi-lbl">Docentes</div><div class="kpi-val">${docentes.length}</div></div>
+          <div class="kpi"><div class="kpi-lbl">Estudiantes</div><div class="kpi-val">${estudiantes.length}</div></div>
+          <div class="kpi"><div class="kpi-lbl">Secciones de Laboratorio</div><div class="kpi-val">${d.seccionesLab.length}</div></div>
+          <div class="kpi"><div class="kpi-lbl">Encuestas propias</div><div class="kpi-val">${encuestasPropias.length}</div></div>
+          <div class="kpi"><div class="kpi-lbl">Respuestas de encuestas</div><div class="kpi-val">${d.respuestasEncuestas.length}</div></div>
+          <div class="kpi"><div class="kpi-lbl">Decisiones registradas</div><div class="kpi-val">${d.bitacora.length}</div></div>
+          <div class="kpi"><div class="kpi-lbl">Investigaciones creadas</div><div class="kpi-val">${d.investigaciones.length}</div></div>
+        </div>`
+      + `<div class="info-box">De ${d.resultadosLab.length} resultado(s) de Laboratorio registrados en toda la plataforma, el retorno promedio fue de ${retornoPromLab}%, y el ${tasaMetaLab}% de las sesiones alcanzó la meta que su profesor asignó. En la bitácora de decisiones, el nivel de riesgo percibido promedio declarado por los propios estudiantes antes de operar fue ${riesgoPromGlobal}/5, sobre ${conRiesgo.length} decisión(es) con ese dato registrado.</div>`
+      + `<div class="section" style="page-break-before:always;break-before:page;"><div class="section-title">Sesiones de clase</div></div>`
+      + `<table><tr><th>Sesión</th><th class="right">Estudiantes</th><th class="right">Encuestas</th><th class="right">Investigaciones</th><th>Creada</th></tr>${filasSesiones}</table>`
+      + (d.investigaciones.length ? `<div class="section" style="page-break-before:always;break-before:page;"><div class="section-title">Investigaciones creadas en la plataforma</div></div>`
+        + `<table><tr><th>Título</th><th>Autor</th><th>Rol</th><th>Tema</th><th>Fecha</th></tr>${filasInvestigaciones}</table>`
+        + (d.investigaciones.length>60 ? `<div class="section-sub" style="margin-top:8px;">Mostrando las 60 más recientes de ${d.investigaciones.length} en total — usa la exportación CSV para la lista completa.</div>` : '') : '')
+      + pdfFooter();
+    await descargarPDFDesdeHTML(body, 'informe-final-plataforma');
+  } catch(e){
+    notify('No se pudo generar el informe: ' + (e.message||e), 'error');
+  }
+}
+
+async function exportarInformeFinalPlataformaCSV(){
+  if(currentUser?.rol !== 'superadmin'){ notify('Solo el superadministrador puede generar este informe.', 'error'); return; }
+  notify('Reuniendo toda la información de la plataforma…', 'success');
+  try {
+    const d = await recopilarDatosInformeFinalPlataforma();
+    const encabezados = ['Sesión','Estudiante','Correo/Rol no incluido por privacidad','Retorno Laboratorio (%)','Calificación Laboratorio','Decisiones en bitácora','Riesgo percibido promedio','Investigaciones creadas','Encuestas respondidas'];
+    const filas = d.usuarios.filter(u=>u.rol==='estudiante').map(u => {
+      const sesion = d.sesiones.find(s=>s.id===u.sesion_id);
+      const resultadosDeEste = d.resultadosLab.filter(r=>r.usuario_id===u.id);
+      const retornoProm = resultadosDeEste.length ? (resultadosDeEste.reduce((s,r)=>s+Number(r.retorno_pct||0),0)/resultadosDeEste.length).toFixed(2) : '';
+      const calificaciones = resultadosDeEste.filter(r=>r.calificacion!=null).map(r=>r.calificacion);
+      const calProm = calificaciones.length ? (calificaciones.reduce((s,c)=>s+c,0)/calificaciones.length).toFixed(1) : '';
+      const decisionesDeEste = d.bitacora.filter(b=>b.usuario_id===u.id);
+      const decisionesConRiesgo = decisionesDeEste.filter(b=>b.nivel_riesgo_percibido!=null);
+      const riesgoPromEste = decisionesConRiesgo.length ? (decisionesConRiesgo.reduce((s,b)=>s+b.nivel_riesgo_percibido,0)/decisionesConRiesgo.length).toFixed(1) : '';
+      const invDeEste = d.investigaciones.filter(i=>i.autor_id===u.id).length;
+      const respDeEste = d.respuestasEncuestas.filter(r=>r.usuario_id===u.id).length;
+      return [sesion?.nombre||'', u.nombre, '', retornoProm, calProm, decisionesDeEste.length, riesgoPromEste, invDeEste, respDeEste].map(celdaCSV).join(',');
+    });
+    const csv = [encabezados.map(celdaCSV).join(','), ...filas].join('\r\n');
+    descargarBlobCSV(csv, 'informe-final-plataforma.csv');
+    notify('Datos completos exportados.', 'success');
+  } catch(e){
+    notify('No se pudo exportar: ' + (e.message||e), 'error');
+  }
+}
+
 async function exportarInformeSalonPDF(){
   if(!sb || !currentUser || !currentUser.sesion_id){ notify('No hay sesión activa para exportar.', 'error'); return; }
   notify('Generando informe del salón…', 'success');
   try {
     const sesionId = currentUser.sesion_id;
-    const [{data: sesion}, {data: estudiantes}, {data: ports}, {data: cals}, {data: asistRows}, {data: historialTodos}, {data: operacionesLista}] = await Promise.all([
+    const [{data: sesion}, {data: estudiantes}, {data: ports}, {data: cals}, {data: asistRows}, {data: historialTodos}, {data: operacionesLista}, {data: bitacoraSalon}] = await Promise.all([
       sb.from('sesiones_clase').select('nombre,codigo').eq('id', sesionId).maybeSingle(),
       sb.from('usuarios').select('id,nombre,correo,creado_en').eq('sesion_id', sesionId).eq('rol','estudiante').order('nombre'),
       sb.from('portafolios').select('*').eq('sesion_id', sesionId),
@@ -2675,6 +2780,7 @@ async function exportarInformeSalonPDF(){
       sb.from('asistencia').select('usuario_id,fecha,presente').eq('sesion_id', sesionId),
       sb.from('portafolios_historial').select('usuario_id,dia,valor_total,retorno_pct').eq('sesion_id', sesionId).order('dia'),
       sb.from('operaciones').select('id,fecha').eq('sesion_id', sesionId).order('fecha'),
+      sb.from('bitacora_decisiones').select('usuario_id,razonamiento,tipo_operacion,activo_ticker,activo_nombre,nivel_riesgo_percibido,creado_en').eq('sesion_id', sesionId).order('creado_en',{ascending:false}),
     ]);
     if(!estudiantes || !estudiantes.length){ notify('Todavía no hay estudiantes registrados en esta sesión.', 'error'); return; }
 
@@ -2734,12 +2840,29 @@ async function exportarInformeSalonPDF(){
       `</div>`
     ).join('');
 
+    // Bitácora de decisiones — agrupada por estudiante, como se
+    // pidió explícitamente. Antes no aparecía en ningún informe
+    // exportable, solo se podía consultar dentro de la app.
+    let bloqueBitacora = '';
+    if(bitacoraSalon && bitacoraSalon.length){
+      const nombrePorId = {}; estudiantes.forEach(e => { nombrePorId[e.id] = e.nombre; });
+      const porEstudianteBitacora = {};
+      bitacoraSalon.forEach(b => { const nombre = nombrePorId[b.usuario_id] || 'Estudiante'; (porEstudianteBitacora[nombre] ||= []).push(b); });
+      const nombresConBitacora = Object.keys(porEstudianteBitacora).sort((a,b)=>a.localeCompare(b,'es'));
+      bloqueBitacora = `<div class="section" style="page-break-before:always;"><div class="section-title">Bitácora de decisiones — ${bitacoraSalon.length} registro(s)</div></div>`
+        + nombresConBitacora.map(nombre => {
+          const filasEstudiante = porEstudianteBitacora[nombre].map(b => `<tr><td>${new Date(b.creado_en).toLocaleDateString('es-PA')}</td><td>${b.tipo_operacion==='compra'?'Compra':'Venta'} de ${b.activo_ticker||b.activo_nombre||''}</td><td>${b.razonamiento}</td><td class="right">${b.nivel_riesgo_percibido??'—'}</td></tr>`).join('');
+          return `<div class="section-sub" style="margin:10px 0 4px;font-weight:600;color:var(--t1, #1a2233);">${nombre}</div><table><tr><th>Fecha</th><th>Operación</th><th>Razonamiento</th><th class="right">Riesgo</th></tr>${filasEstudiante}</table>`;
+        }).join('');
+    }
+
     const body = pdfHeader(sesion?.nombre || 'Informe del salón')
       + `<div class="section"><div class="section-title">Resumen general</div><div class="section-sub">${estudiantes.length} estudiante(s) · Código de sesión: ${sesion?.codigo||'—'}</div></div>`
       + `<table><tr><th>Estudiante</th><th class="right">Valor cartera</th><th class="right">Retorno</th><th class="right">Operac.</th><th class="right">Asistencia</th><th class="right">Calificaciones</th></tr>${resumenFilas}</table>`
       + `<div style="page-break-before:always;"></div>`
       + bloqueSeguimiento
       + detalle
+      + bloqueBitacora
       + pdfFooter();
     return openPrintWindow(body, `Informe del salón — ${sesion?.nombre||''}`);
   } catch(e){
@@ -3049,6 +3172,61 @@ async function renderInicioPage(){
   cont.innerHTML = '<div class="auth-hint">Cargando tu resumen…</div>';
 
   try {
+    // Guía de primeros pasos — antes se quedó congelada con solo 4
+    // pasos de una versión mucho más temprana de la app, sin cubrir
+    // ninguna de las funciones grandes construidas después (Análisis,
+    // Laboratorio, Bitácora de decisiones, Encuestas, Investigación,
+    // Modo Profesor) — un estudiante o docente nuevo hoy nunca se
+    // enteraría de que existen solo por usar la app. Ampliada a 8
+    // pasos para estudiante y una guía nueva completa de 6 pasos para
+    // docente (que antes no tenía ninguna). Se calcula aquí, ANTES de
+    // separar por rol, porque cada rama de abajo construye su propio
+    // cont.innerHTML de forma independiente — si se calculaba dentro
+    // de una sola rama (como pasó en el primer intento), la otra
+    // nunca la mostraba.
+    const sesionIdGuia = currentUser.sesion_id;
+    const logrosSet = await cargarLogrosDesbloqueados();
+    const esDocenteInicio = currentUser.rol === 'docente';
+    const pasos = esDocenteInicio ? [
+      { hecho: localStorage.getItem('cl_visito_profesor_'+sesionIdGuia)==='1', texto:'Revisa Modo Profesor', pagina:'profesor', icono:'ti-school' },
+      { hecho: localStorage.getItem('cl_creo_seccion_lab_'+sesionIdGuia)==='1', texto:'Publica una sección de Laboratorio', pagina:'profesor', icono:'ti-flask' },
+      { hecho: localStorage.getItem('cl_creo_encuesta_'+sesionIdGuia)==='1', texto:'Crea tu primera encuesta', pagina:'profesor', icono:'ti-clipboard-text' },
+      { hecho: localStorage.getItem('cl_visito_bitacora_'+sesionIdGuia)==='1', texto:'Revisa la Bitácora de decisiones', pagina:'profesor', icono:'ti-notebook' },
+      { hecho: localStorage.getItem('cl_creo_investigacion_'+sesionIdGuia)==='1', texto:'Crea tu primera Investigación', pagina:'investigacion', icono:'ti-microscope' },
+      { hecho: localStorage.getItem('cl_visito_calificaciones_'+sesionIdGuia)==='1', texto:'Revisa Calificaciones', pagina:'calificaciones', icono:'ti-certificate' },
+    ] : [
+      { hecho: localStorage.getItem('cl_visito_mercado_'+sesionIdGuia)==='1', texto:'Explora el Mercado', pagina:'mercado', icono:'ti-chart-candle' },
+      { hecho: localStorage.getItem('cl_visito_analisis_'+sesionIdGuia)==='1', texto:'Analiza un activo', pagina:'analisis', icono:'ti-chart-line' },
+      { hecho: logrosSet.has('primera_operacion'), texto:'Realiza tu primera operación', pagina:'mercado', icono:'ti-flag' },
+      { hecho: localStorage.getItem('cl_registro_bitacora_'+sesionIdGuia)==='1', texto:'Registra tu razonamiento antes de operar', pagina:'mercado', icono:'ti-notebook' },
+      { hecho: localStorage.getItem('cl_visito_laboratorio_'+sesionIdGuia)==='1', texto:'Prueba el Laboratorio', pagina:'laboratorio', icono:'ti-flask' },
+      { hecho: logrosSet.has('primer_cuestionario'), texto:'Resuelve tu primer cuestionario', pagina:'cuestionarios', icono:'ti-list-check' },
+      { hecho: localStorage.getItem('cl_respondio_encuesta_'+sesionIdGuia)==='1', texto:'Responde una encuesta', pagina:'inicio', icono:'ti-clipboard-text' },
+      { hecho: localStorage.getItem('cl_visito_calificaciones_'+sesionIdGuia)==='1', texto:'Revisa tus calificaciones', pagina:'calificaciones', icono:'ti-certificate' },
+    ];
+    const cantidadHechosGuia = pasos.filter(p=>p.hecho).length;
+    const todosHechosGuia = cantidadHechosGuia === pasos.length;
+    const porcentajeHechoGuia = Math.round((cantidadHechosGuia/pasos.length)*100);
+    const guiaHTML = todosHechosGuia ? '' : `
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <div class="card-title" style="margin-bottom:0;"><i class="ti ti-map-2" style="color:var(--accent2);"></i> Primeros pasos</div>
+          <span style="font-size:11px;color:var(--t3);">${cantidadHechosGuia}/${pasos.length}</span>
+        </div>
+        <div style="height:5px;background:var(--c3);border-radius:3px;overflow:hidden;margin:8px 0 6px;">
+          <div style="height:100%;width:${porcentajeHechoGuia}%;background:var(--accent2);border-radius:3px;transition:width .4s;"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px;">
+          ${pasos.map(p => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--c3);${p.hecho?'':'cursor:pointer;'}" ${p.hecho?'':`onclick="goPage('${p.pagina}')"`}>
+              <div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${p.hecho?'var(--green)':'var(--c3)'};">
+                <i class="ti ${p.hecho?'ti-check':p.icono}" style="font-size:12px;color:${p.hecho?'#04342c':'var(--t3)'};"></i>
+              </div>
+              <span style="font-size:13px;color:${p.hecho?'var(--t3)':'var(--t1)'};text-decoration:${p.hecho?'line-through':'none'};">${p.texto}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+
     if(esDocente){
       const sesionId = currentUser.sesion_id;
       // conTiempoLimite: si Supabase se cuelga sin responder NI fallar
@@ -3079,7 +3257,7 @@ async function renderInicioPage(){
       const { data: miPropioPortafolio } = await conTiempoLimite(sb.from('portafolios').select('id').eq('usuario_id', currentUser.usuario_id).limit(1).maybeSingle());
       const tieneHistorialEstudiante = !!miPropioPortafolio;
 
-      cont.innerHTML = `
+      cont.innerHTML = guiaHTML + `
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;">
           <div style="background:var(--c2);border-radius:var(--r2);padding:14px;">
             <div style="font-size:11px;color:var(--t3);text-transform:uppercase;">Estudiantes</div>
@@ -3140,31 +3318,6 @@ async function renderInicioPage(){
           if(puesto>0) rankingTxt = `Estás en el puesto <b>${puesto}</b> de ${ports.length}.`;
         }
       }
-
-      // Guía de primeros pasos: mezcla hitos reales (logros ya guardados en
-      // la nube) con visitas simples a ciertas páginas (guardadas solo en
-      // este navegador). Se oculta sola una vez completados los cuatro.
-      const logrosSet = await cargarLogrosDesbloqueados();
-      const pasos = [
-        { hecho: localStorage.getItem('cl_visito_mercado_'+sesionId)==='1', texto:'Explora el Mercado', pagina:'mercado', icono:'ti-chart-candle' },
-        { hecho: logrosSet.has('primera_operacion'), texto:'Realiza tu primera operación', pagina:'mercado', icono:'ti-flag' },
-        { hecho: logrosSet.has('primer_cuestionario'), texto:'Resuelve tu primer cuestionario', pagina:'cuestionarios', icono:'ti-list-check' },
-        { hecho: localStorage.getItem('cl_visito_calificaciones_'+sesionId)==='1', texto:'Revisa tus calificaciones', pagina:'calificaciones', icono:'ti-certificate' },
-      ];
-      const todosHechos = pasos.every(p=>p.hecho);
-      const guiaHTML = todosHechos ? '' : `
-        <div class="card" style="margin-bottom:16px;">
-          <div class="card-title"><i class="ti ti-map-2" style="color:var(--accent2);"></i> Primeros pasos</div>
-          <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px;">
-            ${pasos.map(p => `
-              <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--c3);${p.hecho?'':'cursor:pointer;'}" ${p.hecho?'':`onclick="goPage('${p.pagina}')"`}>
-                <div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${p.hecho?'var(--green)':'var(--c3)'};">
-                  <i class="ti ${p.hecho?'ti-check':p.icono}" style="font-size:12px;color:${p.hecho?'#04342c':'var(--t3)'};"></i>
-                </div>
-                <span style="font-size:13px;color:${p.hecho?'var(--t3)':'var(--t1)'};text-decoration:${p.hecho?'line-through':'none'};">${p.texto}</span>
-              </div>`).join('')}
-          </div>
-        </div>`;
 
       cont.innerHTML = guiaHTML + `
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;">
@@ -4187,6 +4340,7 @@ async function guardarInvestigacion(){
       const { error } = await sb.from('investigaciones').insert({ ...datos, autor_id: currentUser.usuario_id, sesion_id: currentUser.sesion_id || null });
       if(error) throw error;
       notify('Investigación creada.', 'success');
+      if(currentUser.sesion_id) localStorage.setItem('cl_creo_investigacion_'+currentUser.sesion_id, '1');
     }
     limpiarBorradorInvestigacionLocal();
     volverListaInvestigaciones();

@@ -2003,6 +2003,22 @@ function exportTransactionsPDF(){
   const compras = operacionesReales.filter(t=>t.action==='Compra').length;
   const ventas  = operacionesReales.filter(t=>t.action==='Venta').length;
   const totalFees = operacionesReales.reduce((s,t)=>s+(t.fee||0),0);
+  const volumenTotal = operacionesReales.reduce((s,t)=>s+(t.total||0),0);
+
+  // Antes el informe solo tenía 4 números sueltos y la tabla cruda,
+  // sin ningún análisis de lo que esos datos realmente muestran sobre
+  // el comportamiento del estudiante — se agrega un párrafo con
+  // cifras calculadas de verdad a partir de las operaciones reales,
+  // no texto genérico.
+  const conteoPorActivo = {};
+  operacionesReales.forEach(t => { conteoPorActivo[t.name] = (conteoPorActivo[t.name]||0) + 1; });
+  const [activoMasOperado, vecesOperado] = Object.entries(conteoPorActivo).sort((a,b)=>b[1]-a[1])[0] || ['—', 0];
+  const concentracionPct = operacionesReales.length ? Math.round((vecesOperado/operacionesReales.length)*100) : 0;
+  const costoSobreVolumenPct = volumenTotal > 0 ? ((totalFees/volumenTotal)*100).toFixed(2) : '0.00';
+  const fechasUnicas = new Set(operacionesReales.map(t=>new Date(t.timestamp||Date.now()).toDateString())).size;
+
+  const analisisTexto = `Se registraron ${operacionesReales.length} operación(es) en total (${compras} compra(s), ${ventas} venta(s)), repartidas en ${fechasUnicas} día(s) distinto(s) de actividad. El activo más operado fue <b>${activoMasOperado}</b>, con ${vecesOperado} operación(es) — el ${concentracionPct}% de toda la actividad registrada${concentracionPct>=50?', una concentración considerable en un solo activo':''}. Los costos de transacción sumaron $${totalFees.toFixed(2)}, equivalentes al ${costoSobreVolumenPct}% del volumen total operado ($${volumenTotal.toFixed(2)}).`;
+
   const inner = pdfHeader('Libro de operaciones')
     + `<div class="kpi-grid">
         <div class="kpi"><div class="kpi-lbl">Total operaciones</div><div class="kpi-val">${operacionesReales.length}</div></div>
@@ -2010,6 +2026,7 @@ function exportTransactionsPDF(){
         <div class="kpi"><div class="kpi-lbl">Ventas</div><div class="kpi-val">${ventas}</div></div>
         <div class="kpi"><div class="kpi-lbl">Costos de transacción</div><div class="kpi-val">$${totalFees.toFixed(2)}</div></div>
        </div>
+       <div class="info-box">${analisisTexto}</div>
        <div class="section-title">Historial completo</div>
        <table><tr><th>Fecha</th><th>Operación</th><th>Activo</th><th class="right">Cantidad</th><th class="right">Precio</th><th class="right">Efecto neto</th></tr>
        ${operacionesReales.map(t=>{

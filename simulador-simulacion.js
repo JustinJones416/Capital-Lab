@@ -485,6 +485,19 @@ function exportarHistorialPreciosPDF(){
   if(!velas || !velas.length){ notify('Todavía no hay historial de precios para este activo.', 'error'); return; }
   const primero = velas[0], ultimo = velas[velas.length-1];
   const varPct = ((ultimo.c - primero.o) / primero.o * 100);
+  // Análisis con sustancia real — antes el informe solo mostraba los
+  // 4 KPI y el gráfico, sin ningún párrafo que ayude a interpretar
+  // qué tan volátil fue el período o hacia dónde se inclinó la
+  // tendencia. Calculado directamente de las velas reales, no texto
+  // genérico.
+  const retornosPorVela = [];
+  for(let i=1;i<velas.length;i++){ retornosPorVela.push((velas[i].c - velas[i-1].c) / velas[i-1].c); }
+  const promRetorno = retornosPorVela.length ? retornosPorVela.reduce((s,r)=>s+r,0)/retornosPorVela.length : 0;
+  const varianza = retornosPorVela.length ? retornosPorVela.reduce((s,r)=>s+Math.pow(r-promRetorno,2),0)/retornosPorVela.length : 0;
+  const volatilidadPeriodoPct = (Math.sqrt(varianza)*100).toFixed(2);
+  const velasAlcistas = velas.filter(v=>v.c>=v.o).length;
+  const proporcionAlcistaPct = Math.round((velasAlcistas/velas.length)*100);
+  const analisisPrecioTexto = `A lo largo de ${velas.length} periodo(s) registrado(s), el precio ${varPct>=0?'subió':'bajó'} un ${Math.abs(varPct).toFixed(2)}% en total, con una volatilidad promedio por periodo de ${volatilidadPeriodoPct}%. El ${proporcionAlcistaPct}% de los periodos cerró por encima de su apertura${proporcionAlcistaPct>=60?', mostrando una tendencia mayormente alcista':proporcionAlcistaPct<=40?', mostrando una tendencia mayormente bajista':', sin una tendencia dominante clara'}.`;
   // Gráfico de líneas simple con los precios de cierre, mismo estilo
   // visual que el resto de gráficos de la app.
   const w=640, h=140, pad=10;
@@ -503,6 +516,7 @@ function exportarHistorialPreciosPDF(){
         <div class="kpi"><div class="kpi-lbl">Máximo</div><div class="kpi-val">$${Math.max(...velas.map(v=>v.h)).toFixed(2)}</div></div>
         <div class="kpi"><div class="kpi-lbl">Mínimo</div><div class="kpi-val">$${Math.min(...velas.map(v=>v.l)).toFixed(2)}</div></div>
        </div>
+       <div class="info-box">${analisisPrecioTexto}</div>
        <div class="section-title">Evolución del precio de cierre</div>
        ${svg}
        <div class="section-title">Historial completo por periodo</div>
@@ -647,6 +661,13 @@ function goPage(p){
   if(p==='inicio') intentar(renderInicioPage);
   if(p==='mercado' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_mercado_'+currentUser.sesion_id, '1');
   if(p==='calificaciones' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_calificaciones_'+currentUser.sesion_id, '1');
+  // Flags de seguimiento para la guía de primeros pasos — antes solo
+  // cubría 2 páginas, dejando fuera Análisis, Laboratorio, Bitácora,
+  // Investigación y Modo Profesor por completo (funciones que no
+  // existían cuando se escribió la guía original).
+  if(p==='analisis' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_analisis_'+currentUser.sesion_id, '1');
+  if(p==='laboratorio' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_laboratorio_'+currentUser.sesion_id, '1');
+  if(p==='profesor' && currentUser && currentUser.sesion_id) localStorage.setItem('cl_visito_profesor_'+currentUser.sesion_id, '1');
   if(p==='calificaciones') intentar(renderCalificacionesPage);
   if(p==='cuestionarios') intentar(renderCuestionariosPage);
   if(p==='p2p'){ intentar(renderMercadoP2P); intentar(iniciarRealtimeP2P); intentar(()=>cargarChat('p2p')); intentar(iniciarRealtimeChat); const d=document.getElementById('dot-p2p'); if(d)d.style.display='none'; }
@@ -3107,6 +3128,7 @@ async function publicarEncuesta(){
       });
       if(error) throw error;
       notify('Encuesta publicada — ya la ven tus estudiantes.', 'success');
+      if(currentUser.sesion_id) localStorage.setItem('cl_creo_encuesta_'+currentUser.sesion_id, '1');
     }
     cancelarEdicionEncuesta();
     cargarEncuestasDocente();
@@ -3166,6 +3188,26 @@ function cancelarEdicionEncuesta(){
 // resumen agregado ayuda al docente a detectar de un vistazo si el
 // grupo en general está tomando decisiones bien fundamentadas o no,
 // antes de entrar a leer cada entrada una por una.
+async function exportarBitacoraCSV(){
+  if(!sb || !currentUser?.sesion_id){ notify('No hay sesión activa.', 'error'); return; }
+  try {
+    const { data: entradas, error } = await sb.from('bitacora_decisiones').select('*, usuarios(nombre)').eq('sesion_id', currentUser.sesion_id).order('creado_en', {ascending:false});
+    if(error) throw error;
+    if(!entradas || !entradas.length){ notify('Todavía no hay decisiones registradas para exportar.', 'error'); return; }
+    const encabezados = ['Estudiante','Fecha','Tipo de operación','Activo','Razonamiento','Riesgo percibido (1-5)','Monto estimado'];
+    const filas = entradas.map(e => [
+      e.usuarios?.nombre || '', new Date(e.creado_en).toLocaleString('es-PA'),
+      e.tipo_operacion === 'compra' ? 'Compra' : 'Venta', e.activo_ticker || e.activo_nombre || '',
+      e.razonamiento, e.nivel_riesgo_percibido ?? '', e.monto_estimado ?? '',
+    ].map(celdaCSV).join(','));
+    const csv = [encabezados.map(celdaCSV).join(','), ...filas].join('\r\n');
+    descargarBlobCSV(csv, `bitacora-decisiones-${(currentUser.sesion_nombre||'sesion').replace(/[^a-z0-9]/gi,'-')}.csv`);
+    notify('Bitácora exportada.', 'success');
+  } catch(e){
+    notify('No se pudo exportar: ' + (e.message||e), 'error');
+  }
+}
+
 async function cargarBitacoraDocente(){
   const cont = document.getElementById('bitacora-lista-docente');
   const resumenCont = document.getElementById('bitacora-resumen');
@@ -3195,12 +3237,11 @@ async function cargarBitacoraDocente(){
       </div>`;
 
     const colorRiesgo = (n) => n>=4 ? 'var(--red, #ff4757)' : n===3 ? 'var(--amber, #e8b94a)' : 'var(--green, #1e8e5a)';
-    cont.innerHTML = entradas.map(e => `
+    const tarjetaEntrada = (e) => `
       <div class="card" style="margin-bottom:8px;padding:10px 12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:5px;">
           <div>
-            <b>${e.usuarios?.nombre || '—'}</b>
-            <span class="nav-badge" style="margin-left:6px;">${e.tipo_operacion === 'compra' ? 'Compra' : 'Venta'} de ${e.activo_ticker || e.activo_nombre || ''}</span>
+            <span class="nav-badge">${e.tipo_operacion === 'compra' ? 'Compra' : 'Venta'} de ${e.activo_ticker || e.activo_nombre || ''}</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
             ${e.nivel_riesgo_percibido ? `<span style="font-size:11px;font-weight:600;color:${colorRiesgo(e.nivel_riesgo_percibido)};">Riesgo ${e.nivel_riesgo_percibido}/5</span>` : ''}
@@ -3209,8 +3250,25 @@ async function cargarBitacoraDocente(){
         </div>
         <div style="font-size:12.5px;color:var(--t2);line-height:1.5;">${e.razonamiento}</div>
         ${e.monto_estimado ? `<div style="font-size:10.5px;color:var(--t3);margin-top:4px;">Monto estimado: $${fmt(e.monto_estimado)}</div>` : ''}
-      </div>
-    `).join('');
+      </div>`;
+
+    // Orden pedido explícitamente por el docente: por estudiante
+    // (agrupado, cada uno con sus entradas juntas) es el modo por
+    // defecto, ya que revisar "qué pasó con Ana" es el caso de uso
+    // real más común — antes solo existía el orden por fecha, que
+    // mezclaba a todos los estudiantes entre sí sin ningún agrupado.
+    const ordenElegido = document.getElementById('bitacora-orden')?.value || 'estudiante';
+    if(ordenElegido === 'fecha'){
+      cont.innerHTML = entradas.map(e => `<div style="font-size:11px;color:var(--t3);margin:10px 0 4px;">${e.usuarios?.nombre || '—'}</div>${tarjetaEntrada(e)}`).join('');
+    } else {
+      const porEstudiante = {};
+      entradas.forEach(e => { const nombre = e.usuarios?.nombre || 'Sin nombre'; (porEstudiante[nombre] ||= []).push(e); });
+      const nombresOrdenados = Object.keys(porEstudiante).sort((a,b) => a.localeCompare(b, 'es'));
+      cont.innerHTML = nombresOrdenados.map(nombre => `
+        <div style="font-size:13px;font-weight:600;color:var(--t1);margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--c4);">${nombre} <span style="font-weight:400;color:var(--t3);font-size:11px;">(${porEstudiante[nombre].length} decisión(es))</span></div>
+        ${porEstudiante[nombre].map(tarjetaEntrada).join('')}
+      `).join('');
+    }
   } catch(e){
     cont.innerHTML = '<div class="auth-hint">No se pudo cargar: ' + (e.message||e) + '</div>';
   }
@@ -3550,6 +3608,7 @@ async function enviarRespuestaEncuesta(encuestaId){
   try {
     const { error } = await sb.from('encuestas_completas_respuestas').upsert({ encuesta_id: encuestaId, usuario_id: currentUser.usuario_id, respuestas }, { onConflict: 'encuesta_id,usuario_id' });
     if(error) throw error;
+    if(currentUser.sesion_id) localStorage.setItem('cl_respondio_encuesta_'+currentUser.sesion_id, '1');
     document.querySelector('.grade-modal-overlay')?.remove();
     notify('¡Gracias por responder!', 'success');
     cargarEncuestasPendientesEstudiante();
@@ -3713,9 +3772,7 @@ function confirmarYEjecutar(op){
   overlay.querySelector('#cf-cancelar').onclick = () => overlay.remove();
   overlay.querySelector('#cf-confirmar').onclick = () => {
     overlay.remove();
-    const snapshot = tomarSnapshotEstado();
     executeDirect(op);
-    mostrarDeshacerToast(snapshot, `${op==='buy'?'Compra':'Venta'} de ${qty}u ${selectedAsset.ticker} realizada.`);
   };
 }
 
@@ -3801,6 +3858,7 @@ async function guardarDecisionPreviaYContinuar(){
       razonamiento, nivel_riesgo_percibido: nivelRiesgo ? +nivelRiesgo : null,
       monto_estimado: ctx.montoEstimado,
     });
+    if(currentUser.sesion_id) localStorage.setItem('cl_registro_bitacora_'+currentUser.sesion_id, '1');
   } catch(e){
     console.error('No se pudo guardar la decisión en la bitácora:', e.message||e);
     // No se bloquea la operación por esto — el registro es un
@@ -3827,6 +3885,16 @@ function executeDirect(op){
 }
 
 function ejecutarOrdenDirecta(op, qty){
+  // El snapshot para "deshacer" se toma AQUÍ, al inicio de la
+  // ejecución real — antes vivía en el código que solo ABRÍA el
+  // modal de razonamiento previo (sin esperar a que se completara),
+  // así que el aviso de "operación realizada" con la opción de
+  // deshacer aparecía de inmediato, ANTES de que la orden en sí se
+  // hubiera ejecutado — el estudiante veía "Compra realizada" y
+  // probablemente no notaba que abajo había un segundo modal
+  // esperando su razonamiento, dando la impresión de que el flujo
+  // de la bitácora nunca aparecía.
+  const snapshotPrevio = tomarSnapshotEstado();
   const mid=selectedAsset.currentPrice||selectedAsset.price;      // precio medio de mercado
   const px =execPrice(mid, selectedAsset.type, op);               // precio efectivo (cruza el spread)
   const gross=qty*px;                                            // valor bruto a precio de ejecución
@@ -3848,9 +3916,9 @@ function ejecutarOrdenDirecta(op, qty){
     if(ex){ex.qty+=qty;ex.invested+=cashOut;ex.currentPrice=mid;}
     else portfolio.push({...selectedAsset,qty,invested:cashOut,buyPrice:gross/qty,currentPrice:mid});
     txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Compra',name:selectedAsset.name,type:selectedAsset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
-    notify(`Compra de ${qty}u ${selectedAsset.ticker} · costo $${fmt(fee)} ✓`);
     autosave();
     mostrarPromptDiarioTrading('Compra', selectedAsset.name);
+    mostrarDeshacerToast(snapshotPrevio, `Compra de ${qty}u ${selectedAsset.ticker} · costo $${fmt(fee)} realizada.`);
   } else {
     const pos=portfolio.find(x=>x.id===selectedAsset.id&&x.type===selectedAsset.type);
     if(!pos||pos.qty<qty){notify('No tienes suficientes unidades','error');return;}
@@ -3868,9 +3936,9 @@ function ejecutarOrdenDirecta(op, qty){
     capital+=cashIn;
     if(pos.qty===0)portfolio=portfolio.filter(x=>!(x.id===selectedAsset.id&&x.type===selectedAsset.type));
     txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Venta',name:selectedAsset.name,type:selectedAsset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
-    notify(`Venta de ${qty}u ${selectedAsset.ticker} · costo $${fmt(fee)} ✓`);
     autosave();
     mostrarPromptDiarioTrading('Venta', selectedAsset.name);
+    mostrarDeshacerToast(snapshotPrevio, `Venta de ${qty}u ${selectedAsset.ticker} · costo $${fmt(fee)} realizada.`);
   }
   updateNavCapital();
   updateTradeCalc();
@@ -5616,6 +5684,7 @@ async function crearSeccionLaboratorio(){
       obligatoria: document.getElementById('labsec-obligatoria').checked,
     });
     if(error) throw error;
+    if(currentUser.sesion_id) localStorage.setItem('cl_creo_seccion_lab_'+currentUser.sesion_id, '1');
     notify('Sección publicada — ya la ven tus estudiantes.', 'success');
     document.getElementById('labsec-titulo').value = '';
     document.getElementById('labsec-descripcion').value = '';
