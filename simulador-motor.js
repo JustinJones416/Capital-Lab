@@ -6302,7 +6302,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'WMT',name:'Walmart Inc.',ticker:'WMT',sector:'Consumo',country:'EE.UU.',price:68.4,beta:0.49,sigma:17.3,ret:8.4,rating:'AA',dividend:0.83,type:'accion',profile:'Walmart Inc. es una empresa del sector consumo con domicilio en EE.UU.. Cotiza bajo el símbolo WMT con beta de 0.49 y volatilidad anualizada de 17.3%. Calificación crediticia AA.',
+  {id:'WMT',name:'Walmart Inc.',ticker:'WMT',sector:'Consumo',country:'EE.UU.',price:68.4,beta:0.49,sigma:17.3,ret:8.4,rating:'AA',dividend:0.83,type:'accion',profile:'Walmart fundada en 1962 por Sam Walton en Arkansas. Mayor minorista del mundo por ingresos, con más de 10,500 tiendas en 19 países y una fuerte expansión en comercio electrónico y publicidad digital. Ingresos año fiscal 2024: $648B. Utilidad neta: $15.5B. Calificación crediticia: AA.',
    fs:{
      income:[
        {year:2023,revenue:648125,grossProfit:157983,ebit:27012,netIncome:15511},
@@ -6321,7 +6321,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'XOM',name:'Exxon Mobil',ticker:'XOM',sector:'Energía',country:'EE.UU.',price:118.9,beta:0.92,sigma:25.7,ret:9.6,rating:'AA-',dividend:3.8,type:'accion',profile:'Exxon Mobil es una empresa del sector energía con domicilio en EE.UU.. Cotiza bajo el símbolo XOM con beta de 0.92 y volatilidad anualizada de 25.7%. Calificación crediticia AA-.',
+  {id:'XOM',name:'Exxon Mobil',ticker:'XOM',sector:'Energía',country:'EE.UU.',price:118.9,beta:0.92,sigma:25.7,ret:9.6,rating:'AA-',dividend:3.8,type:'accion',profile:'ExxonMobil formada en 1999 por la fusión de Exxon y Mobil, con raíces que se remontan a la Standard Oil de 1870. Una de las mayores petroleras integradas del mundo, con operaciones en exploración, refinación y petroquímicos. Ingresos 2023: $344B. Utilidad neta: $36B. Calificación crediticia: AA-.',
    fs:{
      income:[
        {year:2023,revenue:344582,grossProfit:72703,ebit:55755,netIncome:36010},
@@ -6340,7 +6340,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'KO',name:'Coca-Cola Co.',ticker:'KO',sector:'Consumo',country:'EE.UU.',price:62.3,beta:0.58,sigma:13.8,ret:6.9,rating:'A+',dividend:1.94,type:'accion',profile:'Coca-Cola Co. es una empresa del sector consumo con domicilio en EE.UU.. Cotiza bajo el símbolo KO con beta de 0.58 y volatilidad anualizada de 13.8%. Calificación crediticia A+.',
+  {id:'KO',name:'Coca-Cola Co.',ticker:'KO',sector:'Consumo',country:'EE.UU.',price:62.3,beta:0.58,sigma:13.8,ret:6.9,rating:'A+',dividend:1.94,type:'accion',profile:'Coca-Cola fundada en 1892 en Atlanta. Mayor compañía de bebidas del mundo, con más de 200 marcas distribuidas en más de 200 países. Ingresos 2023: $46B. Utilidad neta: $10.7B. Calificación crediticia: A+.',
    fs:{
      income:[
        {year:2023,revenue:45754,grossProfit:27234,ebit:11311,netIncome:10714},
@@ -6359,7 +6359,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'DIS',name:'Walt Disney Co.',ticker:'DIS',sector:'Comunicación',country:'EE.UU.',price:98.7,beta:1.32,sigma:28.4,ret:9.2,rating:'A-',dividend:0.0,type:'accion',profile:'Walt Disney Co. es una empresa del sector comunicación con domicilio en EE.UU.. Cotiza bajo el símbolo DIS con beta de 1.32 y volatilidad anualizada de 28.4%. Calificación crediticia A-.',
+  {id:'DIS',name:'Walt Disney Co.',ticker:'DIS',sector:'Comunicación',country:'EE.UU.',price:98.7,beta:1.32,sigma:28.4,ret:9.2,rating:'A-',dividend:0.0,type:'accion',profile:'The Walt Disney Company fundada en 1923 por Walt y Roy Disney. Conglomerado de medios y entretenimiento con parques temáticos, estudios de cine (Marvel, Pixar, Star Wars) y el servicio de streaming Disney+. Ingresos año fiscal 2023: $89B. Calificación crediticia: A-.',
    fs:{
      income:[
        {year:2023,revenue:88898,grossProfit:30425,ebit:12891,netIncome:2354},
@@ -6397,7 +6397,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'NKE',name:'Nike Inc.',ticker:'NKE',sector:'Consumo',country:'EE.UU.',price:94.2,beta:1.08,sigma:26.1,ret:9.8,rating:'AA-',dividend:1.48,type:'accion',profile:'Nike Inc. es una empresa del sector consumo con domicilio en EE.UU.. Cotiza bajo el símbolo NKE con beta de 1.08 y volatilidad anualizada de 26.1%. Calificación crediticia AA-.',
+  {id:'NKE',name:'Nike Inc.',ticker:'NKE',sector:'Consumo',country:'EE.UU.',price:94.2,beta:1.08,sigma:26.1,ret:9.8,rating:'AA-',dividend:1.48,type:'accion',profile:'Nike fundada en 1964 por Phil Knight y Bill Bowerman, originalmente como Blue Ribbon Sports. Mayor marca de calzado y ropa deportiva del mundo por ingresos. Ingresos año fiscal 2023: $51.2B. Utilidad neta: $5.7B. Calificación crediticia: AA-.',
    fs:{
      income:[
        {year:2023,revenue:51217,grossProfit:22877,ebit:6723,netIncome:5070},
@@ -6416,7 +6416,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'PFE',name:'Pfizer Inc.',ticker:'PFE',sector:'Salud',country:'EE.UU.',price:28.4,beta:0.62,sigma:22.8,ret:7.4,rating:'A+',dividend:1.68,type:'accion',profile:'Pfizer Inc. es una empresa del sector salud con domicilio en EE.UU.. Cotiza bajo el símbolo PFE con beta de 0.62 y volatilidad anualizada de 22.8%. Calificación crediticia A+.',
+  {id:'PFE',name:'Pfizer Inc.',ticker:'PFE',sector:'Salud',country:'EE.UU.',price:28.4,beta:0.62,sigma:22.8,ret:7.4,rating:'A+',dividend:1.68,type:'accion',profile:'Pfizer fundada en 1849 en Brooklyn, Nueva York. Una de las farmacéuticas más grandes del mundo, con protagonismo global durante la pandemia por su vacuna contra el COVID-19 desarrollada junto a BioNTech. Ingresos 2023: $58.5B. Calificación crediticia: A+.',
    fs:{
      income:[
        {year:2023,revenue:58496,grossProfit:40130,ebit:3955,netIncome:2119},
@@ -6435,7 +6435,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'BAC',name:'Bank of America',ticker:'BAC',sector:'Finanzas',country:'EE.UU.',price:39.8,beta:1.34,sigma:28.7,ret:9.4,rating:'A-',dividend:0.96,type:'accion',profile:'Bank of America es una empresa del sector finanzas con domicilio en EE.UU.. Cotiza bajo el símbolo BAC con beta de 1.34 y volatilidad anualizada de 28.7%. Calificación crediticia A-.',
+  {id:'BAC',name:'Bank of America',ticker:'BAC',sector:'Finanzas',country:'EE.UU.',price:39.8,beta:1.34,sigma:28.7,ret:9.4,rating:'A-',dividend:0.96,type:'accion',profile:'Bank of America con raíces en 1904 en San Francisco. Segundo banco más grande de EE.UU. por activos, con banca comercial, de inversión y gestión de patrimonio a gran escala. Ingresos 2023: $98.6B. Utilidad neta: $26.5B. Calificación crediticia: A-.',
    fs:{
      income:[
        {year:2023,revenue:98581,grossProfit:0,ebit:0,netIncome:26515},
@@ -6454,7 +6454,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'INTC',name:'Intel Corp.',ticker:'INTC',sector:'Tecnología',country:'EE.UU.',price:31.2,beta:1.18,sigma:33.5,ret:8.1,rating:'A',dividend:0.5,type:'accion',profile:'Intel Corp. es una empresa del sector tecnología con domicilio en EE.UU.. Cotiza bajo el símbolo INTC con beta de 1.18 y volatilidad anualizada de 33.5%. Calificación crediticia A.',
+  {id:'INTC',name:'Intel Corp.',ticker:'INTC',sector:'Tecnología',country:'EE.UU.',price:31.2,beta:1.18,sigma:33.5,ret:8.1,rating:'A',dividend:0.5,type:'accion',profile:'Intel fundada en 1968 por Robert Noyce y Gordon Moore. Pionera histórica de los microprocesadores para PC, en proceso de reestructuración para competir en fabricación avanzada de chips frente a TSMC y Nvidia. Ingresos 2023: $54.2B. Calificación crediticia: A.',
    fs:{
      income:[
        {year:2023,revenue:54228,grossProfit:21711,ebit:93,netIncome:1689},
@@ -6473,7 +6473,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'CSCO',name:'Cisco Systems',ticker:'CSCO',sector:'Tecnología',country:'EE.UU.',price:49.6,beta:0.89,sigma:20.3,ret:8.9,rating:'AA-',dividend:1.6,type:'accion',profile:'Cisco Systems es una empresa del sector tecnología con domicilio en EE.UU.. Cotiza bajo el símbolo CSCO con beta de 0.89 y volatilidad anualizada de 20.3%. Calificación crediticia AA-.',
+  {id:'CSCO',name:'Cisco Systems',ticker:'CSCO',sector:'Tecnología',country:'EE.UU.',price:49.6,beta:0.89,sigma:20.3,ret:8.9,rating:'AA-',dividend:1.6,type:'accion',profile:'Cisco Systems fundada en 1984 por un matrimonio de informáticos de Stanford. Líder mundial en equipos de redes (routers, switches) e infraestructura de internet empresarial. Ingresos año fiscal 2023: $57B. Calificación crediticia: AA-.',
    fs:{
      income:[
        {year:2023,revenue:56998,grossProfit:36692,ebit:15585,netIncome:12613},
@@ -6492,7 +6492,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'SAN',name:'Banco Santander',ticker:'SAN',sector:'Finanzas',country:'España',price:4.8,beta:1.28,sigma:30.2,ret:9.7,rating:'A',dividend:0.12,type:'accion',profile:'Banco Santander es una empresa del sector finanzas con domicilio en España. Cotiza bajo el símbolo SAN con beta de 1.28 y volatilidad anualizada de 30.2%. Calificación crediticia A.',
+  {id:'SAN',name:'Banco Santander',ticker:'SAN',sector:'Finanzas',country:'España',price:4.8,beta:1.28,sigma:30.2,ret:9.7,rating:'A',dividend:0.12,type:'accion',profile:'Banco Santander fundado en 1857 en Cantabria, España. Uno de los mayores bancos del mundo por capitalización, con fuerte presencia en Europa y América Latina, incluido Brasil y México. Ingresos 2023: €57.4B. Calificación crediticia: A.',
    fs:{
      income:[
        {year:2023,revenue:57647,grossProfit:0,ebit:0,netIncome:12392},
@@ -6511,7 +6511,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'TSM',name:'Taiwan Semicon.',ticker:'TSM',sector:'Tecnología',country:'Taiwán',price:172.5,beta:1.15,sigma:31.4,ret:13.8,rating:'AA-',dividend:0.55,type:'accion',profile:'Taiwan Semicon. es una empresa del sector tecnología con domicilio en Taiwán. Cotiza bajo el símbolo TSM con beta de 1.15 y volatilidad anualizada de 31.4%. Calificación crediticia AA-.',
+  {id:'TSM',name:'Taiwan Semicon.',ticker:'TSM',sector:'Tecnología',country:'Taiwán',price:172.5,beta:1.15,sigma:31.4,ret:13.8,rating:'AA-',dividend:0.55,type:'accion',profile:'TSMC (Taiwan Semiconductor Manufacturing Company) fundada en 1987 por Morris Chang. Mayor fabricante de semiconductores por encargo del mundo, produce los chips más avanzados para Apple, Nvidia y AMD. Ingresos 2023: $69.3B. Calificación crediticia: AA-.',
    fs:{
      income:[
        {year:2023,revenue:69298,grossProfit:37810,ebit:29077,netIncome:26900},
@@ -6530,7 +6530,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'TM',name:'Toyota Motor',ticker:'TM',sector:'Automotriz',country:'Japón',price:211.3,beta:0.84,sigma:21.6,ret:8.3,rating:'A+',dividend:3.2,type:'accion',profile:'Toyota Motor es una empresa del sector automotriz con domicilio en Japón. Cotiza bajo el símbolo TM con beta de 0.84 y volatilidad anualizada de 21.6%. Calificación crediticia A+.',
+  {id:'TM',name:'Toyota Motor',ticker:'TM',sector:'Automotriz',country:'Japón',price:211.3,beta:0.84,sigma:21.6,ret:8.3,rating:'A+',dividend:3.2,type:'accion',profile:'Toyota fundada en 1937 por Kiichiro Toyoda en Japón. Mayor fabricante de automóviles del mundo por volumen, pionera del sistema de producción Just-in-Time y líder en vehículos híbridos. Ingresos año fiscal 2024: ¥45.1 billones. Calificación crediticia: A+.',
    fs:{
      income:[
        {year:2023,revenue:296000,grossProfit:0,ebit:30000,netIncome:32000},
@@ -6549,7 +6549,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'NVO',name:'Novo Nordisk',ticker:'NVO',sector:'Salud',country:'Dinamarca',price:128.9,beta:0.71,sigma:24.9,ret:14.2,rating:'AA-',dividend:1.1,type:'accion',profile:'Novo Nordisk es una empresa del sector salud con domicilio en Dinamarca. Cotiza bajo el símbolo NVO con beta de 0.71 y volatilidad anualizada de 24.9%. Calificación crediticia AA-.',
+  {id:'NVO',name:'Novo Nordisk',ticker:'NVO',sector:'Salud',country:'Dinamarca',price:128.9,beta:0.71,sigma:24.9,ret:14.2,rating:'AA-',dividend:1.1,type:'accion',profile:'Novo Nordisk fundada en 1923 en Dinamarca. Líder mundial en tratamientos para diabetes y obesidad, con fuerte crecimiento reciente impulsado por sus medicamentos Ozempic y Wegovy. Ingresos 2023: DKK 232B. Calificación crediticia: AA-.',
    fs:{
      income:[
        {year:2023,revenue:33700,grossProfit:28000,ebit:15000,netIncome:12100},
@@ -6568,7 +6568,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'SHEL',name:'Shell plc',ticker:'SHEL',sector:'Energía',country:'Reino Unido',price:68.2,beta:0.95,sigma:24.1,ret:8.8,rating:'AA-',dividend:2.6,type:'accion',profile:'Shell plc es una empresa del sector energía con domicilio en Reino Unido. Cotiza bajo el símbolo SHEL con beta de 0.95 y volatilidad anualizada de 24.1%. Calificación crediticia AA-.',
+  {id:'SHEL',name:'Shell plc',ticker:'SHEL',sector:'Energía',country:'Reino Unido',price:68.2,beta:0.95,sigma:24.1,ret:8.8,rating:'AA-',dividend:2.6,type:'accion',profile:'Shell con raíces en 1907, formada por la fusión de Royal Dutch Petroleum y Shell Transport. Una de las mayores petroleras integradas del mundo, con fuerte presencia en gas natural licuado (GNL). Ingresos 2023: $316B. Calificación crediticia: AA-.',
    fs:{
      income:[
        {year:2023,revenue:323183,grossProfit:0,ebit:0,netIncome:19359},
@@ -6587,7 +6587,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'BABA',name:'Alibaba Group',ticker:'BABA',sector:'Tecnología',country:'China',price:78.4,beta:1.42,sigma:38.7,ret:10.4,rating:'A+',dividend:0.0,type:'accion',profile:'Alibaba Group es una empresa del sector tecnología con domicilio en China. Cotiza bajo el símbolo BABA con beta de 1.42 y volatilidad anualizada de 38.7%. Calificación crediticia A+.',
+  {id:'BABA',name:'Alibaba Group',ticker:'BABA',sector:'Tecnología',country:'China',price:78.4,beta:1.42,sigma:38.7,ret:10.4,rating:'A+',dividend:0.0,type:'accion',profile:'Alibaba fundada en 1999 por Jack Ma en Hangzhou, China. Mayor plataforma de comercio electrónico de China (Taobao, Tmall), con negocios adicionales en computación en la nube y logística. Ingresos año fiscal 2024: ¥941B. Calificación crediticia: A+.',
    fs:{
      income:[
        {year:2023,revenue:130350,grossProfit:49000,ebit:18000,netIncome:10600},
@@ -6606,7 +6606,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'MELI',name:'MercadoLibre',ticker:'MELI',sector:'Tecnología',country:'Argentina',price:1684.0,beta:1.55,sigma:42.3,ret:16.8,rating:'BBB',dividend:0.0,type:'accion',profile:'MercadoLibre es una empresa del sector tecnología con domicilio en Argentina. Cotiza bajo el símbolo MELI con beta de 1.55 y volatilidad anualizada de 42.3%. Calificación crediticia BBB.',
+  {id:'MELI',name:'MercadoLibre',ticker:'MELI',sector:'Tecnología',country:'Argentina',price:1684.0,beta:1.55,sigma:42.3,ret:16.8,rating:'BBB',dividend:0.0,type:'accion',profile:'MercadoLibre fundada en 1999 por Marcos Galperin en Argentina. Mayor plataforma de comercio electrónico y fintech (Mercado Pago) de América Latina, con operaciones en 18 países. Ingresos 2023: $14.5B. Calificación crediticia: BBB.',
    fs:{
      income:[
        {year:2023,revenue:14473,grossProfit:6800,ebit:1300,netIncome:987},
@@ -6625,7 +6625,7 @@ const ALL_STOCKS=[
      ]
    }
   },
-  {id:'VALE',name:'Vale S.A.',ticker:'VALE',sector:'Materiales',country:'Brasil',price:11.8,beta:1.38,sigma:35.9,ret:10.2,rating:'BBB-',dividend:1.4,type:'accion',profile:'Vale S.A. es una empresa del sector materiales con domicilio en Brasil. Cotiza bajo el símbolo VALE con beta de 1.38 y volatilidad anualizada de 35.9%. Calificación crediticia BBB-.',
+  {id:'VALE',name:'Vale S.A.',ticker:'VALE',sector:'Materiales',country:'Brasil',price:11.8,beta:1.38,sigma:35.9,ret:10.2,rating:'BBB-',dividend:1.4,type:'accion',profile:'Vale fundada en 1942 en Brasil. Mayor productora de mineral de hierro y níquel del mundo, con operaciones globales de minería y logística. Ingresos 2023: $41.8B. Calificación crediticia: BBB-.',
    fs:{
      income:[
        {year:2023,revenue:41784,grossProfit:16000,ebit:12000,netIncome:7980},
