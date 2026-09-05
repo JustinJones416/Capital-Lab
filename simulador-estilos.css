@@ -331,6 +331,15 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .detail-kpi.dk-primary .dk-val{font-size:22px;}
 .dk-label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
 .dk-val{font-family:var(--font-mono);font-size:18px;font-weight:500;}
+/* Tabla de resumen tipo "Quote Summary" de Yahoo Finance — más densa
+   que las tarjetas grandes, para los datos secundarios que no
+   necesitan destacarse tanto como precio/variación. */
+.mkt-quote-summary{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);padding:4px 14px;}
+.mkt-qs-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px;}
+.mkt-qs-row:nth-last-child(-n+2){border-bottom:none;}
+.mkt-qs-label{color:var(--t3);}
+.mkt-qs-val{font-family:var(--font-mono);color:var(--t1);}
+@media (max-width:640px){ .mkt-quote-summary{grid-template-columns:1fr;} .mkt-qs-row:nth-last-child(-n+2){border-bottom:1px solid rgba(255,255,255,.05);} .mkt-qs-row:last-child{border-bottom:none;} }
 .chart-panel{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);padding:14px;margin-bottom:14px;}
 .cp-title{font-size:12px;color:var(--t2);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
 .cp-title i{color:var(--accent2);}

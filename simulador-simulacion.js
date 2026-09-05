@@ -1359,16 +1359,35 @@ function showAssetDetail(id,type){
   // importar si el precio venía de Yahoo o de la simulación.
   const esPrecioEnVivo = asset.__ultimoRealMs && (Date.now() - asset.__ultimoRealMs) < UMBRAL_ANCLA_REAL_FRESCA_MS;
   document.getElementById('mkt-kpis').innerHTML=[
-    ['Precio apertura sesión','$'+fmt(openP),''],
     [esPrecioEnVivo?'Precio actual (en vivo)':'Precio actual (simulado)','$'+fmt(p),chg>=0?'g':'r'],
     ['Variación de sesión',(sessionChg>=0?'+':'')+sessionChg.toFixed(2)+'%',sessionChg>=0?'g':'r'],
-    ['Retorno esperado anual',asset.ret.toFixed(1)+'%','g'],
-    ['Riesgo σ anual',asset.sigma.toFixed(1)+'%','a'],
-    ['Ratio Sharpe',sharpe.toFixed(2),sharpe>0.5?'g':sharpe>0?'a':'r'],
-    ['VaR 95% ('+hv.method+')',hv.pct.toFixed(1)+'%','r'],
+  ].map(([l,v,c])=>`<div class="detail-kpi dk-primary"><div class="dk-label">${conAyuda(l)}</div><div class="dk-val mono ${c}">${v}</div></div>`).join('');
+
+  // Resto de los datos en una tabla más densa, de dos columnas, al
+  // estilo del "Quote Summary" de Yahoo Finance — antes todos estos
+  // datos secundarios ocupaban el mismo espacio que precio/variación,
+  // como si tuvieran igual importancia visual.
+  // Rango REAL de la sesión disponible (máximo/mínimo de las velas
+  // que sí existen) — no un "rango de 52 semanas" al estilo Yahoo,
+  // porque el historial real de la app son 60 velas de 15 minutos
+  // (unas 15 horas), no un año de datos diarios; inventar esa cifra
+  // con datos que no la respaldan sería un número falso.
+  if(!candleHistory[asset.id]) initCandles(asset);
+  const velasSesion = candleHistory[asset.id] || [];
+  const rangoSesion = velasSesion.length
+    ? { min: Math.min(...velasSesion.map(v=>v.l)), max: Math.max(...velasSesion.map(v=>v.h)) }
+    : null;
+  document.getElementById('mkt-quote-summary').innerHTML = [
+    ['Apertura sesión', '$'+fmt(openP)],
+    rangoSesion ? ['Rango de la sesión', '$'+fmt(rangoSesion.min)+' – $'+fmt(rangoSesion.max)] : null,
+    ['Retorno esperado anual', asset.ret.toFixed(1)+'%'],
+    ['Riesgo σ anual', asset.sigma.toFixed(1)+'%'],
+    ['Ratio Sharpe', sharpe.toFixed(2)],
+    ['VaR 95% ('+hv.method+')', hv.pct.toFixed(1)+'%'],
     [asset.type==='accion'?'Beta (riesgo sist.)':asset.type==='bono'?'Cupón anual':'Volatilidad anual',
-     asset.type==='accion'?(asset.beta||0).toFixed(2):asset.type==='bono'?(asset.coupon||0).toFixed(2)+'%':asset.sigma.toFixed(1)+'%',''],
-  ].map(([l,v,c],i)=>`<div class="detail-kpi${i===1||i===2?' dk-primary':''}"><div class="dk-label">${conAyuda(l)}</div><div class="dk-val mono ${c}">${v}</div></div>`).join('');
+     asset.type==='accion'?(asset.beta||0).toFixed(2):asset.type==='bono'?(asset.coupon||0).toFixed(2)+'%':asset.sigma.toFixed(1)+'%'],
+    asset.rating ? ['Calificación crediticia', asset.rating] : null,
+  ].filter(Boolean).map(([l,v]) => `<div class="mkt-qs-row"><span class="mkt-qs-label">${conAyuda(l)}</span><span class="mkt-qs-val">${v}</span></div>`).join('');
 
   document.getElementById('mkt-profile').innerHTML=buildProfile(asset);
   renderEnlaceYahooFinance(asset);
