@@ -313,8 +313,18 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .market-main{display:flex;flex-direction:column;overflow:hidden;}
 .market-toolbar{padding:10px 16px;background:var(--c1);border-bottom:1px solid var(--c4);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .mt-asset-name{font-family:var(--font-head);font-size:16px;font-weight:600;}
-.mt-price{font-family:var(--font-mono);font-size:22px;font-weight:500;}
-.mt-change{font-size:13px;font-family:var(--font-mono);}
+/* Precio como elemento "hero" de la pantalla — es el dato más
+   importante que se mira en toda la página de Mercado, y antes tenía
+   el mismo peso visual que cualquier otra etiqueta (22px). Yahoo y
+   Google Finance le dan mucho más protagonismo al precio grande. */
+.mt-price{font-family:var(--font-mono);font-size:30px;font-weight:700;letter-spacing:-.01em;}
+/* Variación como "chip" con fondo de color en vez de solo texto
+   coloreado suelto — patrón estándar en cualquier app de finanzas
+   moderna (Robinhood, Yahoo, Google Finance), se lee de un vistazo
+   sin tener que fijarse en el color del texto entre el resto. */
+.mt-change{font-size:13px;font-family:var(--font-mono);font-weight:600;padding:4px 10px;border-radius:20px;}
+.mt-change.g{background:rgba(0,208,132,.14);color:#00d084;}
+.mt-change.r{background:rgba(255,71,87,.14);color:#ff4757;}
 .mt-badges{display:flex;gap:6px;margin-left:auto;align-items:center;}
 /* contain:paint se quitó aquí: combinado con el zoom de CSS del body
    en escritorio (ver @media min-width:1280px más abajo), causaba que
@@ -333,7 +343,7 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .hb-custom{display:none;align-items:center;gap:6px;}
 .hb-custom input{width:70px;padding:3px 8px;background:var(--c3);border:1px solid var(--c4);border-radius:5px;color:var(--t1);font-size:11px;font-family:var(--font-mono);}
 .detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
-.detail-kpi{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);padding:10px 14px;}
+.detail-kpi{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);padding:10px 14px;box-shadow:var(--sombra-sm);}
 /* Antes las 8 métricas (precio, variación, riesgo, beta...) tenían
    exactamente el mismo peso visual — nada le decía al ojo cuáles son
    las dos que de verdad importan de un vistazo (precio actual,
@@ -347,7 +357,7 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 /* Tabla de resumen tipo "Quote Summary" de Yahoo Finance — más densa
    que las tarjetas grandes, para los datos secundarios que no
    necesitan destacarse tanto como precio/variación. */
-.mkt-quote-summary{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);padding:4px 14px;}
+.mkt-quote-summary{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);padding:4px 14px;box-shadow:var(--sombra-sm);}
 .mkt-qs-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px;}
 .mkt-qs-row:nth-last-child(-n+2){border-bottom:none;}
 .mkt-qs-label{color:var(--t3);}
@@ -402,6 +412,7 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 
 /* ── STANDARD CARDS ── */
 .card{background:var(--c2);border:1px solid var(--c4);border-radius:var(--r2);padding:16px 20px;box-shadow:var(--sombra-sm);transition:box-shadow .2s ease;min-width:0;}
+.card:hover{box-shadow:var(--sombra-md);}
 .card-title{font-family:var(--font-head);font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;color:var(--t1);}
 .card-collapse-toggle{margin-left:auto;cursor:pointer;font-size:14px;color:var(--t3);transition:transform .15s;flex-shrink:0;padding:10px;margin-right:-10px;margin-top:-10px;margin-bottom:-10px;display:inline-flex;align-items:center;justify-content:center;}
 .card.tarjeta-colapsada > *:not(.card-title){display:none;}
@@ -580,7 +591,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
    mostrar O/H/L/C persistente), con su propio fondo y un borde
    inferior que la separa limpiamente de las velas. */
 .candle-hud{display:flex;gap:8px;padding:8px 10px;background:var(--c1);border-bottom:1px solid var(--c4);flex-shrink:0;flex-wrap:wrap;}
-.chud-item{display:flex;flex-direction:column;gap:2px;background:var(--c2);border:1px solid var(--c4);border-radius:7px;padding:5px 11px;}
+.chud-item{display:flex;flex-direction:column;gap:2px;background:var(--c2);border:1px solid var(--c4);border-radius:7px;padding:5px 11px;box-shadow:var(--sombra-sm);}
 .chud-lbl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;}
 .chud-val{font-size:12.5px;font-family:var(--font-mono);color:var(--t1);font-weight:600;}
 
@@ -858,7 +869,7 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
 
   /* ── MARKET ── */
   .market-toolbar{padding:8px 10px;gap:8px;flex-wrap:wrap;}
-  .mt-price{font-size:18px;}
+  .mt-price{font-size:22px;}
   .market-body{padding:10px;}
   .market-main{height:auto;overflow:visible;}
   .horizon-bar{gap:4px;padding:6px 8px;flex-wrap:wrap;}
