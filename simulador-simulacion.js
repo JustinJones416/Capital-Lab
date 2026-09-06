@@ -4694,6 +4694,7 @@ function renderAnalysis(id,type){
         <div id="fs-vista-trimestral" style="display:none;">
           <p style="font-size:11px;color:var(--t3);margin-bottom:10px;" id="fs-fuente-trimestral">Cargando datos trimestrales reales…</p>
           <table id="fs-tabla-trimestral"></table>
+          <div style="height:180px;margin-top:14px;"><canvas id="fs-grafico-trimestral"></canvas></div>
         </div>
       </div>
       <div class="card">
@@ -5074,6 +5075,37 @@ function renderTablaTrimestralFS(){
       </tr>
     </tbody>`;
   fuenteEl.innerHTML = `Cifras en millones USD (USD M) · <span style="color:var(--green);"><i class="ti ti-circle-check" style="font-size:11px;"></i> 100% real de Yahoo Finance</span> — sin estimaciones del modelo, a diferencia de la vista anual · <a href="${datos.urlYahoo}" target="_blank" rel="noopener" style="color:var(--accent2);">Ver en Yahoo Finance ↗</a>`;
+
+  // Gráfico de tendencia sobre los datos trimestrales reales — al
+  // estilo de las tarjetas de tendencia de GuruFocus/TradingView
+  // sobre cifras financieras (nunca solo la tabla de números). Se
+  // dibuja en orden cronológico (Yahoo entrega el trimestre más
+  // reciente primero, así que aquí se invierte para leer izquierda a
+  // derecha como una línea de tiempo normal).
+  const canvasTrim = document.getElementById('fs-grafico-trimestral');
+  if(canvasTrim && typeof Chart !== 'undefined'){
+    if(window.__chartTrimestralFS) window.__chartTrimestralFS.destroy();
+    const ordenCronologico = [...trimestres].reverse();
+    window.__chartTrimestralFS = new Chart(canvasTrim, {
+      type: 'bar',
+      data: {
+        labels: ordenCronologico.map(t=>t.fecha),
+        datasets: [
+          { label:'Ingresos', data: ordenCronologico.map(t=>t.revenue), backgroundColor:'rgba(41,98,255,.7)', borderRadius:4 },
+          { label:'Utilidad neta', data: ordenCronologico.map(t=>t.netIncome), backgroundColor:'rgba(0,208,132,.7)', borderRadius:4 },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display:true, labels:{color:'#8a9ab8', font:{size:10}} },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: $${c.raw.toLocaleString('es-PA')}M` } } },
+        scales: {
+          x: { ticks:{color:'#6580b0', font:{size:9}}, grid:{display:false} },
+          y: { ticks:{color:'#6580b0', font:{size:9}, callback:v=>'$'+v.toLocaleString('es-PA')+'M'}, grid:{color:'rgba(255,255,255,.04)'} },
+        },
+      },
+    });
+  }
 }
 
 async function intentarCargarEstadosFinancierosReales(asset){
