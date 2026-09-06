@@ -673,6 +673,24 @@ function renderResults(){
 // ═══════════════════ FLUCTUATION SYSTEM ═══════════════════
 // Each asset keeps a rolling window of OHLC candles (last 60 × 10-sec ticks)
 const candleHistory = {};
+// 'area' por defecto — vista más accesible para quien está aprendiendo
+// a leer un gráfico de mercado; 'velas' queda disponible como opción
+// para análisis técnico. Persiste durante la sesión del navegador
+// (no entre sesiones distintas) para que el estudiante no tenga que
+// re-elegir cada vez que abre un activo distinto.
+let tipoGraficoMercadoActual = 'area';
+function cambiarTipoGraficoMercado(tipo, btn){
+  tipoGraficoMercadoActual = tipo;
+  document.querySelectorAll('.mkt-chart-toggle-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const icono = document.getElementById('mkt-chart-tipo-icono');
+  const texto = document.getElementById('mkt-chart-tipo-texto');
+  const leyenda = document.getElementById('mkt-chart-leyenda');
+  if(icono) icono.className = tipo==='velas' ? 'ti ti-chart-candle' : 'ti ti-chart-line';
+  if(texto) texto.textContent = tipo==='velas' ? 'Gráfico de velas — precios de mercado en tiempo real' : 'Gráfico de área — precios de mercado en tiempo real';
+  if(leyenda) leyenda.innerHTML = tipo==='velas' ? 'Cada vela = 15 min · <span style="color:var(--green);">■</span> Alza · <span style="color:var(--red);">■</span> Baja' : 'Cada punto = 15 min';
+  if(selectedAsset) requestAnimationFrame(() => (tipo==='velas' ? drawCandlestickChart : drawAreaChart)(selectedAsset));
+}
 const CANDLE_COUNT  = 60;
 // Volatility amplification for visible, realistic intraday movement.
 // ── Derivación temporal defendible ──
@@ -1458,6 +1476,133 @@ function resetCountdown() { updateSessionBadge(); }
 function manualFluctuate(){ /* removed — session engine handles all ticks */ }
 
 // ── CANDLESTICK RENDERER ──
+// Fondo, cuadrícula y ejes compartidos entre el gráfico de velas y el
+// de área — antes esta lógica solo vivía duplicada dentro de
+// drawCandlestickChart; extraerla evita que ambos modos de gráfico
+// puedan desincronizarse visualmente con el tiempo.
+function dibujarFondoYEjesGrafico(ctx, W, H, pad, cW, cH, candles, asset){
+  const n = candles.length;
+  const prices = candles.flatMap(c => [c.h, c.l]);
+  const minP   = Math.min(...prices);
+  const maxP   = Math.max(...prices);
+  const range  = maxP - minP || maxP * 0.01;
+  const padded = range * 0.1;
+  const lo = minP - padded;
+  const hi = maxP + padded;
+  const toY = p => pad.t + cH * (1 - (p - lo) / (hi - lo));
+  const toX = i => pad.l + (cW / n) * (i + 0.5);
+
+  ctx.fillStyle = '#0a0c10';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(0,196,255,0.06)';
+  ctx.lineWidth   = 1;
+  const gridCols = 10;
+  const gridRows = 6;
+  for (let gi = 0; gi <= gridRows; gi++) {
+    const y = pad.t + (cH / gridRows) * gi;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+  }
+  for (let gi = 0; gi <= gridCols; gi++) {
+    const x = pad.l + (cW / gridCols) * gi;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
+  }
+
+  ctx.fillStyle = '#6580b0';
+  ctx.font      = '9px DM Mono';
+  ctx.textAlign = 'right';
+  for (let gi = 0; gi <= gridRows; gi++) {
+    const y     = pad.t + (cH / gridRows) * gi;
+    const price = hi - (hi - lo) / gridRows * gi;
+    ctx.fillText(formatPrice(price, asset), pad.l - 4, y + 3);
+  }
+
+  ctx.fillStyle = '#6580b0';
+  ctx.textAlign = 'center';
+  ctx.font = '9px DM Mono';
+  for (let i = 0; i < n; i += Math.floor(n / 6)) {
+    const ago = n - i;
+    const label = ago === 0 ? 'Ahora' : `-${ago * 15}m`;
+    ctx.fillText(label, toX(i), H - pad.b + 12);
+  }
+
+  return { toX, toY, lo, hi, n };
+}
+
+// Gráfico de área — inspirado en la vista predeterminada de Google
+// Finance. Para quien está aprendiendo a leer un gráfico de mercado
+// por primera vez, una línea de cierre con relleno degradado
+// comunica la tendencia de un vistazo mucho más rápido que un
+// candlestick, que requiere saber interpretar apertura/cierre/mecha
+// antes de que aporte algo. Las velas se mantienen disponibles como
+// opción para quien quiera practicar análisis técnico — no se
+// reemplazan, solo dejan de ser la única vista.
+function drawAreaChart(asset) {
+  if (!asset) return;
+  if (!candleHistory[asset.id]) initCandles(asset);
+  const candles = candleHistory[asset.id];
+  if (!candles || candles.length < 2) return;
+
+  const canvas = document.getElementById('candle-canvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.offsetWidth;
+  const H   = canvas.offsetHeight;
+  if (W === 0 || H === 0) {
+    const mktActive = document.getElementById('page-mercado')?.classList.contains('active');
+    if (mktActive) requestAnimationFrame(() => drawAreaChart(asset));
+    return;
+  }
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { l: 60, r: 12, t: 14, b: 24 };
+  const cW  = W - pad.l - pad.r;
+  const cH  = H - pad.t - pad.b;
+  const { toX, toY, n } = dibujarFondoYEjesGrafico(ctx, W, H, pad, cW, cH, candles, asset);
+
+  const primera = candles[0].c;
+  const ultima = candles[candles.length - 1].c;
+  const subiendo = ultima >= primera;
+  const colorLinea = subiendo ? '#00d084' : '#ff4757';
+  const colorRelleno = subiendo ? 'rgba(0,208,132,' : 'rgba(255,71,87,';
+
+  // Relleno degradado bajo la línea, desvaneciendo hacia transparente
+  const gradiente = ctx.createLinearGradient(0, pad.t, 0, H - pad.b);
+  gradiente.addColorStop(0, colorRelleno + '0.28)');
+  gradiente.addColorStop(1, colorRelleno + '0.02)');
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(candles[0].c));
+  candles.forEach((c, i) => ctx.lineTo(toX(i), toY(c.c)));
+  ctx.lineTo(toX(n - 1), H - pad.b);
+  ctx.lineTo(toX(0), H - pad.b);
+  ctx.closePath();
+  ctx.fillStyle = gradiente;
+  ctx.fill();
+
+  // Línea de precio de cierre
+  ctx.beginPath();
+  ctx.strokeStyle = colorLinea;
+  ctx.lineWidth = 1.8;
+  candles.forEach((c, i) => i === 0 ? ctx.moveTo(toX(i), toY(c.c)) : ctx.lineTo(toX(i), toY(c.c)));
+  ctx.stroke();
+
+  // Punto final destacado, con su precio
+  const ly = toY(ultima);
+  ctx.fillStyle = colorLinea;
+  ctx.beginPath(); ctx.arc(toX(n - 1), ly, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.textAlign = 'right';
+  ctx.font = 'bold 10px DM Mono';
+  ctx.fillText(formatPrice(ultima, asset), W - pad.r, ly - 6);
+
+  window.__candleLayout = { asset, candles, pad, cW, cH, W, H, toX, toY, n, modoArea: true };
+  actualizarHudVela(candles[candles.length - 1], candles[0], asset);
+  configurarInteraccionCandlestick();
+}
+
 function drawCandlestickChart(asset) {
   if (!asset) return;
   if (!candleHistory[asset.id]) initCandles(asset);

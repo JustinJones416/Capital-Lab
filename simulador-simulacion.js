@@ -1404,7 +1404,7 @@ function showAssetDetail(id,type){
 
   // candlestick chart
   if (!candleHistory[asset.id]) initCandles(asset);
-  requestAnimationFrame(() => drawCandlestickChart(asset));
+  requestAnimationFrame(() => (tipoGraficoMercadoActual === 'velas' ? drawCandlestickChart : drawAreaChart)(asset));
 }
 
 // Botones +/- del campo de cantidad — el patrón estándar en cualquier

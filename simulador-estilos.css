@@ -68,6 +68,13 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
    aún más. Un select ocupa el ancho completo en una sola fila
    legible, sin importar cuántas categorías de activo existan. */
 .wl-filter-select{width:100%;margin-top:7px;margin-bottom:6px;padding:6px 8px;font-size:11px;background:var(--c2);border:1px solid var(--c4);border-radius:6px;color:var(--t1);font-family:var(--font-body);}
+/* Toggle Área/Velas del gráfico de Mercado — Área es la vista por
+   defecto (más accesible para quien está aprendiendo a leer un
+   gráfico, inspirado en Google Finance); Velas queda disponible para
+   quien quiera practicar lectura de patrones técnicos. */
+.mkt-chart-toggle{display:flex;background:var(--c2);border:1px solid var(--c4);border-radius:6px;padding:2px;}
+.mkt-chart-toggle-btn{padding:4px 10px;font-size:10px;font-family:var(--font-body);border:none;background:transparent;color:var(--t3);cursor:pointer;border-radius:4px;transition:all .12s;}
+.mkt-chart-toggle-btn.active{background:var(--accent2);color:#05121f;font-weight:600;}
 .wl-body{flex:1;overflow-y:auto;padding:4px 0;}
 .wl-section{padding:5px 10px 2px;}
 .prof-detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;padding:20px;overflow-y:auto;}
