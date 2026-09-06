@@ -994,6 +994,10 @@ function renderEnlaceYahooFinance(asset){
   if(asset.type==='accion' && asset.ticker) simboloYahoo = asset.ticker.replace('.', '-');
   else if(asset.type==='divisa' && asset.ticker?.includes('/')) simboloYahoo = asset.ticker.replace('/','')+'=X';
   else if(asset.type==='futuro' && FUTUROS_YAHOO_MAP[asset.ticker]) simboloYahoo = FUTUROS_YAHOO_MAP[asset.ticker];
+  // Cripto usa un formato de ticker distinto en Yahoo Finance
+  // (BTC-USD, no solo BTC) — a diferencia de acciones/ETFs, donde el
+  // ticker del catálogo ya coincide (o casi) con el de Yahoo.
+  else if(asset.type==='cripto' && asset.ticker) simboloYahoo = asset.ticker+'-USD';
   const enlace = simboloYahoo
     ? `<a href="https://finance.yahoo.com/quote/${encodeURIComponent(simboloYahoo)}" target="_blank" rel="noopener" style="font-size:11.5px;color:var(--accent2, #4a9eff);"><i class="ti ti-external-link"></i> Ver ${asset.ticker} en Yahoo Finance ↗</a>`
     : '';
@@ -1007,6 +1011,16 @@ function renderEnlaceYahooFinance(asset){
   let marcaActualizacion;
   if(asset.type==='bono'){
     marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Precio calculado por el modelo del simulador — los bonos no tienen una fuente gratuita de precio real en tiempo real disponible</div>`;
+  } else if(asset.type==='cripto'){
+    // A diferencia de bonos (sin fuente real posible) o del "else"
+    // genérico de abajo (sincronización real que existe pero falló
+    // esta vez), cripto tiene un caso distinto: el enlace a Yahoo
+    // Finance SÍ tiene sentido (el precio real existe y es
+    // consultable ahí), pero la sincronización automática con ese
+    // precio real dentro del simulador todavía no está conectada —
+    // sería engañoso sugerir que "simplemente no estuvo disponible
+    // esta vez", como si pudiera funcionar en otra sesión.
+    marcaActualizacion = `<div style="font-size:10.5px;color:var(--t3, #7a8ab0);margin-top:4px;">Precio simulado — la sincronización automática con el precio real de mercado para criptomonedas aún no está conectada en el simulador</div>`;
   } else if(asset.__ultimoRealMs && (Date.now() - asset.__ultimoRealMs) < UMBRAL_ANCLA_REAL_FRESCA_MS){
     // Antes esto revisaba banderas GLOBALES (window.__mercadoRealAbierto),
     // compartidas por los ~66 activos del catálogo — si una sola divisa
@@ -4633,7 +4647,14 @@ function renderAnalysis(id,type){
     div.style.marginTop='14px';
     div.innerHTML=`
       <div class="card" style="margin-bottom:14px;">
-        <div class="card-title"><i class="ti ti-file-invoice" style="color:var(--accent2);"></i> Estado de Resultados — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
+        <div class="card-title" style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;"><i class="ti ti-file-invoice" style="color:var(--accent2);"></i> Estado de Resultados — ${asset.name}
+          <span class="mkt-chart-toggle" style="margin-left:auto;">
+            <button class="mkt-chart-toggle-btn active" data-modo-fs="anual" onclick="cambiarModoEstadoResultados('anual', this)">Anual</button>
+            <button class="mkt-chart-toggle-btn" data-modo-fs="trimestral" onclick="cambiarModoEstadoResultados('trimestral', this)">Trimestral</button>
+          </span>
+          <i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i>
+        </div>
+        <div id="fs-vista-anual">
         <p style="font-size:11px;color:var(--t3);margin-bottom:10px;" id="fs-fuente-income">Cifras en millones USD (USD M) · Modelo estimado del simulador, no un reporte real</p>
         <table id="fs-tabla-income">
           <thead><tr>
@@ -4669,6 +4690,11 @@ function renderAnalysis(id,type){
             </tr>
           </tbody>
         </table>
+        </div>
+        <div id="fs-vista-trimestral" style="display:none;">
+          <p style="font-size:11px;color:var(--t3);margin-bottom:10px;" id="fs-fuente-trimestral">Cargando datos trimestrales reales…</p>
+          <table id="fs-tabla-trimestral"></table>
+        </div>
       </div>
       <div class="card">
         <div class="card-title"><i class="ti ti-building" style="color:var(--green);"></i> Estado de Situación Financiera — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
@@ -4996,6 +5022,60 @@ function renderAnalysis(id,type){
 // tabla se queda tal cual con el modelo simulado, sin ningún cambio
 // visible para el estudiante, ni ningún error interrumpiendo nada.
 // ═══════════════════════════════════════════════════════════════════
+// Toggle Anual/Trimestral del Estado de Resultados — la vista
+// trimestral solo tiene sentido mostrar Ingresos y Utilidad Neta
+// (los únicos campos que Yahoo entrega reales, confirmado con
+// pruebas en vivo), sin las filas estimadas de utilidad bruta/EBIT
+// que el modelo simulado solo construye a nivel anual.
+function cambiarModoEstadoResultados(modo, btn){
+  document.querySelectorAll('[data-modo-fs]').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const vistaAnual = document.getElementById('fs-vista-anual');
+  const vistaTrimestral = document.getElementById('fs-vista-trimestral');
+  if(!vistaAnual || !vistaTrimestral) return;
+  if(modo === 'anual'){
+    vistaAnual.style.display = '';
+    vistaTrimestral.style.display = 'none';
+    return;
+  }
+  vistaAnual.style.display = 'none';
+  vistaTrimestral.style.display = '';
+  renderTablaTrimestralFS();
+}
+
+function renderTablaTrimestralFS(){
+  const tabla = document.getElementById('fs-tabla-trimestral');
+  const fuenteEl = document.getElementById('fs-fuente-trimestral');
+  if(!tabla || !fuenteEl) return;
+  const datos = window.__datosTrimestralesFS;
+  if(!datos || !datos.trimestres || datos.trimestres.length < 2){
+    fuenteEl.textContent = 'Los datos trimestrales reales no están disponibles para este activo en este momento.';
+    tabla.innerHTML = '';
+    return;
+  }
+  const trimestres = datos.trimestres.map(t => ({ fecha:t.fecha, revenue:Math.round(t.revenue/1e6), netIncome:Math.round(t.netIncome/1e6) }));
+  const variacion = ((trimestres[0].revenue-trimestres[1].revenue)/trimestres[1].revenue*100);
+  tabla.innerHTML = `
+    <thead><tr>
+      <th>Concepto</th>
+      ${trimestres.map(t=>`<th style="text-align:right;">${t.fecha}</th>`).join('')}
+      <th style="text-align:right;">Var. trimestral</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td style="color:var(--t2);">Ingresos totales</td>
+        ${trimestres.map(t=>`<td class="mono" style="text-align:right;">${t.revenue.toLocaleString('es-PA')}</td>`).join('')}
+        <td class="mono ${variacion>=0?'g':'r'}" style="text-align:right;">${variacion.toFixed(1)}%</td>
+      </tr>
+      <tr style="background:rgba(0,196,255,.04);">
+        <td style="color:var(--t1);font-weight:500;">Utilidad neta</td>
+        ${trimestres.map(t=>`<td class="mono ${t.netIncome>=0?'g':'r'}" style="text-align:right;font-weight:500;">${t.netIncome.toLocaleString('es-PA')}</td>`).join('')}
+        <td class="mono" style="text-align:right;">—</td>
+      </tr>
+    </tbody>`;
+  fuenteEl.innerHTML = `Cifras en millones USD (USD M) · <span style="color:var(--green);"><i class="ti ti-circle-check" style="font-size:11px;"></i> 100% real de Yahoo Finance</span> — sin estimaciones del modelo, a diferencia de la vista anual · <a href="${datos.urlYahoo}" target="_blank" rel="noopener" style="color:var(--accent2);">Ver en Yahoo Finance ↗</a>`;
+}
+
 async function intentarCargarEstadosFinancierosReales(asset){
   const tabla = document.getElementById('fs-tabla-income');
   const fuenteEl = document.getElementById('fs-fuente-income');
@@ -5007,6 +5087,11 @@ async function intentarCargarEstadosFinancierosReales(asset){
     });
     const d = await respuesta.json();
     if(!d.ok || !Array.isArray(d.anios) || d.anios.length < 2) throw new Error(d.error||'Sin datos reales disponibles.');
+
+    // Se guardan los trimestres ya obtenidos en esta misma consulta —
+    // el toggle Anual/Trimestral los muestra sin tener que volver a
+    // llamar a la función cada vez que el usuario cambia de vista.
+    window.__datosTrimestralesFS = { ticker: asset.ticker, trimestres: d.trimestres || [], urlYahoo: d.urlYahoo };
 
     // Yahoo entrega en dólares exactos; el modelo del simulador usa
     // millones — se convierte para que ambas cifras se lean igual.
@@ -5401,7 +5486,7 @@ function renderPortfolio(permitirSaltarGraficos){
         <div>
           <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Dictamen del analista</div>
           <div class="info-box ${retPct>=8?'success':retPct>=0?'warn':'danger'}" style="margin-bottom:12px;font-size:12px;line-height:1.65;">
-            ${retPct>=8?`<b>Cartera con desempeño óptimo.</b> Retorno de <b>+${retPct.toFixed(2)}%</b> supera el benchmark de renta fija. Ratio Sharpe de <b>${sh.toFixed(2)}</b> indica compensación eficiente por riesgo asumido.`:
+            ${retPct>=8?`<b>Cartera con desempeño óptimo.</b> Retorno de <b>+${retPct.toFixed(2)}%</b> supera la referencia de renta fija. Ratio Sharpe de <b>${sh.toFixed(2)}</b> indica compensación eficiente por riesgo asumido.`:
               retPct>=0?`<b>Cartera con desempeño positivo.</b> Retorno de <b>+${retPct.toFixed(2)}%</b> por debajo del umbral de referencia del 8%. Sharpe de <b>${sh.toFixed(2)}</b>. Considera rebalancear hacia activos de mayor retorno esperado.`:
               `<b>Cartera en terreno negativo.</b> Pérdida acumulada de <b>${retPct.toFixed(2)}%</b>. Volatilidad σ=${aS.toFixed(1)}% eleva el VaR. Evalúa reducir posiciones especulativas y aumentar renta fija.`}
           </div>

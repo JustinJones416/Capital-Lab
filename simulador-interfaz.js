@@ -238,7 +238,7 @@ function renderResultsLab(){
                     La volatilidad σ de <b>${h.sigma}%</b> redujo la consistencia del retorno, con un Sharpe de <b>${h.sharpe}</b>.
                     Para incrementar el retorno ajustado por riesgo, se recomienda aumentar la ponderación en activos de mayor rentabilidad esperada sin escalar proporcionalmente la volatilidad del portafolio.`;
                   } else {
-                    return`<b>Drawdown registrado — objetivo no alcanzado.</b> El portafolio presentó una pérdida de <b>${h.achieved.toFixed(2)}%</b> respecto al capital inicial de <b>$${fmt(h.init)}</b> en el horizonte de ${h.months} meses.
+                    return`<b>Caída máxima registrada — objetivo no alcanzado.</b> El portafolio presentó una pérdida de <b>${h.achieved.toFixed(2)}%</b> respecto al capital inicial de <b>$${fmt(h.init)}</b> en el horizonte de ${h.months} meses.
                     La volatilidad σ de <b>${h.sigma}%</b> con un Sharpe de <b>${h.sharpe}</b> refleja ineficiencia en la relación riesgo-retorno.
                     El VaR estimado de <b>$${fmt(h.var95)}</b> materializó pérdidas durante el período de simulación.
                     Se recomienda reestructurar la asignación de activos priorizando instrumentos de renta fija y reduciendo la exposición a instrumentos especulativos (futuros, derivados) que amplifican la volatilidad sin generar retorno excedente suficiente.`;
@@ -494,14 +494,14 @@ function renderResults(){
   const volColor  = aS<8?'var(--green)':aS<15?'var(--amber)':'var(--red)';
   const divRating = types.length>=4?'Amplia':types.length>=3?'Moderada':types.length>=2?'Limitada':'Concentrada';
   const divColor  = types.length>=4?'var(--green)':types.length>=3?'var(--amber)':'var(--red)';
-  const retRating = retPct>=10?'Alfa positivo':retPct>=RF?'Sobre la tasa libre':retPct>=0?'Positivo':retPct>=-5?'Drawdown leve':'Drawdown severo';
+  const retRating = retPct>=10?'Alfa positivo':retPct>=RF?'Sobre la tasa libre':retPct>=0?'Positivo':retPct>=-5?'Caída leve':'Caída severa';
   const retColor  = retPct>=RF?'var(--green)':retPct>=0?'var(--amber)':'var(--red)';
 
   // Dictamen
   const grade = retPct>=10&&sh>0.5?'A+  — Gestión óptima':
                 retPct>=RF&&sh>0?'A   — Desempeño superior a tasa libre':
                 retPct>=0?'B   — Desempeño positivo con margen de mejora':
-                retPct>=-5?'C   — Drawdown controlado; revisar estrategia':
+                retPct>=-5?'C   — Caída controlada; revisar estrategia':
                 'D   — Pérdidas significativas; reestructurar portafolio';
   const gradeColor = retPct>=RF&&sh>0?'var(--green)':retPct>=0?'var(--amber)':'var(--red)';
 
@@ -609,7 +609,7 @@ function renderResults(){
               ? `La rentabilidad supera la tasa libre de riesgo de referencia (<b>${RF}%</b>), generando una prima de riesgo positiva de <b>+${(retPct-RF).toFixed(2)}%</b>. El portafolio ha creado valor por encima del costo de oportunidad.`
               : retPct>=0
               ? `La rentabilidad es positiva pero se ubica por debajo de la tasa libre de riesgo de referencia (<b>${RF}%</b>). El retorno ajustado por riesgo indica una prima negativa de <b>${(retPct-RF).toFixed(2)}%</b>, sugiriendo que el riesgo asumido no ha sido compensado adecuadamente.`
-              : `El portafolio presenta un drawdown de <b>${retPct.toFixed(2)}%</b> respecto al capital inicial. La exposición actual genera pérdidas no realizadas de <b>$${fmt(Math.abs(pnl))}</b>, requiriendo reevaluación de las posiciones con mayor destrucción de valor.`
+              : `El portafolio presenta una caída de <b>${retPct.toFixed(2)}%</b> respecto al capital inicial. La exposición actual genera pérdidas no realizadas de <b>$${fmt(Math.abs(pnl))}</b>, requiriendo reevaluación de las posiciones con mayor destrucción de valor.`
             }`:
             'Sin posiciones registradas. Configure su portafolio en la sección de Mercado.'}
           </div>
@@ -637,7 +637,7 @@ function renderResults(){
             sh<0.5&&sh>=0?['var(--amber)','ti-activity','Eficiencia del capital subóptima',`El Ratio de Sharpe de ${sh.toFixed(2)} está por debajo del umbral técnico de 0.50. Considere rebalancear hacia activos con mayor retorno ajustado por riesgo (mayor ratio Sharpe individual) o reducir posiciones de alta volatilidad con bajo retorno.`]:null,
             sh<0?['var(--red)','ti-trending-down','Destrucción de valor ajustada por riesgo',`Sharpe negativo (${sh.toFixed(2)}) indica que el portafolio rinde por debajo de la tasa libre de riesgo. El riesgo asumido no está siendo compensado. Evalúe liquidar posiciones perdedoras y reasignar capital a instrumentos de mayor certeza de retorno.`]:null,
             losers.length>winners.length?['var(--red)','ti-arrow-down','Mayor proporción de posiciones perdedoras',`${losers.length} de ${portfolio.length} posiciones registran retorno negativo. Evalúe stop-loss técnico en posiciones con pérdidas superiores al 5% y considere el rebalanceo hacia los activos que muestran momentum positivo.`]:null,
-            retPct>=10&&sh>1?['var(--green)','ti-award','Desempeño de gestión activa superior',`El portafolio supera el benchmark de renta libre con un Sharpe de ${sh.toFixed(2)} y un retorno de +${retPct.toFixed(2)}%. Considere mantener las posiciones ganadoras y evaluar incrementar exposición en las clases de activos con mejor contribución al retorno total.`]:null,
+            retPct>=10&&sh>1?['var(--green)','ti-award','Desempeño de gestión activa superior',`El portafolio supera la referencia de renta libre con un Sharpe de ${sh.toFixed(2)} y un retorno de +${retPct.toFixed(2)}%. Considere mantener las posiciones ganadoras y evaluar incrementar exposición en las clases de activos con mejor contribución al retorno total.`]:null,
             beta!==null&&beta>1.3?['var(--amber)','ti-bolt','Alta sensibilidad al mercado (Beta elevado)',`Beta promedio de ${beta.toFixed(2)} indica que el portafolio amplifica los movimientos del mercado en un ${((beta-1)*100).toFixed(0)}%. En escenarios de corrección de mercado, las pérdidas serían proporcionalmente superiores. Considere reducir beta mediante instrumentos de baja correlación.`]:null,
           ].filter(Boolean).map(([color,icon,title,desc])=>`
             <div style="display:flex;gap:10px;padding:10px 12px;background:var(--c3);border-radius:var(--r);border-left:3px solid ${color};">
@@ -3751,19 +3751,57 @@ function computeStudentMetrics(){
   };
 }
 
-// El estudiante exporta su desempeño para entregar al profesor.
+// El estudiante exporta su desempeño para entregar al profesor. Antes
+// pedía nombre, sección y grupo con 3 prompt() nativos seguidos —
+// interrumpía 3 veces y no dejaba ver los 3 campos a la vez. Un solo
+// modal con los 3 campos es una mejora real, no solo de estilo: se
+// cancela una vez en vez de 3, y se ve todo junto antes de confirmar.
+function modalDatosExportacionEstudiante(){
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'export-modal-overlay';
+    overlay.innerHTML = `
+      <div class="export-modal" style="max-width:420px;">
+        <div class="card-title" style="margin-bottom:14px;"><i class="ti ti-file-export"></i> Exportar para el profesor</div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px;">
+          <div>
+            <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px;">Nombre completo (aparecerá en la lista del profesor)</label>
+            <input type="text" class="wl-search" id="modal-exp-nombre" placeholder="Tu nombre completo">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px;">Sección o materia</label>
+            <input type="text" class="wl-search" id="modal-exp-seccion" placeholder='Ej. "Mercado Financiero"'>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px;">Grupo (opcional)</label>
+            <input type="text" class="wl-search" id="modal-exp-grupo" placeholder="Deja en blanco si no aplica">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-ghost" data-accion="cancelar">Cancelar</button>
+          <button class="btn" data-accion="ok">Exportar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const inputNombre = overlay.querySelector('#modal-exp-nombre');
+    setTimeout(()=>inputNombre.focus(), 50);
+    const cerrar = (resultado) => { overlay.remove(); resolve(resultado); };
+    overlay.querySelector('[data-accion="cancelar"]').onclick = () => cerrar(null);
+    overlay.querySelector('[data-accion="ok"]').onclick = () => cerrar({
+      nombre: inputNombre.value.trim(),
+      seccion: overlay.querySelector('#modal-exp-seccion').value.trim(),
+      grupo: overlay.querySelector('#modal-exp-grupo').value.trim(),
+    });
+    overlay.onclick = (e) => { if(e.target===overlay) cerrar(null); };
+  });
+}
+
 async function exportForTeacher(){
   try {
-    let student = prompt('Ingresa tu nombre completo (aparecerá en la lista del profesor):','');
-    if(student===null) return;            // canceló
-    student = (student||'').trim();
-    if(!student){ notify('Debes ingresar un nombre para exportar','error'); return; }
-    let section = prompt('Sección o materia (ej. "Mercado Financiero"):','');
-    if(section===null) return;            // canceló
-    section = (section||'').trim();
-    let group = prompt('Grupo (opcional — deja en blanco si no aplica):','');
-    if(group===null) group='';            // canceló el grupo: lo dejamos vacío, no abortamos
-    group = (group||'').trim();
+    const datos = await modalDatosExportacionEstudiante();
+    if(datos===null) return;               // canceló
+    if(!datos.nombre){ notify('Debes ingresar un nombre para exportar','error'); return; }
+    const student = datos.nombre, section = datos.seccion, group = datos.grupo;
     const m = computeStudentMetrics();
     // Muestreo de la curva de patrimonio: hasta 60 puntos equiespaciados para mantener
     // el archivo ligero sin perder la forma de la trayectoria.
