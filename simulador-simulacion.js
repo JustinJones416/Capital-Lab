@@ -245,7 +245,7 @@ function renderResultadosSelectorActivos(query){
     return `<div class="cmdk-item" onclick="cerrarSelectorActivos();goPage('mercado');showAssetDetail('${a.id}','${a.type}');">
       <i class="ti ti-chart-line"></i>
       <div style="flex:1;min-width:0;">
-        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name} <span class="badge ${typeBadgeCls(a.type)}" style="font-size:8px;">${a.type}</span></div>
+        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name} <span class="badge ${typeBadgeCls(a.type)}" style="font-size:8px;">${TESIS_TIPO_LABEL[a.type]||a.type}${a.sector==='ETF'?' · ETF':''}</span></div>
         <div style="font-size:10.5px;color:var(--t3);">${a.ticker||''}</div>
       </div>
       <div style="text-align:right;">
@@ -341,7 +341,7 @@ function renderResultadosCmdk(query){
   }
   if(activos.length){
     html += '<div class="cmdk-group-label">Activos del mercado</div>';
-    html += activos.map(a => `<div class="cmdk-item" onclick="cerrarBuscadorUniversal();goPage('mercado');showAssetDetail('${a.id}','${a.type}');"><i class="ti ti-chart-line"></i>${a.name}<span class="cmdk-item-sub">${a.ticker||''}</span></div>`).join('');
+    html += activos.map(a => `<div class="cmdk-item" onclick="cerrarBuscadorUniversal();goPage('mercado');showAssetDetail('${a.id}','${a.type}');"><i class="ti ti-chart-line"></i><div style="flex:1;min-width:0;"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name}</div><span class="cmdk-item-sub">${a.ticker||''}</span></div><span class="badge ${typeBadgeCls(a.type)}" style="font-size:9px;flex-shrink:0;">${TESIS_TIPO_LABEL[a.type]||a.type}${a.sector==='ETF'?' · ETF':''}</span></div>`).join('');
   }
   if(estudiantes.length){
     html += '<div class="cmdk-group-label">Estudiantes</div>';
