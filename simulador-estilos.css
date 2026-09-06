@@ -467,7 +467,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--accent2);}
 input[type=number]{font-family:var(--font-mono);}
 
 /* ── BUTTONS ── */
-.btn{padding:8px 18px;border-radius:var(--r);font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:6px;
+.btn{padding:8px 18px;border-radius:var(--r);font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:6px;box-shadow:var(--sombra-sm);
   /* Fondo por defecto para cualquier botón que use SOLO .btn sin
      ninguna variante de color (.btn-primary/.btn-ghost/etc.) — antes
      esos casos (confirmados reales: el botón principal "Elegir un
@@ -496,6 +496,7 @@ input[type=number]{font-family:var(--font-mono);}
 .btn-buy{background:var(--green);color:#000;font-weight:600;}.btn-buy:hover{filter:brightness(1.1);}
 .btn-sell{background:var(--red);color:#fff;font-weight:600;}.btn-sell:hover{filter:brightness(1.1);}
 .btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{background:#1a4fd8;}
+.btn:hover{box-shadow:var(--sombra-md);}
 .btn-ghost{background:var(--c3);color:var(--t1);border:1px solid var(--c5);}.btn-ghost:hover{background:var(--c4);}
 .btn-danger{background:var(--red);color:#fff;border:1px solid var(--red);}.btn-danger:hover{filter:brightness(1.1);}
 .btn-sm{padding:5px 12px;font-size:12px;}
@@ -512,7 +513,7 @@ input[type=number]{font-family:var(--font-mono);}
 
 /* ── TABLES ── */
 table{width:100%;border-collapse:collapse;font-size:12px;}
-th{text-align:left;font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;padding:7px 10px;border-bottom:1px solid var(--c4);}
+th{text-align:left;font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;padding:7px 10px;border-bottom:1px solid var(--c4);background:rgba(255,255,255,.02);}
 td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--t1);}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:rgba(255,255,255,.015);}
