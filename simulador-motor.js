@@ -296,7 +296,7 @@ async function finalizarRecuperacionPassword(){
 async function authResendConfirmation(){
   if(!authConfigured() || !sb){ authMsg('Supabase aún no está configurado o no se pudo conectar. Revisa tu conexión e intenta de nuevo.', 'error'); return; }
   let correo = document.getElementById('login-email').value.trim();
-  if(!correo) correo = (prompt('¿A qué correo reenviamos la confirmación?','') || '').trim();
+  if(!correo) correo = ((await modalPrompt('¿A qué correo reenviamos la confirmación?','')) || '').trim();
   if(!correo){ authMsg('Ingresa tu correo electrónico primero.'); return; }
   try {
     const { error } = await conTiempoLimite(sb.auth.resend({
@@ -974,11 +974,12 @@ async function alternarArchivadoSesion(sesionId, reactivar){
 // una advertencia clara, y después escribir el nombre exacto de la sesión.
 async function eliminarSesionClase(sesionId, sesionNombre){
   if(!sb || !currentUser) return;
-  const primeraConfirmacion = confirm(
-    `¿Eliminar por completo "${sesionNombre}"?\n\nEsto borra para siempre a todos los estudiantes inscritos de esta sesión, sus carteras, calificaciones, anuncios y asistencia. No se puede deshacer.`
+  const primeraConfirmacion = await modalConfirmar(
+    `Esto borra para siempre a todos los estudiantes inscritos de esta sesión, sus carteras, calificaciones, anuncios y asistencia. No se puede deshacer.`,
+    { titulo: `¿Eliminar por completo "${sesionNombre}"?`, textoConfirmar: 'Sí, eliminar', peligroso: true }
   );
   if(!primeraConfirmacion) return;
-  const escrito = prompt(`Para confirmar, escribe exactamente el nombre de la sesión:\n\n${sesionNombre}`);
+  const escrito = await modalPrompt(`Para confirmar, escribe exactamente el nombre de la sesión:\n\n${sesionNombre}`);
   if(escrito !== sesionNombre){
     if(escrito !== null) notify('El nombre no coincide. No se eliminó la sesión.', 'error');
     return;
@@ -1970,6 +1971,21 @@ function abrirReferenciaCalificaciones(){
     <button class="modal-close" onclick="this.closest('.export-modal-overlay').remove();"><i class="ti ti-x"></i></button>
     <h2><i class="ti ti-award" style="color:var(--gold, #e8b94a);"></i> Niveles de Calificación CapitalLab</h2>
     <p style="font-size:12.5px;color:var(--t2, #b8c4dc);margin-bottom:14px;">Combina el retorno esperado y el riesgo real de cada activo (Ratio Sharpe) en una sola letra, para que estudiantes, inversionistas, y profesores puedan ver rápido qué tan favorable es su relación riesgo-retorno. Nunca se basa en una sola métrica aislada: un activo de alto retorno pero riesgo desproporcionado no sale "Excelente" solo por ser rentable.</p>
+    <div class="info-box" style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:600;color:var(--t1);margin-bottom:6px;">La fórmula exacta</div>
+      <div style="font-family:var(--font-mono);font-size:12px;color:var(--accent2);background:var(--c2);padding:8px 10px;border-radius:6px;margin-bottom:8px;">Ratio Sharpe = (Retorno esperado − 4.5%) ÷ Riesgo (σ)</div>
+      <div style="font-size:11px;color:var(--t2);line-height:1.6;">El 4.5% es la tasa libre de riesgo de referencia (el retorno que se obtendría sin asumir ningún riesgo, como un bono del Tesoro). El Sharpe mide cuánto retorno adicional da un activo <i>por cada unidad de riesgo</i> que le añade a la cartera — dos activos con el mismo retorno pueden tener Sharpe muy distinto si uno es mucho más volátil que el otro.</div>
+      <div style="font-size:11px;font-weight:600;color:var(--t1);margin:10px 0 4px;">Umbrales de letra (calculados con los percentiles reales de los activos de la plataforma)</div>
+      <table style="width:100%;font-size:11px;"><tr><th>Letra</th><th class="right">Sharpe mínimo</th></tr>
+        <tr><td>A+</td><td class="right mono">≥ 0.50</td></tr>
+        <tr><td>A</td><td class="right mono">≥ 0.32</td></tr>
+        <tr><td>B</td><td class="right mono">≥ 0.20</td></tr>
+        <tr><td>C</td><td class="right mono">≥ 0.08</td></tr>
+        <tr><td>D</td><td class="right mono">≥ −0.15</td></tr>
+        <tr><td>E</td><td class="right mono">&lt; −0.15</td></tr>
+      </table>
+      <div style="font-size:11px;color:var(--t2);line-height:1.6;margin-top:8px;">Excepción: un activo con calificación crediticia por debajo de grado sólido (A o mejor, en la escala AAA-D independiente que mide riesgo de impago) nunca alcanza A+ o A en esta escala, sin importar qué tan bueno sea su Sharpe — el riesgo de no pago es un riesgo real que el Sharpe, calculado solo sobre volatilidad de precio, no captura por sí solo.</div>
+    </div>
     ${Object.entries(NIVELES_CALIFICACION_CAPITALLAB).map(([letra,n]) => `
       <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--c4, #242d42);">
         <div style="width:36px;height:36px;border-radius:50%;background:${n.color}22;border:2px solid ${n.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:${n.color};flex-shrink:0;">${letra}</div>
@@ -1979,7 +1995,7 @@ function abrirReferenciaCalificaciones(){
         </div>
       </div>
     `).join('')}
-    <div style="font-size:10.5px;color:var(--t3);margin-top:12px;font-style:italic;">Un activo con calificación crediticia por debajo de grado sólido (A o mejor) nunca alcanza A+ o A en esta escala, sin importar su Sharpe — el riesgo de impago es real y esta escala lo respeta. Esta calificación no constituye una recomendación financiera.</div>
+    <div style="font-size:10.5px;color:var(--t3);margin-top:12px;font-style:italic;">Esta calificación no constituye una recomendación financiera.</div>
   </div>`;
   document.body.appendChild(overlay);
   overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
@@ -6017,8 +6033,7 @@ async function authBoot(){
       }
       if(evento === 'SIGNED_OUT' && currentUser && !guestMode){
         currentUser = null;
-        alert('Tu sesión expiró o se cerró en otro lugar. Por favor, vuelve a iniciar sesión.');
-        location.reload();
+        modalAlerta('Tu sesión expiró o se cerró en otro lugar. Por favor, vuelve a iniciar sesión.').then(() => location.reload());
       }
     });
     iniciarVigilanciaDeSesion();
@@ -6046,8 +6061,7 @@ async function verificarSesionValida(){
     const { data: { user }, error } = await sb.auth.getUser();
     if(error || !user){
       currentUser = null;
-      alert('Tu sesión expiró. Por favor, vuelve a iniciar sesión para seguir usando CapitalLab.');
-      location.reload();
+      modalAlerta('Tu sesión expiró. Por favor, vuelve a iniciar sesión para seguir usando CapitalLab.').then(() => location.reload());
     }
   } catch(e){ /* problema de red pasajero: no interrumpir, se reintenta en el próximo chequeo */ }
 }
@@ -6990,6 +7004,81 @@ function dprEfectivo(){
 // ═══════════════════ UTILS ═══════════════════
 function fmt(n){n=Math.abs(n);return n>=1000?n.toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2}):n.toFixed(2);}
 function fmtS(n){return(n<0?'-$':'$')+fmt(n);}
+// ══════════════════════════════════════════════════
+// MODALES PROPIOS DEL TEMA — reemplazan confirm()/alert()/prompt()
+// nativos del navegador. Un cuadro de confirmación nativo rompe la
+// experiencia visual cuidada del resto de la app (tipografía del
+// sistema operativo, sin el tema oscuro, forma distinta según el
+// navegador). Cada función devuelve una Promise, así que el código
+// que las usa simplemente le agrega "await" donde antes llamaba
+// directamente a la función nativa — el resto de la lógica no cambia.
+// ══════════════════════════════════════════════════
+function modalConfirmar(mensaje, opciones={}){
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'export-modal-overlay';
+    overlay.innerHTML = `
+      <div class="export-modal" style="max-width:420px;">
+        <div class="card-title" style="margin-bottom:10px;"><i class="ti ti-alert-triangle" style="color:${opciones.peligroso?'var(--red)':'var(--accent2)'};"></i> ${opciones.titulo||'Confirmar'}</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.6;white-space:pre-line;margin-bottom:18px;">${mensaje}</div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-ghost" data-accion="cancelar">${opciones.textoCancelar||'Cancelar'}</button>
+          <button class="btn ${opciones.peligroso?'btn-danger':''}" data-accion="confirmar">${opciones.textoConfirmar||'Confirmar'}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const cerrar = (resultado) => { overlay.remove(); resolve(resultado); };
+    overlay.querySelector('[data-accion="cancelar"]').onclick = () => cerrar(false);
+    overlay.querySelector('[data-accion="confirmar"]').onclick = () => cerrar(true);
+    overlay.onclick = (e) => { if(e.target===overlay) cerrar(false); };
+  });
+}
+
+function modalAlerta(mensaje, opciones={}){
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'export-modal-overlay';
+    overlay.innerHTML = `
+      <div class="export-modal" style="max-width:420px;">
+        <div class="card-title" style="margin-bottom:10px;"><i class="ti ti-info-circle" style="color:var(--accent2);"></i> ${opciones.titulo||'Aviso'}</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.6;white-space:pre-line;margin-bottom:18px;">${mensaje}</div>
+        <div style="display:flex;justify-content:flex-end;">
+          <button class="btn" data-accion="ok">${opciones.textoBoton||'Entendido'}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    // Sin clic fuera para cerrar ni tecla Escape — a diferencia de
+    // modalConfirmar, un aviso a veces precede una acción que YA
+    // ocurrió (ej. sesión cerrada) y el código que sigue depende de
+    // que el usuario haya efectivamente visto el mensaje.
+    overlay.querySelector('[data-accion="ok"]').onclick = () => { overlay.remove(); resolve(); };
+  });
+}
+
+function modalPrompt(mensaje, valorDefault=''){
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'export-modal-overlay';
+    overlay.innerHTML = `
+      <div class="export-modal" style="max-width:420px;">
+        <div style="font-size:13px;color:var(--t2);line-height:1.6;white-space:pre-line;margin-bottom:12px;">${mensaje}</div>
+        <input type="text" class="wl-search" id="modal-prompt-input" value="${(valorDefault||'').replace(/"/g,'&quot;')}" style="margin-bottom:16px;">
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-ghost" data-accion="cancelar">Cancelar</button>
+          <button class="btn" data-accion="ok">Aceptar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#modal-prompt-input');
+    setTimeout(()=>{ input.focus(); input.select(); }, 50);
+    const cerrar = (resultado) => { overlay.remove(); resolve(resultado); };
+    overlay.querySelector('[data-accion="cancelar"]').onclick = () => cerrar(null);
+    overlay.querySelector('[data-accion="ok"]').onclick = () => cerrar(input.value);
+    input.onkeydown = (e) => { if(e.key==='Enter') cerrar(input.value); if(e.key==='Escape') cerrar(null); };
+    overlay.onclick = (e) => { if(e.target===overlay) cerrar(null); };
+  });
+}
+
 function notify(msg,type='success'){const el=document.getElementById('notif');el.textContent=msg;el.className='notif '+type+' show';setTimeout(()=>el.classList.remove('show'),3000);}
 function riskBadge(s){return s<10?'<span class="badge badge-green">Bajo</span>':s<20?'<span class="badge badge-amber">Moderado</span>':'<span class="badge badge-red">Alto</span>';}
 function ratingBadge(r){const g=['AAA','AA+','AA','AA-','A+','A','A-'];const a=['BBB+','BBB','BBB-'];return g.includes(r)?'<span class="badge badge-green">'+r+'</span>':a.includes(r)?'<span class="badge badge-amber">'+r+'</span>':'<span class="badge badge-red">'+r+'</span>';}
