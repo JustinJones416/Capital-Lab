@@ -140,9 +140,9 @@ document.addEventListener('click',e=>{
     // siguiente tick de precios — hasta 5 segundos después. Se
     // redibuja de inmediato para que nunca quede así ni un instante
     // perceptible.
-    if(typeof selectedAsset!=='undefined' && selectedAsset && typeof drawCandlestickChart==='function'){
+    if(typeof selectedAsset!=='undefined' && selectedAsset && typeof redibujarGraficoMercado==='function'){
       const mktActivo = document.getElementById('page-mercado')?.classList.contains('active');
-      if(mktActivo) requestAnimationFrame(() => drawCandlestickChart(selectedAsset));
+      if(mktActivo) requestAnimationFrame(() => redibujarGraficoMercado(selectedAsset));
     }
   }
   setVH();
@@ -643,7 +643,7 @@ function goPage(p){
   const intentar = (fn) => { try { fn(); } catch(e) { console.error('[goPage] Error inicializando página "'+p+'":', e); } };
   if(p==='mercado'&&selectedAsset){
     // Canvas had zero size while hidden — redraw now that the page is visible
-    requestAnimationFrame(()=>requestAnimationFrame(()=>drawCandlestickChart(selectedAsset)));
+    requestAnimationFrame(()=>requestAnimationFrame(()=>redibujarGraficoMercado(selectedAsset)));
   }
   if(p==='cartera'){
     intentar(renderPortfolioTabs);
@@ -1404,7 +1404,7 @@ function showAssetDetail(id,type){
 
   // candlestick chart
   if (!candleHistory[asset.id]) initCandles(asset);
-  requestAnimationFrame(() => (tipoGraficoMercadoActual === 'velas' ? drawCandlestickChart : drawAreaChart)(asset));
+  requestAnimationFrame(() => redibujarGraficoMercado(asset));
 }
 
 // Botones +/- del campo de cantidad — el patrón estándar en cualquier

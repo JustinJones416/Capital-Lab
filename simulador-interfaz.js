@@ -679,6 +679,21 @@ const candleHistory = {};
 // (no entre sesiones distintas) para que el estudiante no tenga que
 // re-elegir cada vez que abre un activo distinto.
 let tipoGraficoMercadoActual = 'area';
+// Punto único de decisión "¿qué gráfico dibujo ahora?" — antes cada
+// lugar del código que refresca el gráfico (selección inicial,
+// refresco de precio en vivo, resize, tras una operación) llamaba
+// directamente a drawCandlestickChart, ignorando por completo el
+// toggle Área/Velas. El resultado real: el toggle "funcionaba" un
+// instante y el refresco en vivo (cada pocos segundos) lo revertía
+// solo a velas sin que el usuario hiciera nada — desde su
+// perspectiva, el botón simplemente no funcionaba. Todo punto de
+// refresco debe llamar a ESTA función, nunca a drawCandlestickChart
+// ni a drawAreaChart directamente.
+function redibujarGraficoMercado(asset){
+  if(!asset) return;
+  (tipoGraficoMercadoActual === 'velas' ? drawCandlestickChart : drawAreaChart)(asset);
+}
+
 function cambiarTipoGraficoMercado(tipo, btn){
   tipoGraficoMercadoActual = tipo;
   document.querySelectorAll('.mkt-chart-toggle-btn').forEach(b=>b.classList.remove('active'));
@@ -689,7 +704,7 @@ function cambiarTipoGraficoMercado(tipo, btn){
   if(icono) icono.className = tipo==='velas' ? 'ti ti-chart-candle' : 'ti ti-chart-line';
   if(texto) texto.textContent = tipo==='velas' ? 'Gráfico de velas — precios de mercado en tiempo real' : 'Gráfico de área — precios de mercado en tiempo real';
   if(leyenda) leyenda.innerHTML = tipo==='velas' ? 'Cada vela = 15 min · <span style="color:var(--green);">■</span> Alza · <span style="color:var(--red);">■</span> Baja' : 'Cada punto = 15 min';
-  if(selectedAsset) requestAnimationFrame(() => (tipo==='velas' ? drawCandlestickChart : drawAreaChart)(selectedAsset));
+  if(selectedAsset) requestAnimationFrame(() => redibujarGraficoMercado(selectedAsset));
 }
 const CANDLE_COUNT  = 60;
 // Volatility amplification for visible, realistic intraday movement.
@@ -1345,7 +1360,7 @@ function tickPrices() {
 
   if (selectedAsset) {
     const updated = mapaActivosPorClave.get(selectedAsset.id+'|'+selectedAsset.type);
-    if (updated) { selectedAsset = updated; updateMarketToolbar(updated); updateTradeCalc(); drawCandlestickChart(updated); }
+    if (updated) { selectedAsset = updated; updateMarketToolbar(updated); updateTradeCalc(); redibujarGraficoMercado(updated); }
   }
   updateNavCapital();
   checkMarginCall();   // evalúa liquidación forzada por apalancamiento tras el movimiento de precios
@@ -1796,9 +1811,14 @@ function configurarInteraccionCandlestick(){
 
 // Redibuja el gráfico completo desde la geometría ya calculada, sin
 // recalcular nada — usado para "limpiar" el crosshair anterior antes
-// de dibujar el nuevo, en cada movimiento del mouse.
+// de dibujar el nuevo, en cada movimiento del mouse. Debe respetar
+// el modo actual (Área o Velas): antes llamaba siempre a
+// drawCandlestickChart sin importar el toggle, así que el simple
+// hecho de mover el mouse sobre un gráfico en modo Área lo revertía
+// a velas al instante — el bug real detrás del reporte de que el
+// toggle "no funcionaba".
 function dibujarCandlestickBase(layout){
-  drawCandlestickChart(layout.asset);
+  redibujarGraficoMercado(layout.asset);
 }
 
 // Dibuja la cruz punteada (línea vertical + horizontal) sobre la vela
@@ -1825,9 +1845,17 @@ function dibujarCrosshairVela(layout, idx, vela){
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Resaltado sutil de la vela bajo el cursor
-  ctx.fillStyle = 'rgba(122,138,176,.12)';
-  ctx.fillRect(x - layout.bodyW, layout.pad.t, layout.bodyW * 2, layout.cH);
+  // El resaltado bajo el cursor se dibuja distinto según el modo: en
+  // Velas, una franja sutil sobre la vela completa (bodyW); en Área,
+  // no hay "cuerpo de vela" que resaltar — un punto sobre la línea
+  // en el precio de cierre exacto es lo coherente con ese estilo.
+  if(layout.modoArea){
+    ctx.fillStyle = layout.candles[layout.candles.length-1].c >= layout.candles[0].c ? '#00d084' : '#ff4757';
+    ctx.beginPath(); ctx.arc(x, yClose, 3.5, 0, Math.PI*2); ctx.fill();
+  } else {
+    ctx.fillStyle = 'rgba(122,138,176,.12)';
+    ctx.fillRect(x - layout.bodyW, layout.pad.t, layout.bodyW * 2, layout.cH);
+  }
   ctx.restore();
 }
 
