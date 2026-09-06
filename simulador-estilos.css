@@ -62,6 +62,12 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .wf-btn{flex:1;padding:3px 0;font-size:9px;font-family:var(--font-body);border:none;background:transparent;color:var(--t3);cursor:pointer;border-radius:4px;text-align:center;transition:all .12s;}
 .wf-btn:hover{background:var(--c4);color:var(--t1);}
 .wf-btn.active{background:rgba(0,196,255,.12);color:var(--accent2);}
+/* Reemplaza la fila de 6 botones de filtro del sidebar (Lista de
+   Seguimiento), que ya vivían a font-size:9px casi ilegible y no
+   tenían más espacio para un séptimo tipo (Cripto) sin comprimirse
+   aún más. Un select ocupa el ancho completo en una sola fila
+   legible, sin importar cuántas categorías de activo existan. */
+.wl-filter-select{width:100%;margin-top:7px;margin-bottom:6px;padding:6px 8px;font-size:11px;background:var(--c2);border:1px solid var(--c4);border-radius:6px;color:var(--t1);font-family:var(--font-body);}
 .wl-body{flex:1;overflow-y:auto;padding:4px 0;}
 .wl-section{padding:5px 10px 2px;}
 .prof-detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;padding:20px;overflow-y:auto;}
@@ -476,6 +482,7 @@ input[type=number]{font-family:var(--font-mono);}
 .badge-amber{background:rgba(255,180,0,.15);color:#ffb400;border:1px solid rgba(255,180,0,.25);}
 .badge-blue{background:rgba(41,98,255,.15);color:#7aa4ff;border:1px solid rgba(41,98,255,.25);}
 .badge-cyan{background:rgba(0,196,255,.15);color:#00c4ff;border:1px solid rgba(0,196,255,.25);}
+.badge-purple{background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.25);}
 
 /* ── TABLES ── */
 table{width:100%;border-collapse:collapse;font-size:12px;}

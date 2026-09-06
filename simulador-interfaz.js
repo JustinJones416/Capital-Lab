@@ -374,7 +374,7 @@ function renderResults(){
 
   // ── Bar chart: avg return by type ──
   resBarInst = dc(resBarInst);
-  const bTR = {accion:[],bono:[],divisa:[],futuro:[],derivado:[]};
+  const bTR = {accion:[],bono:[],divisa:[],futuro:[],derivado:[],cripto:[]};
   portfolio.forEach(p=>{
     // Use real P&L: currentPrice vs buyPrice
     const cur = p.currentPrice || p.buyPrice;
@@ -384,10 +384,10 @@ function renderResults(){
   const avg = a => a.length ? a.reduce((s,v)=>s+v,0)/a.length : 0;
   {const _c=document.getElementById('res-bar');if(_c&&typeof Chart!=='undefined'){
     resBarInst=new Chart(_c,{type:'bar',data:{
-      labels:['Acciones','Bonos','Divisas','Futuros','Derivados'],
+      labels:['Acciones','Bonos','Divisas','Futuros','Derivados','Criptomonedas'],
       datasets:[{
-        data:[avg(bTR.accion),avg(bTR.bono),avg(bTR.divisa),avg(bTR.futuro),avg(bTR.derivado)],
-        backgroundColor:['rgba(41,98,255,.75)','rgba(0,208,132,.75)','rgba(255,180,0,.75)','rgba(255,71,87,.75)','rgba(0,196,255,.75)'],
+        data:[avg(bTR.accion),avg(bTR.bono),avg(bTR.divisa),avg(bTR.futuro),avg(bTR.derivado),avg(bTR.cripto)],
+        backgroundColor:['rgba(41,98,255,.75)','rgba(0,208,132,.75)','rgba(255,180,0,.75)','rgba(255,71,87,.75)','rgba(0,196,255,.75)','rgba(192,132,252,.75)'],
         borderRadius:4
       }]},
       options:{responsive:true,maintainAspectRatio:false,
@@ -569,12 +569,12 @@ function renderResults(){
       <!-- Composición por clase de activo -->
       <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--c4);">
         <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Exposición por clase de activo (% del AUM gestionado)</div>
-        <div class="grid-5-resp" style="gap:8px;">
-          ${['accion','bono','divisa','futuro','derivado'].map(t=>{
+        <div class="grid-5-resp" style="gap:8px;grid-template-columns:repeat(6,1fr);">
+          ${['accion','bono','divisa','futuro','derivado','cripto'].map(t=>{
             const v=portfolio.filter(p=>p.type===t).reduce((s,p)=>s+(p.currentPrice||p.buyPrice)*p.qty,0);
             const pctv=cV>0?(v/cV*100):0;
-            const col=t==='accion'?'#2962ff':t==='bono'?'#00d084':t==='divisa'?'#ffb400':t==='futuro'?'#ff4757':'#00c4ff';
-            const label=t==='accion'?'Renta Variable':t==='bono'?'Renta Fija':t==='divisa'?'Divisas (FX)':t==='futuro'?'Futuros':'Derivados OTC';
+            const col=t==='accion'?'#2962ff':t==='bono'?'#00d084':t==='divisa'?'#ffb400':t==='futuro'?'#ff4757':t==='cripto'?'#c084fc':'#00c4ff';
+            const label=t==='accion'?'Renta Variable':t==='bono'?'Renta Fija':t==='divisa'?'Divisas (FX)':t==='futuro'?'Futuros':t==='cripto'?'Criptomonedas':'Derivados OTC';
             return`<div style="background:var(--c3);border-radius:var(--r);padding:10px;text-align:center;">
               <div style="font-size:9px;color:var(--t3);margin-bottom:4px;">${label}</div>
               <div style="font-size:18px;font-family:var(--font-mono);font-weight:700;color:${col};">${pctv.toFixed(1)}%</div>
@@ -1002,7 +1002,7 @@ function guardarMiTesis(lista){
   try { localStorage.setItem(TESIS_STORAGE_KEY, JSON.stringify(lista)); } catch(e){}
 }
 
-const TESIS_TIPO_LABEL = { accion:'Acción', bono:'Bono', divisa:'Divisa', futuro:'Futuro', derivado:'Derivado' };
+const TESIS_TIPO_LABEL = { accion:'Acción', bono:'Bono', divisa:'Divisa', futuro:'Futuro', derivado:'Derivado', cripto:'Criptomoneda' };
 function renderFormularioTesis(){
   const select = document.getElementById('tesis-form-activo');
   if(!select) return;
@@ -3152,7 +3152,7 @@ function newsCategoryOf(item){
   return a ? a.type : 'general';
 }
 
-const CAT_LABELS={accion:'Acciones',bono:'Bonos',divisa:'Divisas',futuro:'Futuros',derivado:'Derivados',general:'General'};
+const CAT_LABELS={accion:'Acciones',bono:'Bonos',divisa:'Divisas',futuro:'Futuros',derivado:'Derivados',cripto:'Criptomonedas',general:'General'};
 
 function setNewsCategory(cat,btn){
   newsCategory=cat;
@@ -3988,7 +3988,7 @@ function openStudentDetail(name){
         <thead><tr><th>Activo</th><th>Tipo</th><th style="text-align:right;">Cant.</th><th style="text-align:right;">Precio compra</th><th style="text-align:right;">Precio actual</th><th style="text-align:right;">Valor</th><th style="text-align:right;">P&L</th></tr></thead>
         <tbody>${r.holdingsDetail.map(h=>`<tr>
           <td style="font-weight:500;">${h.ticker}</td>
-          <td style="font-size:11px;color:var(--t3);">${({accion:'Acción',bono:'Bono',divisa:'Divisa',futuro:'Futuro',derivado:'Derivado'})[h.type]||h.type}</td>
+          <td style="font-size:11px;color:var(--t3);">${({accion:'Acción',bono:'Bono',divisa:'Divisa',futuro:'Futuro',derivado:'Derivado',cripto:'Criptomoneda'})[h.type]||h.type}</td>
           <td class="mono" style="text-align:right;">${h.qty}</td>
           <td class="mono" style="text-align:right;">$${fmt(h.buyPrice)}</td>
           <td class="mono" style="text-align:right;">$${fmt(h.currentPrice)}</td>
@@ -4134,7 +4134,7 @@ function exportStudentPDF(){
           <thead><tr><th>Activo</th><th class="txt">Tipo</th><th class="r">Cant.</th><th class="r">Precio compra</th><th class="r">Precio actual</th><th class="r">Valor</th><th class="r">P&L %</th></tr></thead>
           <tbody>${r.holdingsDetail.map(h=>`<tr>
             <td class="txt">${h.ticker}</td>
-            <td class="txt">${({accion:'Acción',bono:'Bono',divisa:'Divisa',futuro:'Futuro',derivado:'Derivado'})[h.type]||h.type}</td>
+            <td class="txt">${({accion:'Acción',bono:'Bono',divisa:'Divisa',futuro:'Futuro',derivado:'Derivado',cripto:'Criptomoneda'})[h.type]||h.type}</td>
             <td class="r">${h.qty}</td>
             <td class="r">$${fmt(h.buyPrice)}</td>
             <td class="r">$${fmt(h.currentPrice)}</td>

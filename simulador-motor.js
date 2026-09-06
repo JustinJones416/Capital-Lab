@@ -6643,7 +6643,30 @@ const ALL_STOCKS=[
        {year:2021,operating:24000,investing:-7000,financing:-15000},
      ]
    }
-  }
+  },
+  // ── ETFs (fondos cotizados) ──
+  // Cotizan y se compran/venden con la misma mecánica exacta que una
+  // acción (un solo precio, en tiempo real, durante el horario de
+  // mercado) — por eso viven aquí dentro de ALL_STOCKS con
+  // type:'accion', en vez de crear una clase aparte que técnicamente
+  // no la necesitan. Se distinguen con sector:'ETF' para poder
+  // filtrarlos e identificarlos claramente en toda la interfaz. No
+  // tienen estados financieros propios (fs) porque un ETF no es una
+  // empresa individual con ingresos o balance — es una cesta de
+  // muchos activos ya existentes, así que ese campo se omite a
+  // propósito en vez de simular cifras que no significarían nada real.
+  {id:'SPY',name:'SPDR S&P 500 ETF',ticker:'SPY',sector:'ETF',country:'EE.UU.',price:592,beta:1.0,sigma:15.8,ret:10.5,rating:null,dividend:5.8,type:'accion',
+   profile:'SPDR S&P 500 ETF Trust lanzado en 1993 por State Street — el ETF más antiguo y uno de los más operados del mundo. Replica el índice S&P 500, dando exposición diversificada a las 500 mayores empresas cotizadas de EE.UU. en una sola operación. Al ser un fondo diversificado, no tiene "estados financieros" propios como una empresa — su valor depende del conjunto de las 500 empresas que contiene.'},
+  {id:'QQQ',name:'Invesco QQQ Trust',ticker:'QQQ',sector:'ETF',country:'EE.UU.',price:518,beta:1.15,sigma:21.4,ret:14.2,rating:null,dividend:2.1,type:'accion',
+   profile:'Invesco QQQ Trust lanzado en 1999. Replica el índice Nasdaq-100, con fuerte concentración en tecnología (Apple, Microsoft, Nvidia, Amazon, entre las mayores posiciones). Más volátil que un ETF de mercado amplio como SPY, precisamente por esa concentración sectorial.'},
+  {id:'VOO',name:'Vanguard S&P 500 ETF',ticker:'VOO',sector:'ETF',country:'EE.UU.',price:545,beta:1.0,sigma:15.7,ret:10.4,rating:null,dividend:5.4,type:'accion',
+   profile:'Vanguard S&P 500 ETF lanzado en 2010 por Vanguard, la gestora pionera de los fondos indexados de bajo costo. Prácticamente idéntico a SPY en lo que replica (el S&P 500), pero con una comisión de administración considerablemente menor — un ejemplo pedagógico útil de cómo dos productos casi idénticos pueden competir principalmente en costo.'},
+  {id:'VTI',name:'Vanguard Total Stock Market ETF',ticker:'VTI',sector:'ETF',country:'EE.UU.',price:298,beta:1.02,sigma:16.2,ret:10.6,rating:null,dividend:4.9,type:'accion',
+   profile:'Vanguard Total Stock Market ETF lanzado en 2001. A diferencia de SPY o VOO (solo las 500 mayores empresas), este ETF busca replicar prácticamente todo el mercado accionario de EE.UU., incluidas empresas medianas y pequeñas — mayor diversificación aún dentro del mismo país.'},
+  {id:'GLD',name:'SPDR Gold Shares',ticker:'GLD',sector:'ETF',country:'EE.UU.',price:248,beta:0.08,sigma:14.5,ret:8.2,rating:null,dividend:0,type:'accion',
+   profile:'SPDR Gold Shares lanzado en 2004 por State Street. Cada acción del fondo representa una fracción de oro físico almacenado en bóvedas — una forma de invertir en el precio del oro sin comprar ni almacenar el metal directamente. Su beta muy bajo refleja que el oro históricamente se mueve con poca relación al mercado accionario, por lo que suele usarse como cobertura (hedge) en carteras diversificadas.'},
+  {id:'VNQ',name:'Vanguard Real Estate ETF',ticker:'VNQ',sector:'ETF',country:'EE.UU.',price:92,beta:0.78,sigma:18.9,ret:8.8,rating:null,dividend:3.6,type:'accion',
+   profile:'Vanguard Real Estate ETF lanzado en 2004. Da exposición diversificada a fideicomisos de inversión inmobiliaria (REITs) que poseen y operan propiedades generadoras de renta (centros comerciales, oficinas, bodegas), sin necesidad de comprar un inmueble directamente. Su dividendo tiende a ser más alto que el de un ETF accionario típico, reflejo de la obligación legal de los REITs de distribuir la mayor parte de sus utilidades.'},
 ];
 const ALL_BONDS=[
   {id:'UST10',name:'Tesoro EE.UU. 10Y',ticker:'UST-10Y',country:'EE.UU.',price:97.5,coupon:4.25,maturity:10,rating:'AAA',sigma:4.2,ret:4.25,profile:'Bono del Tesoro a 10 años, activo libre de riesgo global. Respaldado por el gobierno federal. Tasa refleja política monetaria de la Fed.',rp:0.1,type:'bono',ytm:4.51,duration:6.54,convexity:36.4,couponFreq:'Semestral',faceValue:100,dirtyPrice:98.56,
@@ -6788,6 +6811,37 @@ const ALL_FUTURES=[
   {id:'HO1',name:'Futuro Diésel',ticker:'HO1!',sector:'Energía',country:'Global',price:2.68,sigma:32.4,ret:6.4,type:'futuro',spot:2.7122,basis:-0.0322,openInterest:797,curveState:'Backwardation',expiry:'Trimestral',profile:'Futuro Diésel (HO1!). Contrato de futuros del sector energía. Volatilidad anualizada de 32.4%, retorno esperado 6.4%.',specs:{exchange:'CME/ICE',contractSize:'Estándar',tickSize:'0.01',margin:'8-12%',settlement:'Mensual'}}
 ];
 
+// ── CRIPTOMONEDAS ──
+// Clase de activo nueva, separada de acciones/futuros porque su
+// comportamiento es genuinamente distinto: cotiza 24/7 (sin apertura
+// ni cierre de sesión), su volatilidad real es varias veces la de una
+// acción típica, y no tiene estados financieros de una empresa detrás
+// (no hay balance ni ingresos que reportar — es una red, no una
+// compañía). type:'cripto' en vez de forzarlas dentro de 'accion' o
+// 'divisa', donde ninguna de las dos encajaría bien.
+const ALL_CRYPTO=[
+  {id:'BTC',name:'Bitcoin',ticker:'BTC',sector:'Criptomoneda',country:'Global',price:97500,sigma:58,ret:22,type:'cripto',rating:null,
+   profile:'Bitcoin creado en 2009 por la persona o grupo bajo el seudónimo Satoshi Nakamoto. Primera criptomoneda y la de mayor capitalización de mercado, funciona sobre una red descentralizada (blockchain) sin banco central ni emisor único. Suministro máximo fijo de 21 millones de unidades, del cual ya se ha emitido más del 94%. No tiene estados financieros — no es una empresa, es un protocolo.'},
+  {id:'ETH',name:'Ethereum',ticker:'ETH',sector:'Criptomoneda',country:'Global',price:3400,sigma:68,ret:18,type:'cripto',rating:null,
+   profile:'Ethereum creado en 2015 por Vitalik Buterin. Segunda criptomoneda por capitalización, se diferencia de Bitcoin porque su red permite ejecutar "contratos inteligentes" (programas autónomos), siendo la base de la mayoría de aplicaciones descentralizadas (DeFi) y tokens del mercado cripto. Migró en 2022 de minería (Proof of Work) a validación (Proof of Stake), reduciendo drásticamente su consumo energético.'},
+  {id:'SOL',name:'Solana',ticker:'SOL',sector:'Criptomoneda',country:'Global',price:195,sigma:85,ret:28,type:'cripto',rating:null,
+   profile:'Solana creada en 2020 por Anatoly Yakovenko. Blockchain diseñada para transacciones de muy alta velocidad y bajo costo comparado con Ethereum, lo que la hizo popular para aplicaciones de trading descentralizado y tokens de rápido crecimiento. A cambio de esa velocidad, su red ha sufrido varias interrupciones de servicio a lo largo de su historia.'},
+  {id:'BNB',name:'BNB',ticker:'BNB',sector:'Criptomoneda',country:'Global',price:620,sigma:62,ret:16,type:'cripto',rating:null,
+   profile:'BNB (Binance Coin) lanzada en 2017 por el exchange Binance, uno de los mayores del mundo por volumen de operación. Se usa para pagar comisiones dentro del ecosistema Binance con descuento, y su oferta se reduce periódicamente mediante "quema" programada de tokens.'},
+  {id:'XRP',name:'XRP (Ripple)',ticker:'XRP',sector:'Criptomoneda',country:'Global',price:2.35,sigma:75,ret:15,type:'cripto',rating:null,
+   profile:'XRP creado en 2012, asociado a la empresa Ripple Labs. Diseñado específicamente para pagos transfronterizos rápidos entre instituciones financieras, en competencia directa con redes de transferencia tradicionales como SWIFT. Estuvo sujeto a un largo litigio con la SEC de EE.UU. sobre si califica como valor (security), resuelto parcialmente a favor de Ripple en 2023.'},
+  {id:'ADA',name:'Cardano',ticker:'ADA',sector:'Criptomoneda',country:'Global',price:0.92,sigma:72,ret:14,type:'cripto',rating:null,
+   profile:'Cardano lanzada en 2017, cofundada por Charles Hoskinson (también cofundador de Ethereum). Se distingue por un desarrollo basado en investigación académica revisada por pares (peer review) antes de implementar cambios en su protocolo, un enfoque más conservador que la mayoría de sus competidores.'},
+  {id:'DOGE',name:'Dogecoin',ticker:'DOGE',sector:'Criptomoneda',country:'Global',price:0.38,sigma:98,ret:12,type:'cripto',rating:null,
+   profile:'Dogecoin creada en 2013 como parodia de las criptomonedas, usando como logo al perro shiba inu de un meme popular de la época. Pese a su origen humorístico, se mantiene entre las de mayor capitalización, impulsada en buena parte por atención mediática y menciones de figuras públicas — un ejemplo educativo claro de cómo el sentimiento puede mover un precio más que los fundamentos.'},
+  {id:'LINK',name:'Chainlink',ticker:'LINK',sector:'Criptomoneda',country:'Global',price:22.5,sigma:80,ret:19,type:'cripto',rating:null,
+   profile:'Chainlink lanzada en 2019. No es una red para pagos, sino infraestructura: conecta contratos inteligentes de blockchains con datos del mundo real (precios, clima, resultados deportivos) que esas redes no pueden acceder por sí solas. Es un componente usado por muchas otras aplicaciones cripto, no un competidor directo de Bitcoin o Ethereum.'},
+  {id:'DOT',name:'Polkadot',ticker:'DOT',sector:'Criptomoneda',country:'Global',price:7.2,sigma:79,ret:13,type:'cripto',rating:null,
+   profile:'Polkadot lanzada en 2020, cofundada por Gavin Wood (cofundador también de Ethereum). Su objetivo es permitir que distintas blockchains se comuniquen e intercambien información entre sí (interoperabilidad), en vez de operar como redes aisladas entre ellas.'},
+  {id:'LTC',name:'Litecoin',ticker:'LTC',sector:'Criptomoneda',country:'Global',price:98,sigma:64,ret:10,type:'cripto',rating:null,
+   profile:'Litecoin creada en 2011 por Charlie Lee, exingeniero de Google, como una versión de Bitcoin pensada para confirmar transacciones más rápido. Suele describirse como "la plata frente al oro" de Bitcoin — una de las criptomonedas más antiguas y con menor volatilidad relativa dentro del sector, aunque sigue siendo mucho más volátil que una acción típica.'},
+];
+
 // ── DERIVADOS ──
 const ALL_DERIVATIVES=[
   {id:'AAPL-CALL',name:'Opción Call Apple',ticker:'AAPL 200C',sector:'Opciones / Acciones',country:'EE.UU.',price:8.45,beta:1.9,sigma:38.2,ret:18.5,rating:'N/A',dividend:0,type:'derivado',delta:0.48,gamma:0.04,theta:-0.12,vega:0.18,impliedVol:28.4,strike:200,intrinsic:5.07,
@@ -6915,8 +6969,8 @@ let mktTypeFilter = 'all';
 let currentHorizonMonths = 12;
 
 // live prices (updated per horizon)
-let STOCKS,BONDS,FOREX,FUTURES,DERIVATIVES;
-function allAssets(){return[...STOCKS,...BONDS,...FOREX,...FUTURES,...DERIVATIVES];}
+let STOCKS,BONDS,FOREX,FUTURES,DERIVATIVES,CRYPTO;
+function allAssets(){return[...STOCKS,...BONDS,...FOREX,...FUTURES,...DERIVATIVES,...CRYPTO];}
 function allBase(){return[...ALL_STOCKS,...ALL_BONDS,...ALL_FOREX,...ALL_FUTURES,...ALL_DERIVATIVES];}
 
 // chart instances

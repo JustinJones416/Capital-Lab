@@ -333,14 +333,15 @@
   <div class="wl-header">
     <div class="wl-title">Lista de Seguimiento</div>
     <input class="wl-search" id="wl-search" placeholder="Buscar activo..." oninput="wlPage=1;renderWatchlist()">
-    <div class="wl-filter">
-      <button class="wf-btn active" data-wf="all"      onclick="setWlFilter('all',this)">Todos</button>
-      <button class="wf-btn"        data-wf="accion"   onclick="setWlFilter('accion',this)">Acc.</button>
-      <button class="wf-btn"        data-wf="bono"     onclick="setWlFilter('bono',this)">Bonos</button>
-      <button class="wf-btn"        data-wf="divisa"   onclick="setWlFilter('divisa',this)">FX</button>
-      <button class="wf-btn"        data-wf="futuro"   onclick="setWlFilter('futuro',this)">Fut.</button>
-      <button class="wf-btn"        data-wf="derivado" onclick="setWlFilter('derivado',this)">Der.</button>
-    </div>
+    <select class="wl-filter-select" id="wl-filter-select" onchange="setWlFilter(this.value)">
+      <option value="all">Todos los tipos</option>
+      <option value="accion">Acciones y ETFs</option>
+      <option value="bono">Bonos</option>
+      <option value="divisa">Divisas</option>
+      <option value="futuro">Futuros</option>
+      <option value="derivado">Derivados</option>
+      <option value="cripto">Criptomonedas</option>
+    </select>
     <div class="wl-sort">
       <button class="wl-sort-btn active" data-sort="default" onclick="setWlSort('default')" title="Por tipo"><i class="ti ti-layout-list"></i></button>
       <button class="wl-sort-btn" data-sort="gainers" onclick="setWlSort('gainers')" title="Mayores alzas"><i class="ti ti-trending-up"></i></button>
@@ -409,7 +410,7 @@
               <div style="width:24px;height:24px;border-radius:50%;background:var(--accent2);color:#031320;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
               <div style="text-align:left;">
                 <div style="font-size:13px;color:var(--t1);font-weight:600;">Elige un activo para empezar</div>
-                <div style="font-size:11.5px;color:var(--t3);margin-top:2px;">Cualquier acción, bono, divisa, futuro o derivado del catálogo.</div>
+                <div style="font-size:11.5px;color:var(--t3);margin-top:2px;">Cualquier acción, ETF, bono, divisa, futuro, derivado o criptomoneda del catálogo.</div>
               </div>
             </div>
             <button class="btn" onclick="abrirSelectorActivos()" style="width:100%;justify-content:center;padding:12px;font-size:13px;"><i class="ti ti-list-search"></i> Elegir un activo</button>
@@ -566,6 +567,7 @@
     <button class="an-class-btn" data-cls="divisa" onclick="setAnalysisClass('divisa',this)"><i class="ti ti-currency-dollar"></i> Divisas</button>
     <button class="an-class-btn" data-cls="futuro" onclick="setAnalysisClass('futuro',this)"><i class="ti ti-chart-candle"></i> Futuros</button>
     <button class="an-class-btn" data-cls="derivado" onclick="setAnalysisClass('derivado',this)"><i class="ti ti-diamonds"></i> Derivados</button>
+    <button class="an-class-btn" data-cls="cripto" onclick="setAnalysisClass('cripto',this)"><i class="ti ti-currency-bitcoin"></i> Cripto</button>
   </div>
   <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
     <input class="wl-search" id="an-asset-search" placeholder="Buscar en esta clase..." oninput="renderAnalysisGrid()" style="max-width:380px;flex:1;margin-bottom:0;">

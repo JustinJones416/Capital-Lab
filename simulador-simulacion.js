@@ -29,6 +29,12 @@ function computePrices(months){
     const cp=d.price*Math.pow(1+mr,months)*(1+noise);
     return{...d,currentPrice:+cp.toFixed(2),change:+((cp-d.price)/d.price*100).toFixed(2)};
   });
+  CRYPTO=ALL_CRYPTO.map((c,i)=>{
+    const mr=(c.ret/100)/12,noise=(rnd(i+500)-.5)*c.sigma/100*Math.sqrt(months/12);
+    const cp=c.price*Math.pow(1+mr,months)*(1+noise);
+    const dec=c.price>10?2:4;
+    return{...c,currentPrice:+cp.toFixed(dec),change:+((cp-c.price)/c.price*100).toFixed(2)};
+  });
   // sync portfolio prices
   portfolio.forEach(pos=>{
     const live=allAssets().find(a=>a.id===pos.id&&a.type===pos.type);
@@ -192,7 +198,7 @@ function abrirSelectorActivos(){
         <input type="text" id="sa-input" placeholder="Busca por nombre o símbolo…" autocomplete="off">
       </div>
       <div style="display:flex;gap:6px;padding:10px 12px 0;flex-wrap:wrap;">
-        ${[['all','Todos'],['accion','Acciones'],['bono','Bonos'],['divisa','Divisas'],['futuro','Futuros'],['derivado','Derivados']].map(([v,l]) =>
+        ${[['all','Todos'],['accion','Acciones/ETF'],['bono','Bonos'],['divisa','Divisas'],['futuro','Futuros'],['derivado','Derivados'],['cripto','Cripto']].map(([v,l]) =>
           `<button class="wf-btn ${v==='all'?'active':''}" data-sa-filtro="${v}" style="font-size:11px;">${l}</button>`).join('')}
       </div>
       <div class="cmdk-results" id="sa-results" style="padding-top:10px;"></div>
@@ -698,8 +704,6 @@ const WL_PAGE_SIZE=25; // activos por página (paginación para 150 instrumentos
 function setWlFilter(type,btn){
   wlFilter=type;
   wlPage=1;            // resetea a la primera página al cambiar de filtro
-  document.querySelectorAll('.wf-btn').forEach(b=>b.classList.remove('active'));
-  if(btn)btn.classList.add('active');
   renderWatchlist();
 }
 
@@ -726,8 +730,9 @@ function renderWatchlist(){
     {label:'Divisas',   type:'divisa',   data:FOREX},
     {label:'Futuros',   type:'futuro',   data:FUTURES},
     {label:'Derivados', type:'derivado', data:DERIVATIVES},
+    {label:'Criptomonedas', type:'cripto', data:CRYPTO},
   ];
-  const typeColor={accion:'var(--accent)',bono:'var(--green)',divisa:'var(--amber)',futuro:'var(--red)',derivado:'var(--accent2)'};
+  const typeColor={accion:'var(--accent)',bono:'var(--green)',divisa:'var(--amber)',futuro:'var(--red)',derivado:'var(--accent2)',cripto:'#c084fc'};
 
   // SERIE 3: when sorting by performance/name, flatten all into one list
   const sortFn = {
@@ -2160,7 +2165,7 @@ function generarConsejosCartera(){
   // Diversificación por tipo de activo.
   const tipos = new Set(portfolio.map(p=>p.type));
   if(tipos.size === 1 && portfolio.length >= 2){
-    const tipoUnico = { accion:'acciones', bono:'bonos', divisa:'divisas', futuro:'futuros', derivado:'derivados' }[[...tipos][0]] || 'un solo tipo de activo';
+    const tipoUnico = { accion:'acciones', bono:'bonos', divisa:'divisas', futuro:'futuros', derivado:'derivados', cripto:'criptomonedas' }[[...tipos][0]] || 'un solo tipo de activo';
     consejos.push({ tipo:'sugerencia', icono:'ti-chart-pie', titulo:'Todo en un solo mercado',
       texto:`Toda tu cartera está en ${tipoUnico}. Combinar con otro tipo de activo (por ejemplo, bonos si solo tienes acciones) suele reducir el riesgo total sin sacrificar tanto retorno.` });
   }
@@ -4284,7 +4289,7 @@ function filtrarPorSector(sector){
 }
 
 function assetsByClass(cls){
-  const map={accion:STOCKS,bono:BONDS,divisa:FOREX,futuro:FUTURES,derivado:DERIVATIVES};
+  const map={accion:STOCKS,bono:BONDS,divisa:FOREX,futuro:FUTURES,derivado:DERIVATIVES,cripto:CRYPTO};
   return (map[cls]||[]).slice();
 }
 
@@ -4297,9 +4302,9 @@ function assetsByClass(cls){
 function abrirComparacionActivos(preseleccionarId, preseleccionarType){
   const todos = allAssets();
   const opcionesPorTipo = {
-    accion: { etiqueta: 'Acciones', lista: [] }, bono: { etiqueta: 'Bonos', lista: [] },
+    accion: { etiqueta: 'Acciones y ETFs', lista: [] }, bono: { etiqueta: 'Bonos', lista: [] },
     divisa: { etiqueta: 'Divisas', lista: [] }, futuro: { etiqueta: 'Futuros', lista: [] },
-    derivado: { etiqueta: 'Derivados', lista: [] },
+    derivado: { etiqueta: 'Derivados', lista: [] }, cripto: { etiqueta: 'Criptomonedas', lista: [] },
   };
   todos.forEach(a => { if(opcionesPorTipo[a.type]) opcionesPorTipo[a.type].lista.push(a); });
   const construirOptgroups = () => Object.values(opcionesPorTipo).map(grupo => grupo.lista.length ? `
@@ -5204,7 +5209,7 @@ function sellFromPortfolio(id,type){
 // Color de etiqueta según el tipo de activo — global porque tanto la
 // cartera como el historial de transacciones (funciones separadas) la usan.
 function typeBadgeCls(t){
-  return t==='accion'?'badge-blue':t==='bono'?'badge-green':t==='divisa'?'badge-amber':t==='futuro'?'badge-red':'badge-cyan';
+  return t==='accion'?'badge-blue':t==='bono'?'badge-green':t==='divisa'?'badge-amber':t==='futuro'?'badge-red':t==='cripto'?'badge-purple':'badge-cyan';
 }
 
 function renderPortfolio(permitirSaltarGraficos){
@@ -5300,12 +5305,12 @@ function renderPortfolio(permitirSaltarGraficos){
   // ── CHART 2: Donut distribución ──
   portDonutInst=dc(portDonutInst);
   {const _c=document.getElementById('port-donut');if(_c&&typeof Chart!=='undefined'){
-    const byT={accion:0,bono:0,divisa:0,futuro:0,derivado:0};
+    const byT={accion:0,bono:0,divisa:0,futuro:0,derivado:0,cripto:0};
     portfolio.forEach(p=>{if(byT[p.type]!==undefined)byT[p.type]+=(p.currentPrice||p.buyPrice)*p.qty;});
     portDonutInst=new Chart(_c,{type:'doughnut',data:{
-      labels:['Acciones','Bonos','Divisas','Futuros','Derivados'],
-      datasets:[{data:[byT.accion,byT.bono,byT.divisa,byT.futuro,byT.derivado],
-        backgroundColor:['#2962ff','#00d084','#ffb400','#ff4757','#00c4ff'],borderWidth:0,borderRadius:3}]},
+      labels:['Acciones','Bonos','Divisas','Futuros','Derivados','Criptomonedas'],
+      datasets:[{data:[byT.accion,byT.bono,byT.divisa,byT.futuro,byT.derivado,byT.cripto],
+        backgroundColor:['#2962ff','#00d084','#ffb400','#ff4757','#00c4ff','#c084fc'],borderWidth:0,borderRadius:3}]},
       options:{responsive:true,maintainAspectRatio:false,devicePixelRatio:dprEfectivo(),plugins:{
         legend:{labels:{color:'#7a8ab0',font:{size:10}}},
         tooltip:{callbacks:{label:c=>{const t=Object.values(byT).reduce((s,v)=>s+v,0);return c.label+': $'+fmt(c.raw)+' ('+(t>0?(c.raw/t*100).toFixed(1):0)+'%)';}}}}}});
@@ -5401,14 +5406,14 @@ function renderPortfolio(permitirSaltarGraficos){
               `<b>Cartera en terreno negativo.</b> Pérdida acumulada de <b>${retPct.toFixed(2)}%</b>. Volatilidad σ=${aS.toFixed(1)}% eleva el VaR. Evalúa reducir posiciones especulativas y aumentar renta fija.`}
           </div>
           <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Composición del portafolio</div>
-          ${['accion','bono','divisa','futuro','derivado'].map(t=>{
+          ${['accion','bono','divisa','futuro','derivado','cripto'].map(t=>{
             const v=portfolio.filter(p=>p.type===t).reduce((s,p)=>s+(p.currentPrice||p.buyPrice)*p.qty,0);
             const pctv=curVal>0?(v/curVal*100):0;
-            const col=t==='accion'?'#2962ff':t==='bono'?'#00d084':t==='divisa'?'#ffb400':t==='futuro'?'#ff4757':'#00c4ff';
+            const col=t==='accion'?'#2962ff':t==='bono'?'#00d084':t==='divisa'?'#ffb400':t==='futuro'?'#ff4757':t==='cripto'?'#c084fc':'#00c4ff';
             if(!pctv)return'';
             return`<div style="margin-bottom:6px;">
               <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">
-                <span style="color:var(--t2);text-transform:capitalize;">${t}s</span>
+                <span style="color:var(--t2);text-transform:capitalize;">${t==='cripto'?'Criptomonedas':t+'s'}</span>
                 <span class="mono" style="color:${col};">${pctv.toFixed(1)}%</span>
               </div>
               <div style="height:5px;border-radius:3px;background:var(--c4);">
@@ -5597,7 +5602,7 @@ function renderPickedChips(){
   const container=document.getElementById('lab-picked-list');
   if(!container)return;
   if(labPickedIds.length===0){container.innerHTML='<span style="font-size:12px;color:var(--t3);">Ningún activo seleccionado aún</span>';return;}
-  const icons={accion:'📈',bono:'🏦',divisa:'💱',futuro:'📊',derivado:'🔷'};
+  const icons={accion:'📈',bono:'🏦',divisa:'💱',futuro:'📊',derivado:'🔷',cripto:'₿'};
   container.innerHTML=labPickedIds.map(id=>{
     const a=allAssets().find(x=>x.id===id);if(!a)return'';
     return`<span class="picked-chip">${icons[a.type]||'📌'} ${a.ticker}<button onclick="toggleLabPick('${id}')"><i class="ti ti-x"></i></button></span>`;
