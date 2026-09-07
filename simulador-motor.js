@@ -3979,7 +3979,13 @@ function celdaCSV(valor){
   return texto;
 }
 function descargarBlobCSV(csv, nombreArchivo){
-  const blob = new Blob(['\uFEFF' + csv], { type:'text/csv;charset=utf-8;' }); // BOM al inicio, para que Excel reconozca bien los acentos
+  // "sep=," en la primera línea le indica explícitamente a Excel qué
+  // separador usar — sin esto, en configuración regional en español
+  // (donde la coma es el separador DECIMAL, no de lista), Excel abre
+  // el archivo con todo el contenido en una sola columna. Puesto acá
+  // se propaga automáticamente a las 4 exportaciones que ya usan
+  // esta función auxiliar compartida.
+  const blob = new Blob(['\uFEFF' + 'sep=,\n' + csv], { type:'text/csv;charset=utf-8;' }); // BOM al inicio, para que Excel reconozca bien los acentos
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = nombreArchivo;
@@ -4729,8 +4735,12 @@ async function exportarInvestigacionPDF(id){
 function exportarRankingCSV(){
   if(!rankingPosicionesCache || !rankingPosicionesCache.length){ notify('Todavía no hay datos del ranking para exportar.', 'error'); return; }
   const filas = rankingPosicionesCache.map((p,i) => [i+1, '"'+p.nombre+'"', p.retorno.toFixed(2), (p.valor||0).toFixed(2)].join(','));
-  const csv = ['Puesto,Estudiante,Retorno (%),Valor de cartera ($)', ...filas].join('\n');
-  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const csv = ['sep=,', 'Puesto,Estudiante,Retorno (%),Valor de cartera ($)', ...filas].join('\n');
+  // Sin el BOM UTF-8 al inicio, Excel muestra mal cualquier acento o
+  // "ñ" en los nombres (ej. "José" se ve como "JosÃ©") — bug real
+  // adicional encontrado aquí, esta función era la única de las 9
+  // que tampoco lo tenía.
+  const blob = new Blob(['\ufeff'+csv], { type:'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = `ranking-${(currentUser?.sesion_nombre||'sesion').replace(/[^a-z0-9]/gi,'-')}.csv`;

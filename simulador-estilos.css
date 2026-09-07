@@ -1125,3 +1125,15 @@ canvas.candle-canvas{display:block;width:100%;height:340px;}
     height: max(44px, 100%);
   }
 }
+
+/* Un <canvas> nativo (sin Chart.js) NUNCA se ajusta automáticamente
+   al ancho de su contenedor a menos que se le indique explícitamente
+   por CSS — sin esto, usa su tamaño nativo por defecto (300px, o lo
+   que el propio JS le haya asignado como atributo width/height en
+   píxeles reales), desbordando el contenedor en pantallas angostas y
+   obligando al navegador a comprimirlo visualmente ("zoom" ilegible
+   reportado en móvil real). Bug real encontrado en #replay-canvas —
+   esta regla cubre cualquier canvas nativo futuro con el mismo
+   patrón, para que este problema no se repita silenciosamente. */
+canvas{max-width:100%;display:block;}
+#replay-canvas{width:100%;height:100%;}

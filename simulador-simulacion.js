@@ -474,8 +474,8 @@ function exportarHistorialPreciosCSV(){
   const velas = candleHistory[asset.id];
   if(!velas || !velas.length){ notify('Todavía no hay historial de precios para este activo.', 'error'); return; }
   const filas = velas.map((v,i) => [i+1, v.o, v.h, v.l, v.c].join(','));
-  const csv = ['Periodo,Apertura,Máximo,Mínimo,Cierre', ...filas].join('\n');
-  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const csv = ['sep=,', 'Periodo,Apertura,Máximo,Mínimo,Cierre', ...filas].join('\n');
+  const blob = new Blob(['\ufeff'+csv], { type:'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = `precios-${asset.ticker||asset.id}.csv`;
@@ -4281,27 +4281,96 @@ function renderMapaCalorSectorial(){
   const sectores = Object.entries(porSector).map(([sector, activos]) => ({
     sector,
     n: activos.length,
+    // Peso real del tile = cantidad de activos del sector — es el
+    // único dato de "tamaño" que realmente se tiene sin inventar una
+    // capitalización de mercado que no existe para este catálogo.
+    peso: activos.length,
     retProm: activos.reduce((sum,a)=>sum+a.ret,0)/activos.length,
     sigmaProm: activos.reduce((sum,a)=>sum+a.sigma,0)/activos.length,
-  })).sort((a,b)=>b.retProm-a.retProm);
+  })).sort((a,b)=>b.peso-a.peso);
 
   const magnitudMax = Math.max(...sectores.map(s => Math.abs(s.retProm)), 1);
-  cont.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;">
-    ${sectores.map(s => {
+  const ALTO_TOTAL = window.innerWidth < 640 ? 480 : 340;
+  const rects = calcularSquarifiedTreemap(sectores, cont.clientWidth || 900, ALTO_TOTAL);
+
+  cont.innerHTML = `<div style="position:relative;width:100%;height:${ALTO_TOTAL}px;">
+    ${rects.map(({item:s, x, y, w, h}) => {
       const positivo = s.retProm>=0;
       const colorAcento = positivo ? 'var(--green)' : 'var(--red)';
-      // Intensidad real: de 0.10 (movimiento casi nulo) a 0.55
-      // (el más fuerte del grupo actual) — nunca tan opaco que el
-      // texto blanco encima deje de leerse bien.
-      const intensidad = 0.10 + (Math.abs(s.retProm) / magnitudMax) * 0.45;
+      // Intensidad real: de 0.18 a 0.85 — a diferencia de la versión
+      // en grid uniforme, aquí los tiles grandes necesitan más
+      // saturación para leerse como "mapa de calor" real de un
+      // vistazo (estilo Finviz/TradingView), no solo un tinte sutil.
+      const intensidad = 0.18 + (Math.abs(s.retProm) / magnitudMax) * 0.67;
       const fondo = positivo ? `rgba(0,208,132,${intensidad.toFixed(2)})` : `rgba(255,71,87,${intensidad.toFixed(2)})`;
-      return `<div style="background:${fondo};border:1px solid ${colorAcento};border-radius:var(--r);padding:12px;cursor:pointer;" onclick="document.getElementById('an-asset-search').value='';filtrarPorSector('${s.sector.replace(/'/g,"\\'")}')" title="Filtrar por ${s.sector}">
-        <div style="font-size:12.5px;font-weight:600;color:var(--t1);">${s.sector}</div>
-        <div style="font-size:19px;font-weight:700;color:#FFFFFF;margin-top:4px;">${positivo?'▲':'▼'} <span style="color:${colorAcento};">${positivo?'+':''}${s.retProm.toFixed(1)}%</span></div>
-        <div style="font-size:10.5px;color:var(--t3);margin-top:4px;">${s.n} activo${s.n===1?'':'s'} · σ ${s.sigmaProm.toFixed(1)}%</div>
+      const chico = w < 110 || h < 70;
+      return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${fondo};border:1px solid rgba(0,0,0,.35);box-sizing:border-box;padding:${chico?'6px':'12px'};cursor:pointer;overflow:hidden;" onclick="document.getElementById('an-asset-search').value='';filtrarPorSector('${s.sector.replace(/'/g,"\\'")}')" title="${s.sector}: ${positivo?'+':''}${s.retProm.toFixed(1)}%, ${s.n} activos">
+        <div style="font-size:${chico?'10px':'12.5px'};font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.sector}</div>
+        <div style="font-size:${chico?'12px':'19px'};font-weight:700;color:#fff;margin-top:2px;">${positivo?'+':''}${s.retProm.toFixed(1)}%</div>
+        ${!chico ? `<div style="font-size:10.5px;color:rgba(255,255,255,.7);margin-top:4px;">${s.n} activo${s.n===1?'':'s'} · σ ${s.sigmaProm.toFixed(1)}%</div>` : ''}
       </div>`;
     }).join('')}
   </div>`;
+}
+
+// Algoritmo squarified treemap (Bruls, Huizing, van Wijk) simplificado
+// — divide recursivamente el rectángulo disponible en "filas" de
+// tiles, decidiendo cuántos elementos entran en cada fila según cuál
+// combinación mantiene los tiles más cercanos a un cuadrado (evita
+// tiras larguísimas y delgadas, que son difíciles de leer). Es el
+// mismo principio detrás de cualquier heatmap financiero real
+// (Finviz, TradingView) — el tamaño de cada tile es proporcional a
+// su peso, nunca uniforme.
+function calcularSquarifiedTreemap(items, anchoTotal, altoTotal){
+  const pesoTotal = items.reduce((s,i)=>s+i.peso, 0);
+  const area = anchoTotal * altoTotal;
+  const datos = items.map(item => ({ item, area: (item.peso/pesoTotal) * area }));
+  const resultado = [];
+
+  function peorAspecto(fila, largoLado){
+    const sumaArea = fila.reduce((s,d)=>s+d.area,0);
+    const maxArea = Math.max(...fila.map(d=>d.area));
+    const minArea = Math.min(...fila.map(d=>d.area));
+    const ladoAlCuadrado = largoLado*largoLado;
+    return Math.max((ladoAlCuadrado*maxArea)/(sumaArea*sumaArea), (sumaArea*sumaArea)/(ladoAlCuadrado*minArea));
+  }
+
+  function colocarFila(fila, rect){
+    const sumaArea = fila.reduce((s,d)=>s+d.area,0);
+    const vertical = rect.w >= rect.h;
+    const largoFijo = vertical ? sumaArea / rect.h : sumaArea / rect.w;
+    let cursor = vertical ? rect.y : rect.x;
+    fila.forEach(d => {
+      const largoVar = d.area / largoFijo;
+      if(vertical){
+        resultado.push({ item:d.item, x:rect.x, y:cursor, w:largoFijo, h:largoVar });
+      } else {
+        resultado.push({ item:d.item, x:cursor, y:rect.y, w:largoVar, h:largoFijo });
+      }
+      cursor += largoVar;
+    });
+    return vertical
+      ? { x:rect.x+largoFijo, y:rect.y, w:rect.w-largoFijo, h:rect.h }
+      : { x:rect.x, y:rect.y+largoFijo, w:rect.w, h:rect.h-largoFijo };
+  }
+
+  let restantes = [...datos];
+  let rect = { x:0, y:0, w:anchoTotal, h:altoTotal };
+  let filaActual = [];
+  while(restantes.length){
+    const siguiente = restantes[0];
+    const largoLado = Math.min(rect.w, rect.h);
+    const filaConSiguiente = [...filaActual, siguiente];
+    if(filaActual.length === 0 || peorAspecto(filaConSiguiente, largoLado) <= peorAspecto(filaActual, largoLado)){
+      filaActual = filaConSiguiente;
+      restantes = restantes.slice(1);
+    } else {
+      rect = colocarFila(filaActual, rect);
+      filaActual = [];
+    }
+  }
+  if(filaActual.length) colocarFila(filaActual, rect);
+  return resultado;
 }
 
 function filtrarPorSector(sector){
@@ -5460,19 +5529,26 @@ function renderReproductorReplay(){
         <option value="40">Rápido</option>
       </select>
     </div>
-    <div class="card" style="margin-top:4px;">
-      <div class="card-title" style="margin-bottom:8px;"><i class="ti ti-cash"></i> ¿Qué hubiera pasado si invertías aquí?</div>
+    <div class="card" style="margin-top:4px;border-left:2px solid var(--accent2);">
+      <div class="card-title" style="margin-bottom:8px;"><i class="ti ti-cash"></i> Simulador: ¿qué hubiera pasado si invertías aquí?</div>
       ${st.inversion ? `
-        <div style="font-size:12.5px;color:var(--t2);">Invertiste <b>$${st.inversion.monto.toLocaleString('es-PA')}</b> el ${st.inversion.fecha} a $${st.inversion.precio.toFixed(2)}.</div>
-        <div style="font-size:20px;font-weight:700;margin-top:6px;" class="${puntoActual.cierre>=st.inversion.precio?'g':'r'}">$${(st.inversion.monto*(puntoActual.cierre/st.inversion.precio)).toLocaleString('es-PA',{maximumFractionDigits:0})}
-          <span style="font-size:13px;font-weight:500;">(${((puntoActual.cierre/st.inversion.precio-1)*100).toFixed(1)}%) al ${puntoActual.fecha}</span></div>
-        <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="__replayEstado.inversion=null;renderReproductorReplay();">Probar en otro punto</button>
+        <div style="font-size:12.5px;color:var(--t2);">Invertiste <b>$${st.inversion.monto.toLocaleString('es-PA')}</b> el <b>${st.inversion.fecha}</b>, cuando el índice valía $${st.inversion.precio.toFixed(2)}.</div>
+        <div style="font-size:26px;font-weight:700;margin-top:8px;" class="${puntoActual.cierre>=st.inversion.precio?'g':'r'}">$${(st.inversion.monto*(puntoActual.cierre/st.inversion.precio)).toLocaleString('es-PA',{maximumFractionDigits:0})}
+          <span style="font-size:14px;font-weight:500;">(${(puntoActual.cierre>=st.inversion.precio?'+':'')}${((puntoActual.cierre/st.inversion.precio-1)*100).toFixed(1)}%)</span></div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px;">Valor de tu inversión si la miraras hoy, ${puntoActual.fecha}.</div>
+        ${st.indice < st.serie.length-1 ? `<div class="info-box" style="margin-top:10px;font-size:11.5px;"><i class="ti ti-arrow-right"></i> Sigue moviendo la línea de tiempo (o dale play) hacia adelante — este número se irá actualizando solo, para que veas cómo habría cambiado tu inversión día a día.</div>` : ''}
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="__replayEstado.inversion=null;renderReproductorReplay();">Empezar de nuevo en otro punto</button>
       ` : `
+        <div style="font-size:12px;color:var(--t2);margin-bottom:10px;line-height:1.5;">
+          <b>Paso 1:</b> mueve la línea de tiempo de arriba al día donde quieras "comprar".<br>
+          <b>Paso 2:</b> escribe cuánto invertirías y confirma.<br>
+          <b>Paso 3:</b> sigue moviendo la línea de tiempo hacia adelante — verás en vivo cuánto valdría hoy esa inversión.
+        </div>
+        <div style="font-size:11.5px;color:var(--t3);margin-bottom:8px;">Estás en <b>${puntoActual.fecha}</b>, con el índice en <b class="mono">$${puntoActual.cierre.toFixed(2)}</b>.</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <input type="number" id="replay-monto-input" value="1000" min="100" step="100" class="wl-search" style="max-width:140px;flex:1;">
-          <button class="btn btn-sm" style="flex:1;justify-content:center;white-space:nowrap;" onclick="invertirEnReplay()">Invertir aquí ($${puntoActual.cierre.toFixed(2)})</button>
+          <button class="btn btn-sm" style="flex:1;justify-content:center;white-space:nowrap;" onclick="invertirEnReplay()">Invertir aquí</button>
         </div>
-        <div style="font-size:11px;color:var(--t3);margin-top:6px;">Mueve la línea de tiempo a cualquier día y prueba invertir ahí — el resultado se compara siempre contra el precio del día que estés viendo en este momento.</div>
       `}
     </div>
     <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="document.getElementById('replay-selector').style.display='';document.getElementById('replay-reproductor').style.display='none';__replayEstado=null;">← Elegir otro evento</button>

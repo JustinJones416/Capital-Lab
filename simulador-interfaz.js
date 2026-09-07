@@ -2210,6 +2210,15 @@ function exportTransactionsCSV() {
   const ventas   = operacionesReales.filter(t=>t.action==='Venta').length;
   const totalFees= operacionesReales.reduce((s,t)=>s+(t.fee||0),0);
   const csv = [
+    // "sep=," en la primera línea le indica explícitamente a Excel
+    // qué separador usar — sin esto, en configuración regional en
+    // español (donde la coma es el separador DECIMAL, no de lista),
+    // Excel abre el archivo con todo el contenido en una sola
+    // columna, exactamente el reporte real de un estudiante. Es una
+    // extensión no estándar pero ampliamente soportada por Excel
+    // (Windows y Mac), y no afecta a ningún otro programa que lea
+    // el CSV correctamente (Google Sheets, Numbers, código, etc.).
+    'sep=,',
     'CapitalLab — Libro de Operaciones',
     'Exportado:,'+new Date().toLocaleString('es-PA'),
     'Total operaciones:,'+operacionesReales.length,
@@ -4273,6 +4282,7 @@ function exportStudentCSV(){
   const r=profDetailCurrent;
   if(!r){ notify('No hay estudiante seleccionado','error'); return; }
   const lines=[
+    'sep=,',
     'CapitalLab — Análisis Individual de Estudiante',
     'Estudiante:,"'+r.student+'"',
     'Sección:,"'+(r.section||'—')+'"',
@@ -4458,6 +4468,7 @@ function exportTeacherCSV(){
     r.portVal.toFixed(2), r.capital.toFixed(2), '"'+r.importedAt+'"'
   ].join(','));
   const csv = [
+    'sep=,',
     'CapitalLab — Ranking de Estudiantes (Modo Profesor)',
     'Generado:,'+new Date().toLocaleString('es-PA'),
     'Criterio de orden:,'+(teacherSortKey==='retPct'?'Retorno':teacherSortKey==='sharpe'?'Ratio Sharpe':'Ganancia/Pérdida'),
