@@ -4261,9 +4261,14 @@ function setAnalysisClass(cls, btn){
 }
 
 // Agrupa las acciones por sector y muestra el rendimiento esperado
-// promedio de cada uno, coloreado — para responder de un vistazo
-// "¿qué sector le está yendo mejor ahora mismo?" sin tener que entrar
-// activo por activo.
+// promedio de cada uno como un mapa de calor real — la intensidad
+// del color es proporcional a la magnitud del movimiento (normalizada
+// contra el rango de todos los sectores visibles), no un tono plano
+// fijo sin importar qué tan fuerte sea. Es el patrón estándar de
+// cualquier heatmap financiero real (Finviz, Yahoo Finance, la
+// mayoría de terminales profesionales): un sector que sube +2% se ve
+// visiblemente más tenue que uno que sube +40%, de un solo vistazo,
+// sin tener que leer el número.
 function renderMapaCalorSectorial(){
   const cont = document.getElementById('an-sector-heatmap');
   if(!cont) return;
@@ -4279,15 +4284,17 @@ function renderMapaCalorSectorial(){
     retProm: activos.reduce((sum,a)=>sum+a.ret,0)/activos.length,
     sigmaProm: activos.reduce((sum,a)=>sum+a.sigma,0)/activos.length,
   })).sort((a,b)=>b.retProm-a.retProm);
+
+  const magnitudMax = Math.max(...sectores.map(s => Math.abs(s.retProm)), 1);
   cont.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;">
     ${sectores.map(s => {
       const positivo = s.retProm>=0;
       const colorAcento = positivo ? 'var(--green)' : 'var(--red)';
-      // El fondo se queda siempre en un tinte suave, sin importar qué tan
-      // fuerte sea el rendimiento — así nunca compite en contraste con el
-      // texto. La intensidad del sector se ve en el número y el borde, no
-      // en volver el fondo casi del mismo color que la letra.
-      const fondo = positivo ? 'rgba(0,208,132,.08)' : 'rgba(255,71,87,.08)';
+      // Intensidad real: de 0.10 (movimiento casi nulo) a 0.55
+      // (el más fuerte del grupo actual) — nunca tan opaco que el
+      // texto blanco encima deje de leerse bien.
+      const intensidad = 0.10 + (Math.abs(s.retProm) / magnitudMax) * 0.45;
+      const fondo = positivo ? `rgba(0,208,132,${intensidad.toFixed(2)})` : `rgba(255,71,87,${intensidad.toFixed(2)})`;
       return `<div style="background:${fondo};border:1px solid ${colorAcento};border-radius:var(--r);padding:12px;cursor:pointer;" onclick="document.getElementById('an-asset-search').value='';filtrarPorSector('${s.sector.replace(/'/g,"\\'")}')" title="Filtrar por ${s.sector}">
         <div style="font-size:12.5px;font-weight:600;color:var(--t1);">${s.sector}</div>
         <div style="font-size:19px;font-weight:700;color:#FFFFFF;margin-top:4px;">${positivo?'▲':'▼'} <span style="color:${colorAcento};">${positivo?'+':''}${s.retProm.toFixed(1)}%</span></div>
