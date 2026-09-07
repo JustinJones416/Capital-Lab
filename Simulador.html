@@ -1144,10 +1144,11 @@
       <div class="page-sub" id="pos-page-sub">Ranking de retorno de tu sesión.</div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-      <label id="pos-toggle-wrap" style="display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--t2);cursor:pointer;">
+      <label id="pos-toggle-wrap" style="display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--t2);cursor:pointer;" title="También incluye a tu sesión (de forma anónima y agregada, nunca estudiante por estudiante) en la Competencia entre salones global">
         <input type="checkbox" id="pos-toggle-visible" onchange="alternarVisibilidadRanking(this.checked)" style="width:auto;">
-        Mostrar a mis estudiantes
+        Mostrar a mis estudiantes y participar en la Competencia global
       </label>
+      <button class="btn btn-sm btn-ghost" onclick="abrirCompetenciaEntreSalones()"><i class="ti ti-trophy"></i> Competencia entre salones</button>
       <button class="btn btn-sm" id="pos-btn-exportar" style="display:none;" onclick="exportarRankingCSV()"><i class="ti ti-file-spreadsheet"></i> Exportar CSV</button>
       <button class="btn btn-sm btn-ghost" id="pos-btn-exportar-pdf" style="display:none;" onclick="exportarRankingPDF()"><i class="ti ti-file-type-pdf"></i> Exportar PDF</button>
     </div>

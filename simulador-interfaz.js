@@ -1759,10 +1759,10 @@ function actualizarHudVela(vela, primera, asset){
   const hud = document.getElementById('candle-hud');
   if (!hud) return;
   hud.innerHTML = `
-    <div class="chud-item"><div class="chud-lbl">O</div><div class="chud-val">${formatPrice(vela.o,asset)}</div></div>
-    <div class="chud-item"><div class="chud-lbl">H</div><div class="chud-val" style="color:var(--green)">${formatPrice(vela.h,asset)}</div></div>
-    <div class="chud-item"><div class="chud-lbl">L</div><div class="chud-val" style="color:var(--red)">${formatPrice(vela.l,asset)}</div></div>
-    <div class="chud-item"><div class="chud-lbl">C</div><div class="chud-val">${formatPrice(vela.c,asset)}</div></div>
+    <div class="chud-item"><div class="chud-lbl">Apert.</div><div class="chud-val">${formatPrice(vela.o,asset)}</div></div>
+    <div class="chud-item"><div class="chud-lbl">Máx.</div><div class="chud-val" style="color:var(--green)">${formatPrice(vela.h,asset)}</div></div>
+    <div class="chud-item"><div class="chud-lbl">Mín.</div><div class="chud-val" style="color:var(--red)">${formatPrice(vela.l,asset)}</div></div>
+    <div class="chud-item"><div class="chud-lbl">Cierre</div><div class="chud-val">${formatPrice(vela.c,asset)}</div></div>
     <div class="chud-item"><div class="chud-lbl">Var.</div><div class="chud-val" style="color:${pctColor}">${vela.c>=primera.c?'+':''}${pctChg}%</div></div>`;
 }
 

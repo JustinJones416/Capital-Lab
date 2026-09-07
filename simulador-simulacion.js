@@ -5146,6 +5146,71 @@ const ESCENARIOS_HISTORICOS = {
 
 let __replayEstado = null; // { serie, indiceActual, reproduciendo, velocidadMs, inversion }
 
+// ══════════════════════════════════════════════════
+// COMPETENCIA ENTRE SALONES — ranking global comparando el retorno
+// PROMEDIO de cada salón (sesión) que haya activado voluntariamente
+// "Mostrar a mis estudiantes y participar en la Competencia global"
+// (mismo campo mostrar_ranking ya usado para el ranking interno de
+// cada sesión — un solo interruptor, con su alcance ampliado
+// explicado en el propio texto del toggle). Usa la Edge Function
+// ranking-entre-salones, que agrega con service role (sortea RLS,
+// que solo permite comparar DENTRO de una misma sesión) pero NUNCA
+// expone el desempeño de un estudiante individual de otro salón —
+// solo el promedio de su salón como conjunto.
+// ══════════════════════════════════════════════════
+async function abrirCompetenciaEntreSalones(){
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.id = 'competencia-salones-overlay';
+  overlay.innerHTML = `
+    <div class="export-modal" style="max-width:560px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="card-title" style="margin-bottom:0;"><i class="ti ti-trophy"></i> Competencia entre salones</div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('competencia-salones-overlay').remove()"><i class="ti ti-x"></i></button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:14px;">
+        <button class="mkt-chart-toggle-btn active" data-periodo="" onclick="cargarCompetenciaEntreSalones('',this)" style="border:1px solid var(--c4);border-radius:6px;">Acumulado</button>
+        <button class="mkt-chart-toggle-btn" data-periodo="7" onclick="cargarCompetenciaEntreSalones('7',this)" style="border:1px solid var(--c4);border-radius:6px;">7 días</button>
+        <button class="mkt-chart-toggle-btn" data-periodo="30" onclick="cargarCompetenciaEntreSalones('30',this)" style="border:1px solid var(--c4);border-radius:6px;">30 días</button>
+      </div>
+      <div id="competencia-salones-cuerpo"><div class="auth-hint" style="text-align:center;padding:20px;"><div class="auth-spinner" style="margin:0 auto 10px;"></div>Cargando ranking…</div></div>
+      <div class="info-box" style="margin-top:14px;">Solo participan los salones cuyo profesor activó "Mostrar a mis estudiantes y participar en la Competencia global". Se muestra únicamente el promedio de cada salón — nunca el desempeño de un estudiante individual de otro salón.</div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+  cargarCompetenciaEntreSalones('');
+}
+
+async function cargarCompetenciaEntreSalones(periodo, btn){
+  document.querySelectorAll('#competencia-salones-overlay [data-periodo]').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const cuerpo = document.getElementById('competencia-salones-cuerpo');
+  cuerpo.innerHTML = `<div class="auth-hint" style="text-align:center;padding:20px;"><div class="auth-spinner" style="margin:0 auto 10px;"></div>Cargando ranking…</div>`;
+  try {
+    const qs = periodo ? `?dias=${periodo}` : '';
+    const resp = await fetch(`${SIM_IA_URL}/functions/v1/ranking-entre-salones${qs}`, {
+      headers: { 'Authorization': `Bearer ${SIM_IA_ANON_KEY}`, 'apikey': SIM_IA_ANON_KEY },
+    });
+    const d = await resp.json();
+    if(!d.ok) throw new Error(d.error||'No se pudo cargar el ranking.');
+    if(!d.ranking || d.ranking.length===0){
+      cuerpo.innerHTML = `<div class="auth-hint" style="text-align:center;padding:20px;">${d.mensaje || 'Ningún salón tiene datos suficientes para este periodo todavía.'}</div>`;
+      return;
+    }
+    const medallas = ['🥇','🥈','🥉'];
+    cuerpo.innerHTML = `<table><thead><tr><th></th><th>Salón</th><th class="right">Estudiantes</th><th class="right">Retorno promedio</th></tr></thead><tbody>
+      ${d.ranking.map((s,i) => `<tr>
+        <td style="font-size:16px;">${medallas[i]||('#'+(i+1))}</td>
+        <td>${s.nombre}</td>
+        <td class="right mono">${s.estudiantes}</td>
+        <td class="right mono ${s.retornoPromedio>=0?'g':'r'}" style="font-weight:600;">${s.retornoPromedio>=0?'+':''}${s.retornoPromedio}%</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  } catch(e){
+    cuerpo.innerHTML = `<div class="info-box" style="border-left-color:var(--red);">No se pudo cargar el ranking ahora mismo: ${e.message}</div>`;
+  }
+}
+
 function abrirReplayHistorico(){
   const overlay = document.createElement('div');
   overlay.className = 'export-modal-overlay';
@@ -5225,9 +5290,9 @@ function renderReproductorReplay(){
           <span style="font-size:13px;font-weight:500;">(${((puntoActual.cierre/st.inversion.precio-1)*100).toFixed(1)}%) al ${puntoActual.fecha}</span></div>
         <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="__replayEstado.inversion=null;renderReproductorReplay();">Probar en otro punto</button>
       ` : `
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="number" id="replay-monto-input" value="1000" min="100" step="100" class="wl-search" style="max-width:140px;">
-          <button class="btn btn-sm" onclick="invertirEnReplay()">Invertir en este punto ($${puntoActual.cierre.toFixed(2)})</button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="number" id="replay-monto-input" value="1000" min="100" step="100" class="wl-search" style="max-width:140px;flex:1;">
+          <button class="btn btn-sm" style="flex:1;justify-content:center;white-space:nowrap;" onclick="invertirEnReplay()">Invertir aquí ($${puntoActual.cierre.toFixed(2)})</button>
         </div>
         <div style="font-size:11px;color:var(--t3);margin-top:6px;">Mueve la línea de tiempo a cualquier día y prueba invertir ahí — el resultado se compara siempre contra el precio del día que estés viendo en este momento.</div>
       `}
