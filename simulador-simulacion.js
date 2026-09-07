@@ -4339,6 +4339,10 @@ function abrirComparacionActivos(preseleccionarId, preseleccionarType){
         <select id="comp-activo-2" class="wl-search" onchange="renderizarComparacionActivos()"><option value="">Elige un activo…</option>${construirOptgroups()}</select>
         <select id="comp-activo-3" class="wl-search" onchange="renderizarComparacionActivos()"><option value="">Elige un activo (opcional)…</option>${construirOptgroups()}</select>
       </div>
+      <div class="mkt-chart-toggle" style="margin-bottom:12px;">
+        <button class="mkt-chart-toggle-btn active" data-modo-comp="tabla" onclick="cambiarModoComparacion('tabla',this)">Tabla</button>
+        <button class="mkt-chart-toggle-btn" data-modo-comp="grafico" onclick="cambiarModoComparacion('grafico',this)">Gráfico (rendimiento)</button>
+      </div>
       <div id="comp-resultado"><div class="auth-hint">Elige al menos 2 activos para compararlos.</div></div>
     </div>`;
   document.body.appendChild(overlay);
@@ -4353,6 +4357,14 @@ function abrirComparacionActivos(preseleccionarId, preseleccionarType){
   }
 }
 
+let __modoComparacionActual = 'tabla';
+function cambiarModoComparacion(modo, btn){
+  __modoComparacionActual = modo;
+  document.querySelectorAll('[data-modo-comp]').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderizarComparacionActivos();
+}
+
 function renderizarComparacionActivos(){
   const cont = document.getElementById('comp-resultado');
   if(!cont) return;
@@ -4364,6 +4376,11 @@ function renderizarComparacionActivos(){
 
   if(seleccion.length < 2){
     cont.innerHTML = '<div class="auth-hint">Elige al menos 2 activos para compararlos.</div>';
+    return;
+  }
+
+  if(__modoComparacionActual === 'grafico'){
+    renderizarGraficoCorrelacion(cont, seleccion);
     return;
   }
 
@@ -4416,6 +4433,56 @@ function renderizarComparacionActivos(){
     </div>
     <div class="info-box" style="margin-top:14px;">La Calificación CapitalLab combina retorno y riesgo en una sola letra usando el Ratio Sharpe real de cada activo — nunca premia solo el retorno más alto sin considerar el riesgo que se asumió para llegar ahí. Esta comparación no constituye una recomendación financiera.</div>
   `;
+}
+
+// Gráfico de correlación — al estilo "Compare" de Google Finance: en
+// vez de superponer el precio absoluto de cada activo (que no dice
+// nada útil si uno cuesta $5 y otro $500), normaliza cada serie a
+// base 100 en su primer punto — así la línea muestra el rendimiento
+// RELATIVO de cada uno, comparables entre sí sin importar su escala
+// de precio original. Reutiliza candleHistory, la misma fuente de
+// datos que ya alimenta el gráfico de Mercado.
+let __chartComparacion = null;
+function renderizarGraficoCorrelacion(cont, seleccion){
+  cont.innerHTML = `<div style="height:280px;"><canvas id="comp-grafico-correlacion"></canvas></div>
+    <div class="info-box" style="margin-top:14px;">Cada línea parte de 100 en el punto inicial — muestra cuánto ha subido o bajado cada activo en términos relativos, sin importar si uno cuesta $5 y otro $500. No es lo mismo que el precio en dólares.</div>`;
+
+  seleccion.forEach(a => { if(!candleHistory[a.id]) initCandles(a); });
+  const canvas = document.getElementById('comp-grafico-correlacion');
+  if(!canvas || typeof Chart === 'undefined') return;
+  if(__chartComparacion) __chartComparacion.destroy();
+
+  const colores = ['#4a9eff', '#00d084', '#ff9f4a', '#c084fc'];
+  const nPuntos = Math.min(...seleccion.map(a => (candleHistory[a.id]||[]).length));
+  const etiquetas = Array.from({length: nPuntos}, (_, i) => `-${(nPuntos-1-i)*15}m`);
+
+  __chartComparacion = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: etiquetas,
+      datasets: seleccion.map((a, i) => {
+        const velas = (candleHistory[a.id]||[]).slice(-nPuntos);
+        const base = velas[0].c;
+        return {
+          label: `${a.name} (${a.ticker||a.name})`,
+          data: velas.map(v => +(v.c/base*100).toFixed(2)),
+          borderColor: colores[i], backgroundColor: 'transparent',
+          borderWidth: 1.8, pointRadius: 0, tension: 0.15,
+        };
+      }),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#8a9ab8', font: { size: 10 } } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.raw.toFixed(2)} (${c.raw>=100?'+':''}${(c.raw-100).toFixed(2)}%)` } },
+      },
+      scales: {
+        x: { ticks: { color: '#6580b0', font: { size: 9 }, maxTicksLimit: 8 }, grid: { display: false } },
+        y: { ticks: { color: '#6580b0', font: { size: 9 }, callback: v => v.toFixed(0) }, grid: { color: 'rgba(255,255,255,.04)' } },
+      },
+    },
+  });
 }
 
 // Favoritos de Análisis — se guardan en este mismo navegador (no en la
