@@ -5158,6 +5158,110 @@ let __replayEstado = null; // { serie, indiceActual, reproduciendo, velocidadMs,
 // expone el desempeño de un estudiante individual de otro salón —
 // solo el promedio de su salón como conjunto.
 // ══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════
+// SECCIÓN DE ANALISTAS — los 3 estudiantes con mejor retorno real
+// dentro de su propia sesión pueden publicar una breve tesis sobre
+// un activo, visible para el resto de la sesión — les da voz según
+// resultados reales, no solo participación. La elegibilidad se
+// valida DOS VECES: aquí en el frontend (para no mostrar el botón de
+// publicar a quien no califica) y, de forma real e insorteable, en
+// la política de INSERT de la base de datos (soy_top_analista_de_mi_sesion)
+// — aunque alguien manipulara el frontend, la base de datos rechaza
+// el insert de todas formas.
+// ══════════════════════════════════════════════════
+async function abrirSeccionAnalistas(){
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.id = 'analistas-overlay';
+  overlay.innerHTML = `
+    <div class="export-modal" style="max-width:640px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="card-title" style="margin-bottom:0;"><i class="ti ti-chart-bar"></i> Analistas de la sesión</div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('analistas-overlay').remove()"><i class="ti ti-x"></i></button>
+      </div>
+      <p style="font-size:12px;color:var(--t2);margin-bottom:14px;">Los 3 estudiantes con mejor retorno real de esta sesión pueden publicar su tesis sobre un activo — la voz se la gana el resultado, no el ánimo de participar.</p>
+      <div id="analistas-form-wrap"></div>
+      <div id="analistas-lista"><div class="auth-hint" style="text-align:center;padding:20px;"><div class="auth-spinner" style="margin:0 auto 10px;"></div>Cargando…</div></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+  cargarSeccionAnalistas();
+}
+
+async function cargarSeccionAnalistas(){
+  if(!currentUser?.sesion_id) return;
+  const formWrap = document.getElementById('analistas-form-wrap');
+  const lista = document.getElementById('analistas-lista');
+
+  try {
+    // Determina elegibilidad consultando el propio ranking de la
+    // sesión — solo para decidir si mostrar el formulario; la regla
+    // real e insorteable vive en la política de INSERT de la BD.
+    const { data: portafolios } = await sb.from('portafolios').select('usuario_id,retorno_pct').eq('sesion_id', currentUser.sesion_id).order('retorno_pct', {ascending:false});
+    const puesto = (portafolios||[]).findIndex(p => p.usuario_id === currentUser.usuario_id) + 1;
+    const esElegible = puesto >= 1 && puesto <= 3 && currentUser.rol === 'estudiante';
+
+    formWrap.innerHTML = esElegible ? `
+      <div class="card" style="margin-bottom:14px;border-left:2px solid var(--gold, #e8b94a);">
+        <div class="card-title" style="margin-bottom:8px;"><i class="ti ti-star"></i> Estás en el puesto #${puesto} — puedes publicar tu tesis</div>
+        <input type="text" id="analista-ticker" placeholder="Ticker del activo (ej. AAPL)" class="wl-search" style="margin-bottom:8px;">
+        <input type="text" id="analista-titulo" placeholder="Título breve de tu tesis" class="wl-search" style="margin-bottom:8px;">
+        <textarea id="analista-contenido" placeholder="Explica tu razonamiento en pocas líneas…" class="wl-search" style="min-height:70px;margin-bottom:8px;resize:vertical;"></textarea>
+        <select id="analista-postura" class="wl-search" style="margin-bottom:8px;">
+          <option value="alcista">Alcista — espero que suba</option>
+          <option value="bajista">Bajista — espero que baje</option>
+          <option value="neutral">Neutral — sin dirección clara</option>
+        </select>
+        <button class="btn btn-sm" onclick="publicarComoAnalista()">Publicar tesis</button>
+      </div>` : '';
+
+    const { data: publicaciones, error } = await sb.from('analistas_publicaciones')
+      .select('*, usuarios(nombre)').eq('sesion_id', currentUser.sesion_id).order('creado_en', {ascending:false});
+    if(error) throw error;
+
+    if(!publicaciones || publicaciones.length===0){
+      lista.innerHTML = `<div class="auth-hint" style="text-align:center;padding:20px;">Todavía nadie ha publicado una tesis en esta sesión.</div>`;
+      return;
+    }
+    const colorPostura = { alcista:'g', bajista:'r', neutral:'' };
+    const iconoPostura = { alcista:'trending-up', bajista:'trending-down', neutral:'minus' };
+    lista.innerHTML = publicaciones.map(p => `
+      <div class="card" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+          <div>
+            <div style="font-weight:600;font-size:13px;">${p.titulo}</div>
+            <div style="font-size:11px;color:var(--t3);">${p.usuarios?.nombre||'Analista'} · ${p.activo_ticker} · ${new Date(p.creado_en).toLocaleDateString('es-PA')}</div>
+          </div>
+          <span class="badge ${colorPostura[p.postura]?'badge-'+(p.postura==='alcista'?'green':'red'):'badge-cyan'}"><i class="ti ti-${iconoPostura[p.postura]}"></i> ${p.postura}</span>
+        </div>
+        <div style="font-size:12.5px;color:var(--t2);line-height:1.5;">${p.contenido}</div>
+      </div>`).join('');
+  } catch(e){
+    lista.innerHTML = `<div class="info-box" style="border-left-color:var(--red);">No se pudo cargar: ${e.message}</div>`;
+  }
+}
+
+async function publicarComoAnalista(){
+  const ticker = document.getElementById('analista-ticker').value.trim().toUpperCase();
+  const titulo = document.getElementById('analista-titulo').value.trim();
+  const contenido = document.getElementById('analista-contenido').value.trim();
+  const postura = document.getElementById('analista-postura').value;
+  if(!ticker || !titulo || !contenido){ notify('Completa el activo, el título y tu razonamiento.', 'error'); return; }
+  const activo = allAssets().find(a => a.ticker === ticker);
+  try {
+    const { error } = await sb.from('analistas_publicaciones').insert({
+      usuario_id: currentUser.usuario_id, sesion_id: currentUser.sesion_id,
+      activo_ticker: ticker, activo_nombre: activo?.name || ticker,
+      titulo, contenido, postura,
+    });
+    if(error) throw error;
+    notify('Tesis publicada correctamente.', 'success');
+    cargarSeccionAnalistas();
+  } catch(e){
+    notify('No se pudo publicar: ' + (e.message.includes('policy') ? 'tu posición actual no califica en el top 3.' : e.message), 'error');
+  }
+}
+
 async function abrirCompetenciaEntreSalones(){
   const overlay = document.createElement('div');
   overlay.className = 'export-modal-overlay';
