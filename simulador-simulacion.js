@@ -5031,6 +5031,13 @@ function renderAnalysis(id,type){
 function cambiarModoEstadoResultados(modo, btn){
   document.querySelectorAll('[data-modo-fs]').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
+  // Las tarjetas empiezan colapsadas en móvil (autoColapsarEnMovil) —
+  // sin esto, el usuario toca "Trimestral", el botón se activa, pero
+  // no ve ningún cambio porque el contenido sigue oculto dentro de la
+  // tarjeta colapsada. Cambiar de vista es una señal clara de que
+  // quiere ver el contenido, así que se expande automáticamente.
+  const tarjeta = btn?.closest('.card');
+  if(tarjeta) tarjeta.classList.remove('tarjeta-colapsada');
   const vistaAnual = document.getElementById('fs-vista-anual');
   const vistaTrimestral = document.getElementById('fs-vista-trimestral');
   if(!vistaAnual || !vistaTrimestral) return;
@@ -5105,6 +5112,209 @@ function renderTablaTrimestralFS(){
         },
       },
     });
+  }
+}
+
+// ══════════════════════════════════════════════════
+// REPLAY HISTÓRICO — revive un evento de mercado real conocido, día
+// por día, con precios reales de la época (no la simulación
+// aleatoria de siempre). Usa la Edge Function historico-crisis-mercado,
+// que consulta el endpoint de gráficos de Yahoo Finance (sin
+// necesitar cookie/token, a diferencia de estados-financieros-yahoo) —
+// confirmado empíricamente antes de construir esto: el mínimo real
+// del S&P 500 durante el crash de COVID coincide exacto con el
+// registro histórico conocido (23 de marzo de 2020, $2,237.40).
+// ══════════════════════════════════════════════════
+const ESCENARIOS_HISTORICOS = {
+  covid2020: {
+    nombre: 'Crash de COVID-19 (2020)',
+    descripcion: 'El S&P 500 cayó 34% en cinco semanas — la caída más rápida de esta magnitud en la historia del índice — y luego se recuperó por completo en menos de 5 meses.',
+    simbolo: '^GSPC',
+    etiquetaActivo: 'S&P 500',
+    desde: '2020-02-03', hasta: '2020-08-31',
+    diaClave: '2020-03-23', etiquetaDiaClave: 'Mínimo real: 23 de marzo de 2020',
+  },
+  crisis2008: {
+    nombre: 'Crisis financiera (2008-2009)',
+    descripcion: 'Desde la quiebra de Lehman Brothers hasta el fondo real del mercado bajista más profundo desde la Gran Depresión — el S&P 500 perdió más de 40% de su valor en menos de seis meses.',
+    simbolo: '^GSPC',
+    etiquetaActivo: 'S&P 500',
+    desde: '2008-09-15', hasta: '2009-06-30',
+    diaClave: '2009-03-09', etiquetaDiaClave: 'Mínimo real: 9 de marzo de 2009',
+  },
+};
+
+let __replayEstado = null; // { serie, indiceActual, reproduciendo, velocidadMs, inversion }
+
+function abrirReplayHistorico(){
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.id = 'replay-historico-overlay';
+  overlay.innerHTML = `
+    <div class="export-modal" style="max-width:720px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="card-title" style="margin-bottom:0;"><i class="ti ti-history"></i> Replay histórico</div>
+        <button class="btn btn-ghost btn-sm" onclick="cerrarReplayHistorico()"><i class="ti ti-x"></i></button>
+      </div>
+      <div id="replay-selector">
+        <p style="font-size:12.5px;color:var(--t2);margin-bottom:14px;">Revive un evento de mercado real conocido, día por día, con los precios reales de la época — no la simulación aleatoria de siempre. Elige un evento para empezar.</p>
+        ${Object.entries(ESCENARIOS_HISTORICOS).map(([id,e]) => `
+          <div class="card" style="cursor:pointer;margin-bottom:10px;" onclick="iniciarReplayHistorico('${id}')">
+            <div class="card-title" style="margin-bottom:6px;"><i class="ti ti-chart-candle"></i> ${e.nombre}</div>
+            <div style="font-size:12px;color:var(--t2);line-height:1.5;">${e.descripcion}</div>
+          </div>`).join('')}
+      </div>
+      <div id="replay-reproductor" style="display:none;"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) cerrarReplayHistorico(); };
+}
+
+function cerrarReplayHistorico(){
+  if(__replayEstado) __replayEstado.reproduciendo = false;
+  document.getElementById('replay-historico-overlay')?.remove();
+}
+
+async function iniciarReplayHistorico(escenarioId){
+  const escenario = ESCENARIOS_HISTORICOS[escenarioId];
+  const selector = document.getElementById('replay-selector');
+  const reproductor = document.getElementById('replay-reproductor');
+  selector.style.display = 'none';
+  reproductor.style.display = 'block';
+  reproductor.innerHTML = `<div class="auth-hint" style="text-align:center;padding:20px;"><div class="auth-spinner" style="margin:0 auto 10px;"></div>Consultando precios reales de ${escenario.etiquetaActivo}…</div>`;
+
+  try {
+    const desdeTs = Math.floor(new Date(escenario.desde+'T00:00:00Z').getTime()/1000);
+    const hastaTs = Math.floor(new Date(escenario.hasta+'T00:00:00Z').getTime()/1000);
+    const resp = await fetch(`${SIM_IA_URL}/functions/v1/historico-crisis-mercado?symbol=${encodeURIComponent(escenario.simbolo)}&from=${desdeTs}&to=${hastaTs}`, {
+      headers: { 'Authorization': `Bearer ${SIM_IA_ANON_KEY}`, 'apikey': SIM_IA_ANON_KEY },
+    });
+    const d = await resp.json();
+    if(!d.ok || !Array.isArray(d.serie) || d.serie.length < 10) throw new Error(d.error || 'No se pudo obtener el historial real.');
+
+    __replayEstado = { escenario, serie: d.serie, indice: 5, reproduciendo: false, velocidadMs: 120, inversion: null };
+    renderReproductorReplay();
+  } catch(e){
+    reproductor.innerHTML = `<div class="info-box" style="border-left-color:var(--red);">No se pudo cargar este evento histórico ahora mismo: ${e.message}. Intenta de nuevo en un momento.</div>
+      <button class="btn btn-ghost" style="margin-top:10px;" onclick="document.getElementById('replay-selector').style.display='';document.getElementById('replay-reproductor').style.display='none';">← Volver</button>`;
+  }
+}
+
+function renderReproductorReplay(){
+  const reproductor = document.getElementById('replay-reproductor');
+  const st = __replayEstado;
+  if(!reproductor || !st) return;
+  const puntoActual = st.serie[st.indice];
+  reproductor.innerHTML = `
+    <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">${st.escenario.etiquetaActivo} · ${puntoActual.fecha} <span style="color:var(--accent2);">${st.escenario.diaClave===puntoActual.fecha ? '— '+st.escenario.etiquetaDiaClave : ''}</span></div>
+    <div style="height:220px;"><canvas id="replay-canvas"></canvas></div>
+    <div style="display:flex;align-items:center;gap:10px;margin:12px 0;">
+      <button class="btn btn-sm" id="replay-btn-play" onclick="alternarReproduccionReplay()"><i class="ti ti-${st.reproduciendo?'player-pause':'player-play'}"></i></button>
+      <input type="range" min="5" max="${st.serie.length-1}" value="${st.indice}" style="flex:1;" oninput="__replayEstado.indice=+this.value;__replayEstado.reproduciendo=false;renderReproductorReplay();">
+      <select style="padding:6px 8px;background:var(--c2);border:1px solid var(--c4);border-radius:6px;color:var(--t1);font-size:11px;" onchange="__replayEstado.velocidadMs=+this.value;">
+        <option value="240">Lento</option>
+        <option value="120" selected>Normal</option>
+        <option value="40">Rápido</option>
+      </select>
+    </div>
+    <div class="card" style="margin-top:4px;">
+      <div class="card-title" style="margin-bottom:8px;"><i class="ti ti-cash"></i> ¿Qué hubiera pasado si invertías aquí?</div>
+      ${st.inversion ? `
+        <div style="font-size:12.5px;color:var(--t2);">Invertiste <b>$${st.inversion.monto.toLocaleString('es-PA')}</b> el ${st.inversion.fecha} a $${st.inversion.precio.toFixed(2)}.</div>
+        <div style="font-size:20px;font-weight:700;margin-top:6px;" class="${puntoActual.cierre>=st.inversion.precio?'g':'r'}">$${(st.inversion.monto*(puntoActual.cierre/st.inversion.precio)).toLocaleString('es-PA',{maximumFractionDigits:0})}
+          <span style="font-size:13px;font-weight:500;">(${((puntoActual.cierre/st.inversion.precio-1)*100).toFixed(1)}%) al ${puntoActual.fecha}</span></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="__replayEstado.inversion=null;renderReproductorReplay();">Probar en otro punto</button>
+      ` : `
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" id="replay-monto-input" value="1000" min="100" step="100" class="wl-search" style="max-width:140px;">
+          <button class="btn btn-sm" onclick="invertirEnReplay()">Invertir en este punto ($${puntoActual.cierre.toFixed(2)})</button>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:6px;">Mueve la línea de tiempo a cualquier día y prueba invertir ahí — el resultado se compara siempre contra el precio del día que estés viendo en este momento.</div>
+      `}
+    </div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="document.getElementById('replay-selector').style.display='';document.getElementById('replay-reproductor').style.display='none';__replayEstado=null;">← Elegir otro evento</button>
+  `;
+  dibujarGraficoReplay();
+}
+
+function invertirEnReplay(){
+  const st = __replayEstado;
+  const monto = +document.getElementById('replay-monto-input').value || 1000;
+  const punto = st.serie[st.indice];
+  st.inversion = { monto, fecha: punto.fecha, precio: punto.cierre };
+  renderReproductorReplay();
+}
+
+function alternarReproduccionReplay(){
+  const st = __replayEstado;
+  if(!st) return;
+  st.reproduciendo = !st.reproduciendo;
+  if(st.reproduciendo) avanzarFrameReplay();
+  else renderReproductorReplay();
+}
+
+function avanzarFrameReplay(){
+  const st = __replayEstado;
+  if(!st || !st.reproduciendo) return;
+  if(st.indice >= st.serie.length-1){ st.reproduciendo = false; renderReproductorReplay(); return; }
+  st.indice++;
+  renderReproductorReplay();
+  setTimeout(avanzarFrameReplay, st.velocidadMs);
+}
+
+function dibujarGraficoReplay(){
+  const canvas = document.getElementById('replay-canvas');
+  const st = __replayEstado;
+  if(!canvas || !st) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  if(W===0||H===0) return;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+
+  const visibles = st.serie.slice(0, st.indice+1);
+  const todosCierres = st.serie.map(p=>p.cierre);
+  const lo = Math.min(...todosCierres)*0.97, hi = Math.max(...todosCierres)*1.03;
+  const pad = {l:50,r:10,t:10,b:8};
+  const cW = W-pad.l-pad.r, cH = H-pad.t-pad.b;
+  const toX = i => pad.l + (cW/(st.serie.length-1))*i;
+  const toY = p => pad.t + cH*(1-(p-lo)/(hi-lo));
+
+  ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){ const y=pad.t+(cH/4)*i; ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke(); }
+  ctx.fillStyle='#6580b0'; ctx.font='9px DM Mono'; ctx.textAlign='right';
+  for(let i=0;i<=4;i++){ const y=pad.t+(cH/4)*i; ctx.fillText(Math.round(hi-(hi-lo)/4*i).toLocaleString('es-PA'), pad.l-6, y+3); }
+
+  const subiendo = visibles[visibles.length-1].cierre >= visibles[0].cierre;
+  const color = subiendo ? '#00d084' : '#ff4757';
+  const grad = ctx.createLinearGradient(0,pad.t,0,H-pad.b);
+  grad.addColorStop(0, color+'46'); grad.addColorStop(1, color+'05');
+  ctx.beginPath(); ctx.moveTo(toX(0), toY(visibles[0].cierre));
+  visibles.forEach((p,i)=>ctx.lineTo(toX(i), toY(p.cierre)));
+  ctx.lineTo(toX(visibles.length-1), H-pad.b); ctx.lineTo(toX(0), H-pad.b); ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+
+  ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 1.8;
+  visibles.forEach((p,i)=> i===0 ? ctx.moveTo(toX(i),toY(p.cierre)) : ctx.lineTo(toX(i),toY(p.cierre)));
+  ctx.stroke();
+
+  // Marcador del día clave (ej. el mínimo real del crash), si ya se reveló
+  const idxClave = st.serie.findIndex(p=>p.fecha===st.escenario.diaClave);
+  if(idxClave>=0 && idxClave<=st.indice){
+    ctx.strokeStyle='rgba(255,180,0,.5)'; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(toX(idxClave),pad.t); ctx.lineTo(toX(idxClave),H-pad.b); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Marcador del punto de inversión, si existe
+  if(st.inversion){
+    const idxInv = st.serie.findIndex(p=>p.fecha===st.inversion.fecha);
+    if(idxInv>=0 && idxInv<=st.indice){
+      ctx.fillStyle='#4a9eff';
+      ctx.beginPath(); ctx.arc(toX(idxInv), toY(st.serie[idxInv].cierre), 4, 0, Math.PI*2); ctx.fill();
+    }
   }
 }
 
