@@ -3566,8 +3566,23 @@ function abrirEditorCuestionario(cuestionarioExistente){
       <label>Empezar desde una plantilla (opcional)</label>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
         ${PLANTILLAS_CUESTIONARIOS.map((t,ti) => `<button class="btn btn-sm" data-plantilla="${ti}" style="font-size:11.5px;">${t.titulo}</button>`).join('')}
+        <button class="btn btn-sm" id="cq-btn-mostrar-ia" style="font-size:11.5px;color:var(--accent2);"><i class="ti ti-sparkles"></i> Generar con IA</button>
       </div>
       <div class="auth-hint">Carga el título y las preguntas de ejemplo; puedes editar cualquier parte antes de guardar.</div>
+    </div>
+    <div class="card" id="cq-panel-ia" style="display:none;margin-bottom:14px;border-left:2px solid var(--accent2);">
+      <div class="card-title" style="margin-bottom:8px;"><i class="ti ti-sparkles"></i> Generar cuestionario con IA</div>
+      <input type="text" id="cq-ia-tema" placeholder='Tema (ej. "Valoración de bonos")' class="wl-search" style="margin-bottom:8px;">
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <select id="cq-ia-dificultad" class="wl-search" style="flex:1;">
+          <option value="facil">Introductorio</option>
+          <option value="media" selected>Intermedio</option>
+          <option value="dificil">Avanzado</option>
+        </select>
+        <input type="number" id="cq-ia-cantidad" value="5" min="2" max="15" class="wl-search" style="max-width:90px;" title="Cantidad de preguntas (2 a 15)">
+      </div>
+      <button class="btn btn-sm" id="cq-ia-btn" style="width:100%;justify-content:center;"><i class="ti ti-sparkles"></i> Generar preguntas</button>
+      <div style="font-size:10.5px;color:var(--t3);margin-top:6px;">La IA propone preguntas de opción múltiple con su respuesta correcta marcada — siempre revisa antes de guardar, igual que con una plantilla.</div>
     </div>`}
     <div class="grade-field"><label>Título</label><input type="text" id="cq-titulo" placeholder='Ej. "Repaso: mercado de bonos"'></div>
     <div class="grade-field"><label>Descripción (opcional)</label><input type="text" id="cq-desc" placeholder="Instrucciones breves para el estudiante"></div>
@@ -3623,6 +3638,45 @@ function abrirEditorCuestionario(cuestionarioExistente){
     renderPreguntas();
     notify('Plantilla cargada — puedes editar cualquier parte antes de guardar.', 'success');
   });
+
+  const btnMostrarIA = overlay.querySelector('#cq-btn-mostrar-ia');
+  if(btnMostrarIA) btnMostrarIA.onclick = () => {
+    const panel = overlay.querySelector('#cq-panel-ia');
+    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  };
+  const btnGenerarIA = overlay.querySelector('#cq-ia-btn');
+  if(btnGenerarIA) btnGenerarIA.onclick = async () => {
+    const tema = overlay.querySelector('#cq-ia-tema').value.trim();
+    if(!tema){ notify('Escribe el tema del cuestionario primero.', 'error'); return; }
+    btnGenerarIA.disabled = true;
+    btnGenerarIA.innerHTML = '<i class="ti ti-loader-2" style="animation:girarSimIA 1s linear infinite;"></i> Generando…';
+    try {
+      const resp = await fetch(`${SIM_IA_URL}/functions/v1/generar-analisis-simulador`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SIM_IA_ANON_KEY, 'Authorization': `Bearer ${SIM_IA_ANON_KEY}` },
+        body: JSON.stringify({
+          modo: 'generar_cuestionario',
+          parametros: {
+            tema,
+            dificultad: overlay.querySelector('#cq-ia-dificultad').value,
+            cantidadPreguntas: +overlay.querySelector('#cq-ia-cantidad').value || 5,
+          },
+        }),
+      });
+      const d = await resp.json();
+      if(!d.ok) throw new Error(d.error || 'Error desconocido.');
+      overlay.querySelector('#cq-titulo').value = d.titulo;
+      preguntas = d.preguntas.map(p => ({ texto: p.texto, opciones: [...p.opciones], correcta: p.correcta }));
+      renderPreguntas();
+      overlay.querySelector('#cq-panel-ia').style.display = 'none';
+      notify('Cuestionario generado — revisa cada pregunta y su respuesta correcta antes de guardar.', 'success');
+    } catch(e){
+      notify('No se pudo generar: ' + (e.message||e), 'error');
+    } finally {
+      btnGenerarIA.disabled = false;
+      btnGenerarIA.innerHTML = '<i class="ti ti-sparkles"></i> Generar preguntas';
+    }
+  };
 
   if(esEdicion){
     (async () => {
