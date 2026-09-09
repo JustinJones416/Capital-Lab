@@ -843,14 +843,21 @@ async function sincronizarPreciosRealesSimulador(){
   const accionesConTicker = STOCKS.filter(a => a.ticker);
   const divisasConTicker = FOREX.filter(a => a.ticker && a.ticker.includes('/'));
   const futurosConMapa = FUTURES.filter(a => FUTUROS_YAHOO_MAP[a.ticker]);
-  const todosLosActivos = [...accionesConTicker, ...divisasConTicker, ...futurosConMapa];
+  // Criptomonedas (no los futuros de cripto — ver nota en
+  // FUTUROS_YAHOO_MAP arriba, son fuentes distintas) — Yahoo Finance
+  // sí tiene un precio spot confiable para estas, con el mismo
+  // mecanismo de siempre, formato de símbolo "BTC-USD" en vez del
+  // ticker interno simple.
+  const criptoConTicker = CRYPTO.filter(a => a.ticker);
+  const todosLosActivos = [...accionesConTicker, ...divisasConTicker, ...futurosConMapa, ...criptoConTicker];
   if(!todosLosActivos.length) return;
 
   // El símbolo real que se le pide a Yahoo puede ser distinto del
   // ticker interno del simulador — los futuros necesitan su propio
-  // símbolo, y algunas acciones usan un guion en vez de un punto
-  // (Berkshire Hathaway clase B es "BRK-B" en Yahoo, no "BRK.B").
-  const simboloAPedir = a => FUTUROS_YAHOO_MAP[a.ticker] || a.ticker.replace('.', '-');
+  // símbolo, las criptomonedas necesitan el sufijo "-USD", y algunas
+  // acciones usan un guion en vez de un punto (Berkshire Hathaway
+  // clase B es "BRK-B" en Yahoo, no "BRK.B").
+  const simboloAPedir = a => FUTUROS_YAHOO_MAP[a.ticker] || (a.type==='cripto' ? a.ticker+'-USD' : a.ticker.replace('.', '-'));
 
   const controlador = new AbortController();
   const limiteTiempo = setTimeout(()=>controlador.abort(), 6000); // nunca espera más de 6 segundos
