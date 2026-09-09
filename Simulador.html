@@ -109,6 +109,9 @@
         <label>Nombre de la sesión de clase</label>
         <input type="text" id="signup-sesion-nombre" placeholder='Ej. "Mercados Financieros — 2026-2"'>
         <div class="auth-hint">Se creará una sesión nueva de la que serás responsable. Al terminar te daremos un código para compartir con tus estudiantes.</div>
+        <label style="margin-top:10px;">PIN de docente</label>
+        <input type="text" id="signup-pin-docente" placeholder="Pídeselo a la coordinación de tu facultad" style="letter-spacing:.08em;">
+        <div class="auth-hint">Requerido para registrarse como docente — evita que cualquier persona externa cree una cuenta con acceso a datos de estudiantes.</div>
       </div>
 
       <button class="auth-submit" id="btn-signup" onclick="authSignup()">Crear cuenta</button>
@@ -1184,6 +1187,15 @@
       <button class="btn btn-primary btn-sm" onclick="exportarInformeFinalPlataformaPDF()"><i class="ti ti-file-type-pdf"></i> Informe completo en PDF</button>
       <button class="btn btn-ghost btn-sm" onclick="exportarInformeFinalPlataformaCSV()"><i class="ti ti-file-type-csv"></i> Datos crudos en CSV</button>
     </div>
+  </div>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title"><i class="ti ti-shield-lock" style="color:var(--red);"></i> Seguridad de registro docente</div>
+    <div style="font-size:12px;color:var(--t3);margin-top:6px;margin-bottom:12px;">Cualquier persona necesita este PIN para poder registrarse como docente — evita que personas externas a la universidad obtengan acceso a datos de estudiantes. Cámbialo si sospechas que se filtró.</div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="admin-pin-nuevo" placeholder="Nuevo PIN (mínimo 6 caracteres)" class="wl-search" style="max-width:280px;letter-spacing:.08em;">
+      <button class="btn btn-sm" onclick="cambiarPinDocente()">Guardar nuevo PIN</button>
+    </div>
+    <div class="auth-msg" id="admin-pin-msg" style="margin-top:8px;"></div>
   </div>
   <div class="card" style="margin-bottom:16px;">
     <div class="card-title"><i class="ti ti-school" style="color:var(--accent2);"></i> Todas las sesiones de clase</div>

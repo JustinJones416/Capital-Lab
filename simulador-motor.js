@@ -140,11 +140,13 @@ async function authSignup(){
   const rol = authPendingRole;
   const codigoIngresado = rol==='estudiante' ? document.getElementById('signup-sesion-codigo').value.trim() : null;
   const sesionNombre = rol==='docente' ? document.getElementById('signup-sesion-nombre').value.trim() : null;
+  const pinDocente = rol==='docente' ? document.getElementById('signup-pin-docente').value.trim() : null;
 
   if(!nombre || !correo || !password){ authMsg('Completa nombre, correo y contraseña.'); return; }
   if(password.length < 6){ authMsg('La contraseña debe tener al menos 6 caracteres.'); return; }
   if(rol==='estudiante' && !codigoIngresado){ authMsg('Ingresa el código de sesión que te dio tu docente.'); return; }
   if(rol==='docente' && !sesionNombre){ authMsg('Indica el nombre de la sesión de clase que vas a crear.'); return; }
+  if(rol==='docente' && !pinDocente){ authMsg('Ingresa el PIN de docente para poder registrarte con ese rol.'); return; }
 
   const btn = document.getElementById('btn-signup');
   btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Creando cuenta…';
@@ -157,6 +159,17 @@ async function authSignup(){
       );
       if(buscarError) throw buscarError;
       if(!sesiones || sesiones.length===0) throw new Error('El código de sesión no es válido o la sesión ya no está activa. Verifícalo con tu docente.');
+    }
+    // Para docentes, el PIN se valida con el mismo criterio: antes de
+    // crear la cuenta, para no dejar cuentas huérfanas si es
+    // incorrecto — evita que cualquier persona externa se registre
+    // como docente y obtenga acceso a datos de estudiantes.
+    if(rol==='docente'){
+      const { data: pinValido, error: pinError } = await conTiempoLimite(
+        sb.rpc('validar_pin_docente', { p_pin: pinDocente })
+      );
+      if(pinError) throw pinError;
+      if(!pinValido) throw new Error('El PIN de docente no es correcto. Pídelo a la coordinación de tu facultad.');
     }
 
     // No creamos aún la fila en `sesiones_clase` ni en `usuarios`: mientras el
@@ -1075,6 +1088,8 @@ function mostrarFormularioCompletarPerfil(user){
       <div class="auth-field hidden" id="cp-field-docente">
         <label>Nombre de la sesión de clase</label>
         <input type="text" id="cp-sesion-nombre" placeholder='Ej. "Mercados Financieros — 2026-2"'>
+        <label style="margin-top:10px;">PIN de docente</label>
+        <input type="text" id="cp-pin-docente" placeholder="Pídeselo a la coordinación de tu facultad" style="letter-spacing:.08em;">
       </div>
       <button class="auth-submit" id="cp-btn">Continuar</button>
       <button class="btn btn-ghost" id="cp-cancelar" style="width:100%;margin-top:10px;">Cancelar y volver al inicio</button>
@@ -1114,13 +1129,24 @@ function mostrarFormularioCompletarPerfil(user){
     const nombre = overlay.querySelector('#cp-nombre').value.trim();
     const codigo = overlay.querySelector('#cp-codigo').value.trim();
     const sesionNombre = overlay.querySelector('#cp-sesion-nombre').value.trim();
+    const pinDocente = overlay.querySelector('#cp-pin-docente').value.trim();
     if(!nombre){ cpMsg.className='auth-msg show error'; cpMsg.textContent='Ingresa tu nombre.'; return; }
     if(cpRol==='estudiante' && !codigo){ cpMsg.className='auth-msg show error'; cpMsg.textContent='Ingresa el código de sesión.'; return; }
     if(cpRol==='docente' && !sesionNombre){ cpMsg.className='auth-msg show error'; cpMsg.textContent='Ingresa el nombre de la sesión a crear.'; return; }
+    if(cpRol==='docente' && !pinDocente){ cpMsg.className='auth-msg show error'; cpMsg.textContent='Ingresa el PIN de docente.'; return; }
 
     const btn = overlay.querySelector('#cp-btn');
     btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span> Guardando…';
     try {
+      // Mismo criterio que en el registro normal: validar el PIN
+      // antes de completar el perfil como docente.
+      if(cpRol==='docente'){
+        const { data: pinValido, error: pinError } = await conTiempoLimite(
+          sb.rpc('validar_pin_docente', { p_pin: pinDocente })
+        );
+        if(pinError) throw pinError;
+        if(!pinValido) throw new Error('El PIN de docente no es correcto. Pídelo a la coordinación de tu facultad.');
+      }
       const meta = {
         pending_rol: cpRol,
         pending_nombre: nombre,
@@ -2702,6 +2728,23 @@ async function recopilarDatosInformeFinalPlataforma(){
   ]);
   return { sesiones: sesiones||[], usuarios: usuarios||[], seccionesLab: seccionesLab||[], resultadosLab: resultadosLab||[],
     encuestas: encuestas||[], respuestasEncuestas: respuestasEncuestas||[], bitacora: bitacora||[], investigaciones: investigaciones||[] };
+}
+
+async function cambiarPinDocente(){
+  const input = document.getElementById('admin-pin-nuevo');
+  const msg = document.getElementById('admin-pin-msg');
+  const nuevoPin = input.value.trim();
+  if(nuevoPin.length < 6){ msg.className='auth-msg show error'; msg.textContent='El PIN debe tener al menos 6 caracteres.'; return; }
+  try {
+    const { error } = await sb.rpc('actualizar_pin_docente', { p_pin_nuevo: nuevoPin });
+    if(error) throw error;
+    msg.className = 'auth-msg show success';
+    msg.textContent = 'PIN actualizado — compártelo solo con los docentes reales de tu facultad.';
+    input.value = '';
+  } catch(e){
+    msg.className = 'auth-msg show error';
+    msg.textContent = 'No se pudo actualizar: ' + (e.message||e);
+  }
 }
 
 async function exportarInformeFinalPlataformaPDF(){
