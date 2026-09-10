@@ -3021,13 +3021,13 @@ function renderNewsFeed(){
     return;
   }
   list.innerHTML=newsFeed.map(item=>`
-    <div class="news-item ${item.type}" onclick="markNewsRead(${item.id})">
+    <div class="news-item ${item.type}" ${item.esReal ? `onclick="event.currentTarget.querySelector('a').click()"` : `onclick="markNewsRead(${item.id})"`}>
       <div class="news-time">
-        <span class="news-chip ${item.type}">${item.type==='bull'?'▲':item.type==='bear'?'▼':'●'}</span>
+        ${item.esReal ? `<span class="news-chip" style="background:rgba(74,158,255,.18);color:var(--accent2);"><i class="ti ti-circle-check" style="font-size:9px;"></i> Real</span>` : `<span class="news-chip ${item.type}">${item.type==='bull'?'▲':item.type==='bear'?'▼':'●'}</span>`}
         ${item.ticker} · ${item.time}
         ${item.unread?'<span style="width:5px;height:5px;border-radius:50%;background:var(--accent2);display:inline-block;margin-left:4px;vertical-align:middle;"></span>':''}
       </div>
-      <div class="news-headline">${item.headline}</div>
+      <div class="news-headline">${item.esReal ? `<a href="${item.urlReal}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">${item.headline}</a>` : item.headline}</div>
       <div class="news-body">${item.body}</div>
     </div>`).join('');
 }
@@ -3384,12 +3384,12 @@ function renderNewsCenter(){
     }
     return `<div class="news-art ${item.type}">
       <div class="news-art-meta">
-        <span class="news-art-tag ${item.type}">${typeLabel}</span>
+        ${item.esReal ? `<span class="news-art-tag" style="background:rgba(74,158,255,.18);color:var(--accent2);"><i class="ti ti-circle-check" style="font-size:10px;"></i> Real — ${item.fuenteReal||'Finnhub'}</span>` : `<span class="news-art-tag ${item.type}">${typeLabel}</span>`}
         ${item.ticker&&item.ticker!=='—'?`<span class="news-art-ticker">${item.ticker}</span>`:''}
         <span class="news-art-cat">${CAT_LABELS[cat]||'General'}</span>
         <span class="news-art-time">${item.time}</span>
       </div>
-      <div class="news-art-headline">${item.headline}</div>
+      <div class="news-art-headline">${item.esReal ? `<a href="${item.urlReal}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">${item.headline} <i class="ti ti-external-link" style="font-size:11px;"></i></a>` : item.headline}</div>
       <div class="news-art-body">${item.body}</div>
     </div>`;
   }).join('');

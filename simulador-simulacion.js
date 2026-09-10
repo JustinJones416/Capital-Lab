@@ -1348,6 +1348,7 @@ function showAssetDetail(id,type){
   renderAssetList();
   document.getElementById('mkt-no-selection').style.display='none';
   document.getElementById('mkt-detail').style.display='block';
+  cargarNoticiasRealesAlFeed(asset);
   // Si el diario de trading estaba abierto para un activo distinto (o
   // el mismo, pero de antes), se cierra sin guardar — evita que quede
   // una nota vieja pegada mientras el estudiante ya está mirando otra
@@ -4702,6 +4703,51 @@ function cambiarTabAnalisisActivo(tab, btn){
 // bolsa real — bonos, derivados OTC, futuros y la mayoría de
 // cripto/ETFs no tienen "noticias de este instrumento específico" de
 // la misma forma que una empresa cotizada.
+// Inserta noticias reales de Finnhub (mismo backend ya usado en la
+// tarjeta de Análisis) directamente en newsFeed, el mismo array que
+// alimenta TANTO el panel lateral de Mercado como el Centro de
+// Noticias — así ambas vistas se actualizan a la vez sin duplicar
+// lógica. Se marcan con esReal:true para poder distinguirlas
+// visualmente del resto del feed (eventos simulados del propio
+// motor), y solo se piden una vez por ticker por sesión (caché simple
+// en memoria) para no golpear la API cada vez que el estudiante
+// vuelve a mirar el mismo activo.
+window.__tickersConNoticiasRealesCargadas = window.__tickersConNoticiasRealesCargadas || new Set();
+async function cargarNoticiasRealesAlFeed(asset){
+  const elegible = (asset.type==='accion' || asset.type==='cripto') && asset.ticker;
+  if(!elegible) return;
+  if(window.__tickersConNoticiasRealesCargadas.has(asset.ticker)) return;
+  if(asset.type==='cripto') return; // Finnhub no cubre noticias de cripto en este plan, igual que en Análisis
+  window.__tickersConNoticiasRealesCargadas.add(asset.ticker);
+
+  try {
+    const resp = await fetch(`${SIM_IA_URL}/functions/v1/noticias-finnhub?symbol=${encodeURIComponent(asset.ticker)}`, {
+      headers: { 'apikey': SIM_IA_ANON_KEY, 'Authorization': `Bearer ${SIM_IA_ANON_KEY}` },
+    });
+    const d = await resp.json();
+    if(!d.ok || !d.noticias || d.noticias.length===0) return;
+    d.noticias.slice(0,3).forEach(n => {
+      newsFeed.unshift({
+        id: Date.now()+Math.random(),
+        time: n.fechaISO ? new Date(n.fechaISO).toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'}) : new Date().toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'}),
+        headline: n.titular,
+        body: n.resumen || `Fuente: ${n.fuente}.`,
+        type: 'neutral',
+        ticker: asset.ticker,
+        movePct: 0,
+        unread: true,
+        esReal: true,
+        urlReal: n.url,
+        fuenteReal: n.fuente,
+      });
+    });
+    if(newsFeed.length>40) newsFeed.length = 40;
+    newsUnreadCount += Math.min(d.noticias.length, 3);
+    renderNewsFeed();
+    if(document.getElementById('news-center')) renderNewsCenter();
+  } catch(e){ /* silencioso — el feed simulado sigue funcionando igual si esto falla */ }
+}
+
 async function cargarNoticiasActivo(asset){
   const cuerpo = document.getElementById('an-noticias-cuerpo');
   const tarjeta = document.getElementById('an-noticias-card');
