@@ -617,6 +617,70 @@ async function renderComparacionLiderSector(data){
 const SIMULADOR_SUPABASE_URL = 'https://zppwrnznsnphxbcqsxsg.supabase.co';
 const SIMULADOR_SUPABASE_ANON_KEY = 'sb_publishable_QDlqCn_sV9kDtrSs4cvQzQ_8ji-2CcO';
 
+// Gráfico de precio real — estándar en cualquier herramienta de
+// mercado seria (Yahoo/Google/GURU siempre muestran el histórico de
+// precio como lo primero que se ve de un activo), y hasta ahora
+// Analytics no lo tenía en absoluto: el histórico de 6 meses ya se
+// pedía para calcular volatilidad, pero nunca se mostraba. Mismo
+// patrón robusto ya usado para correlación: se pide fresco en el
+// momento de ver los resultados, directamente por ticker, sin
+// depender de que el usuario haya usado "Traer datos reales" antes.
+let precioRealChart = null;
+async function renderGraficoPrecioReal(data){
+  const cont = $('grafico-precio-box');
+  if(!cont) return;
+  const ticker = (data.ticker||'').trim().toUpperCase();
+  if((currentMarket!=='accion' && currentMarket!=='divisa') || !ticker){ cont.innerHTML=''; return; }
+  cont.innerHTML = `<div class="card-title"><i class="ti ti-chart-candle"></i> Precio real (6 meses)</div><div style="text-align:center;padding:14px;color:var(--t3);font-size:12px;">Consultando histórico real de ${ticker}…</div>`;
+  try {
+    const resp = await fetch(`${YAHOO_SUPABASE_URL}/functions/v1/quick-task?symbol=${encodeURIComponent(ticker)}`, {
+      headers: { 'apikey': YAHOO_SUPABASE_ANON_KEY, 'Authorization': `Bearer ${YAHOO_SUPABASE_ANON_KEY}` },
+    });
+    const d = await resp.json();
+    if(!d.ok || !d.historico6Meses?.length){
+      cont.innerHTML = `<div class="card-title"><i class="ti ti-chart-candle"></i> Precio real (6 meses)</div><div class="info-box">No se encontró histórico real de precio para ${ticker} ahora mismo.</div>`;
+      return;
+    }
+    const serie = d.historico6Meses;
+    const primero = serie[0].cierre, ultimo = serie[serie.length-1].cierre;
+    const subiendo = ultimo >= primero;
+    const color = subiendo ? '#00d084' : '#ff4757';
+    cont.innerHTML = `<div class="card-title"><i class="ti ti-chart-candle"></i> Precio real (6 meses) — ${ticker}</div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;">
+        <span style="font-size:22px;font-weight:700;">$${ultimo.toFixed(2)}</span>
+        <span style="font-size:13px;font-weight:600;color:${color};">${subiendo?'+':''}${((ultimo/primero-1)*100).toFixed(1)}% en 6 meses</span>
+      </div>
+      <div style="height:220px;"><canvas id="grafico-precio-canvas"></canvas></div>`;
+    if(precioRealChart) precioRealChart.destroy();
+    precioRealChart = new Chart(document.getElementById('grafico-precio-canvas'), {
+      type: 'line',
+      data: {
+        labels: serie.map(p=>p.fecha),
+        datasets: [{
+          data: serie.map(p=>p.cierre),
+          borderColor: color, borderWidth: 1.8, pointRadius: 0, tension: .1,
+          fill: true,
+          backgroundColor: (ctxG) => {
+            const g = ctxG.chart.ctx.createLinearGradient(0,0,0,220);
+            g.addColorStop(0, color+'40'); g.addColorStop(1, color+'02');
+            return g;
+          },
+        }],
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`$${c.raw.toFixed(2)}`}} },
+        scales: {
+          x: { ticks:{color:'#6580b0', font:{size:9}, maxTicksLimit:7}, grid:{display:false} },
+          y: { ticks:{color:'#6580b0', font:{size:9}, callback:v=>'$'+v.toFixed(0)}, grid:{color:'rgba(0,0,0,.06)'} },
+        },
+      },
+    });
+  } catch(e){
+    cont.innerHTML = `<div class="card-title"><i class="ti ti-chart-candle"></i> Precio real (6 meses)</div><div class="info-box">No se pudo cargar el gráfico de precio ahora mismo.</div>`;
+  }
+}
+
 async function renderEstadosFinancierosReales(data){
   const cont = $('estados-financieros-box');
   if(!cont) return;
@@ -1199,6 +1263,7 @@ function renderResults(){
   renderVerdict(verdict, mcRes, data.sector);
   renderComparacionLiderSector(data);
   renderEstadosFinancierosReales(data);
+  renderGraficoPrecioReal(data);
   renderTesisIA(result, verdict, market, data);
   renderKPIs(result.kpis);
   renderRiskFactors(result.riskFactors, verdict.riskScore);
