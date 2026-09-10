@@ -21,7 +21,7 @@ const MARKETS = {
     formDesc:'Ingresa los datos de la acción. Los campos marcados con * son indispensables; los demás enriquecen el análisis fundamental.',
     fields:[
       {k:'ticker', label:'Símbolo / Nombre', type:'text', req:true, placeholder:'Ej. AAPL', ex:'AAPL', src:'Símbolo bursátil de la empresa (símbolo bursátil) visible en el buscador de Yahoo Finance.'},
-      {k:'sector', label:'Sector de la empresa', type:'select', options:[['general','General (sin ponderación especial)'],['banca','Banca y Finanzas'],['energia','Energía y Commodities'],['retail','Retail y Consumo'],['tecnologia','Tecnología y SaaS'],['inmobiliario','Real Estate / REITs'],['manufactura','Manufactura e Industria']], src:'Determina qué indicadores pesan más en la Calificación CapitalLab — un banco se evalúa distinto a una tecnológica.'},
+      {k:'sector', label:'Sector de la empresa', type:'select', options:[['general','General (sin ponderación especial)'],['banca','Banca y Finanzas'],['energia','Energía y Commodities'],['retail','Retail y Consumo'],['tecnologia','Tecnología y SaaS'],['inmobiliario','Real Estate / REITs'],['manufactura','Manufactura e Industria']], note:'se autocompleta con "Traer datos reales" para empresas conocidas', src:'Determina qué indicadores pesan más en la Calificación CapitalLab — un banco se evalúa distinto a una tecnológica. Cámbialo a mano solo si el sector detectado no es el correcto.'},
       {k:'price', label:'Precio actual', type:'num', req:true, unit:'$', placeholder:'185.00', ex:185, sl:[1,1000,0.5], src:'Cotización en tiempo real (precio de mercado) en la cabecera de la acción en Yahoo Finance.'},
       {k:'shares', label:'Acciones en circulación', type:'num', unit:'mill.', placeholder:'15500', ex:15500, note:'En millones', src:'Pestaña "Statistics" en Yahoo Finance, campo de acciones en circulación ("Shares Outstanding").'},
       {k:'eps', label:'Utilidad por acción (EPS)', type:'num', unit:'$', placeholder:'6.13', ex:6.13, sl:[-10,50,0.1], src:'Cabecera de la acción en Yahoo Finance, campo de utilidad por acción de los últimos doce meses ("EPS (TTM)").'},
@@ -279,7 +279,39 @@ function syncSidebar(page){
 }
 
 // ───── Acciones y divisas populares (cotización real en vivo) ─────
-const ACCIONES_POPULARES_BASE = ['AAPL','MSFT','GOOGL','AMZN','NVDA','TSLA','META','JPM'];
+// Mapa maestro único de sector por ticker — mismas 6 categorías ya
+// usadas en el formulario de Acciones (Banca, Energía, Retail,
+// Tecnología, Inmobiliario, Manufactura), para que TODO el sistema
+// (auto-relleno de sector, heatmap de inicio, lista de populares,
+// listado por sector al hacer clic) use una sola fuente de verdad,
+// sin categorías GICS distintas compitiendo entre sí. Empresas reales
+// y bien conocidas de cada sector — cualquier ticker fuera de este
+// mapa se deja sin sector asignado en vez de adivinar.
+const SECTOR_POR_TICKER = {
+  tecnologia:  ['AAPL','MSFT','GOOGL','META','NVDA','AMD','ORCL','CRM','ADBE','INTC'],
+  banca:       ['JPM','BAC','WFC','GS','MS','C','USB','PNC'],
+  energia:     ['XOM','CVX','COP','SLB','OXY','PSX'],
+  retail:      ['AMZN','WMT','TGT','COST','HD','NKE','SBUX','MCD'],
+  inmobiliario:['PLD','AMT','EQIX','SPG','O','PSA'],
+  manufactura: ['CAT','GE','BA','HON','MMM','DE','LMT'],
+};
+const NOMBRE_POR_TICKER = {
+  AAPL:'Apple Inc.', MSFT:'Microsoft', GOOGL:'Alphabet (Google)', META:'Meta Platforms', NVDA:'NVIDIA', AMD:'AMD', ORCL:'Oracle', CRM:'Salesforce', ADBE:'Adobe', INTC:'Intel',
+  JPM:'JPMorgan Chase', BAC:'Bank of America', WFC:'Wells Fargo', GS:'Goldman Sachs', MS:'Morgan Stanley', C:'Citigroup', USB:'U.S. Bancorp', PNC:'PNC Financial',
+  XOM:'ExxonMobil', CVX:'Chevron', COP:'ConocoPhillips', SLB:'Schlumberger', OXY:'Occidental Petroleum', PSX:'Phillips 66',
+  AMZN:'Amazon', WMT:'Walmart', TGT:'Target', COST:'Costco', HD:'Home Depot', NKE:'Nike', SBUX:'Starbucks', MCD:"McDonald's",
+  PLD:'Prologis', AMT:'American Tower', EQIX:'Equinix', SPG:'Simon Property Group', O:'Realty Income', PSA:'Public Storage',
+  CAT:'Caterpillar', GE:'General Electric', BA:'Boeing', HON:'Honeywell', MMM:'3M', DE:'Deere & Company', LMT:'Lockheed Martin',
+};
+const NOMBRE_SECTOR_LABEL = { tecnologia:'Tecnología y SaaS', banca:'Banca y Finanzas', energia:'Energía y Commodities', retail:'Retail y Consumo', inmobiliario:'Real Estate / REITs', manufactura:'Manufactura e Industria' };
+// Búsqueda inversa: ticker -> clave de sector, construida una vez.
+const SECTOR_DE_ESTE_TICKER = {};
+Object.entries(SECTOR_POR_TICKER).forEach(([sector, tickers]) => tickers.forEach(t => { SECTOR_DE_ESTE_TICKER[t] = sector; }));
+// Universo completo de tickers seguidos por defecto — antes solo 8,
+// ahora los ~45 de todos los sectores, para que el heatmap y la
+// lista de populares reflejen un panorama real del mercado, no un
+// puñado de nombres.
+const ACCIONES_POPULARES_BASE = Object.values(SECTOR_POR_TICKER).flat();
 const DIVISAS_POPULARES_BASE = ['EUR/USD','GBP/USD','USD/JPY','USD/MXN','USD/CAD','USD/CHF','AUD/USD','USD/COP'];
 const STORAGE_KEY_SEGUIDOS = 'capitallab_analytics_seguidos_v1';
 
@@ -352,24 +384,94 @@ async function cargarAccionesPopulares(){
   }
 }
 
-// Sector real de cada ticker base — clasificación GICS estándar,
-// correcta para estas empresas conocidas. Cualquier ticker que el
-// usuario siga manualmente y no esté en este mapa cae en "Diversos"
-// en vez de inventarle un sector — nunca asignar un sector a ciegas
-// a una empresa que no se conoce con certeza.
-const SECTOR_POR_TICKER = {
-  AAPL:'Tecnología', MSFT:'Tecnología', NVDA:'Tecnología',
-  GOOGL:'Comunicación', META:'Comunicación',
-  AMZN:'Consumo discrecional', TSLA:'Consumo discrecional',
-  JPM:'Financiero',
-};
+function renderHomeSectorHeatmap(cotizaciones){
+  const cont = $('home-sector-heatmap');
+  if(!cont) return;
+  const porSector = {};
+  cotizaciones.forEach(c => {
+    const sector = SECTOR_DE_ESTE_TICKER[c.simbolo];
+    if(!sector) return; // sin sector conocido con certeza: se omite del heatmap, no se agrupa en un cajón genérico
+    (porSector[sector] ||= []).push(c);
+  });
+  const sectores = Object.entries(porSector).map(([sector, activos]) => ({
+    sector, n: activos.length, peso: activos.length,
+    retProm: activos.reduce((s,a)=>s+a.variacionPct,0)/activos.length,
+  }));
+  if(sectores.length < 2){
+    cont.innerHTML = `<div style="text-align:center;padding:14px;font-size:12px;color:var(--t3);">Sigue acciones de más de un sector para ver el panorama comparado.</div>`;
+    return;
+  }
+  const magnitudMax = Math.max(...sectores.map(s=>Math.abs(s.retProm)), 1);
+  const ALTO = window.innerWidth < 640 ? 260 : 180;
+  const ANCHO = cont.clientWidth || 900;
+  const rects = calcularSquarifiedTreemapHome(sectores, ANCHO, ALTO);
+  cont.innerHTML = `<div style="position:relative;width:100%;height:${ALTO}px;">
+    ${rects.map(({item:s,x,y,w,h}) => {
+      const positivo = s.retProm>=0;
+      const intensidad = 0.18 + (Math.abs(s.retProm)/magnitudMax)*0.67;
+      const fondo = positivo ? `rgba(0,208,132,${intensidad.toFixed(2)})` : `rgba(255,71,87,${intensidad.toFixed(2)})`;
+      const chico = w<110 || h<60;
+      return `<div onclick="abrirListaSector('${s.sector}')" style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${fondo};border:1px solid rgba(0,0,0,.35);box-sizing:border-box;padding:${chico?'6px':'12px'};overflow:hidden;cursor:pointer;" title="Ver los activos más relevantes de ${NOMBRE_SECTOR_LABEL[s.sector]}">
+        <div style="font-size:${chico?'10px':'12.5px'};font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${NOMBRE_SECTOR_LABEL[s.sector]}</div>
+        <div style="font-size:${chico?'12px':'19px'};font-weight:700;color:#fff;margin-top:2px;">${positivo?'+':''}${s.retProm.toFixed(1)}%</div>
+        ${!chico ? `<div style="font-size:10.5px;color:rgba(255,255,255,.7);margin-top:4px;">${s.n} activo${s.n===1?'':'s'} · clic para ver más</div>` : ''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
 
-// Mismo algoritmo squarified treemap ya construido y verificado para
-// el heatmap de sectores del Simulador — tamaño de cada tile
-// proporcional a la cantidad de activos del sector, intensidad de
-// color proporcional a la magnitud del movimiento real. Aquí opera
-// sobre cotizaciones EN VIVO ya obtenidas (no simuladas), agrupadas
-// por el mapa de sector real de arriba.
+// Al hacer clic en un tile del heatmap, muestra la lista completa de
+// los activos más relevantes de ese sector (todo el universo del
+// mapa maestro, no solo los que el usuario ya sigue) — el punto es
+// dejar elegir, no limitarse a lo que ya estaba en pantalla.
+async function abrirListaSector(sector){
+  const tickers = SECTOR_POR_TICKER[sector] || [];
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.onclick = (e) => { if(e.target===modal) modal.remove(); };
+  modal.innerHTML = `<div class="modal-box" style="max-width:520px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:16px;font-weight:700;">${NOMBRE_SECTOR_LABEL[sector]}</div>
+      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="lista-sector-cuerpo"><div style="text-align:center;padding:20px;color:var(--t3);font-size:12px;">Consultando cotizaciones en vivo…</div></div>
+  </div>`;
+  document.body.appendChild(modal);
+  try {
+    const resp = await fetch(`${YAHOO_SUPABASE_URL}/functions/v1/quick-task?symbols=${tickers.join(',')}`, {
+      headers: { 'apikey': YAHOO_SUPABASE_ANON_KEY, 'Authorization': `Bearer ${YAHOO_SUPABASE_ANON_KEY}` },
+    });
+    const d = await resp.json();
+    const cuerpo = document.getElementById('lista-sector-cuerpo');
+    if(!cuerpo) return; // el usuario cerró el modal antes de que la petición terminara
+    if(!d.ok || !d.cotizaciones?.length){ cuerpo.innerHTML = `<div class="info-box">No se pudieron cargar las cotizaciones ahora mismo.</div>`; return; }
+    cuerpo.innerHTML = d.cotizaciones.map(c => {
+      const positivo = c.variacionPct>=0;
+      return `<div onclick="seleccionarActivoDesdeSector('${c.simbolo}')" style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid var(--c4);cursor:pointer;">
+        <div>
+          <div style="font-weight:600;font-size:13.5px;">${c.simbolo}</div>
+          <div style="font-size:11px;color:var(--t3);">${NOMBRE_POR_TICKER[c.simbolo]||''}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:var(--font-mono);font-size:13.5px;">$${c.precioActual.toFixed(2)}</div>
+          <div style="font-size:11.5px;font-weight:600;color:${positivo?'var(--green,#00d084)':'var(--red,#ff4757)'};">${positivo?'+':''}${c.variacionPct.toFixed(2)}%</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    const cuerpo = document.getElementById('lista-sector-cuerpo');
+    if(cuerpo) cuerpo.innerHTML = `<div class="info-box">No se pudo cargar la lista ahora mismo.</div>`;
+  }
+}
+function seleccionarActivoDesdeSector(ticker){
+  document.querySelector('.modal-overlay')?.remove();
+  goToForm();
+  document.querySelectorAll('.market-grid > div')[0]?.click();
+  setTimeout(() => {
+    const campo = $('f-ticker');
+    if(campo){ campo.value = ticker; traerDatosRealesYahoo(); }
+  }, 150);
+}
 function calcularSquarifiedTreemapHome(items, anchoTotal, altoTotal){
   const pesoTotal = items.reduce((s,i)=>s+i.peso, 0);
   const area = anchoTotal * altoTotal;
@@ -410,41 +512,6 @@ function calcularSquarifiedTreemapHome(items, anchoTotal, altoTotal){
   }
   if(filaActual.length) colocarFila(filaActual, rect);
   return resultado;
-}
-
-function renderHomeSectorHeatmap(cotizaciones){
-  const cont = $('home-sector-heatmap');
-  if(!cont) return;
-  const porSector = {};
-  cotizaciones.forEach(c => {
-    const sector = SECTOR_POR_TICKER[c.simbolo] || 'Diversos';
-    (porSector[sector] ||= []).push(c);
-  });
-  const sectores = Object.entries(porSector).map(([sector, activos]) => ({
-    sector, n: activos.length, peso: activos.length,
-    retProm: activos.reduce((s,a)=>s+a.variacionPct,0)/activos.length,
-  }));
-  if(sectores.length < 2){
-    cont.innerHTML = `<div style="text-align:center;padding:14px;font-size:12px;color:var(--t3);">Sigue acciones de más de un sector para ver el panorama comparado.</div>`;
-    return;
-  }
-  const magnitudMax = Math.max(...sectores.map(s=>Math.abs(s.retProm)), 1);
-  const ALTO = window.innerWidth < 640 ? 260 : 180;
-  const ANCHO = cont.clientWidth || 900;
-  const rects = calcularSquarifiedTreemapHome(sectores, ANCHO, ALTO);
-  cont.innerHTML = `<div style="position:relative;width:100%;height:${ALTO}px;">
-    ${rects.map(({item:s,x,y,w,h}) => {
-      const positivo = s.retProm>=0;
-      const intensidad = 0.18 + (Math.abs(s.retProm)/magnitudMax)*0.67;
-      const fondo = positivo ? `rgba(0,208,132,${intensidad.toFixed(2)})` : `rgba(255,71,87,${intensidad.toFixed(2)})`;
-      const chico = w<110 || h<60;
-      return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${fondo};border:1px solid rgba(0,0,0,.35);box-sizing:border-box;padding:${chico?'6px':'12px'};overflow:hidden;">
-        <div style="font-size:${chico?'10px':'12.5px'};font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.sector}</div>
-        <div style="font-size:${chico?'12px':'18px'};font-weight:700;color:#fff;margin-top:2px;">${positivo?'+':''}${s.retProm.toFixed(1)}%</div>
-        ${!chico?`<div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:4px;">${s.n} activo${s.n===1?'':'s'}</div>`:''}
-      </div>`;
-    }).join('')}
-  </div>`;
 }
 
 async function cargarDivisasPopulares(){
@@ -685,7 +752,7 @@ async function renderEstadosFinancierosReales(data){
   const cont = $('estados-financieros-box');
   if(!cont) return;
   const ticker = (data.ticker||'').trim().toUpperCase();
-  if(currentMarket!=='accion' || !ticker){ cont.innerHTML=''; return; }
+  if(currentMarket!=='accion' || !ticker){ cont.innerHTML=''; $('balance-general-box').innerHTML=''; $('flujo-caja-box').innerHTML=''; return; }
   cont.innerHTML = `<div class="card-title"><i class="ti ti-file-invoice"></i> Estado de Resultados real</div><div style="text-align:center;padding:14px;color:var(--t3);font-size:12px;">Consultando datos reales de ${ticker}…</div>`;
   try {
     const resp = await fetch(`${SIMULADOR_SUPABASE_URL}/functions/v1/estados-financieros-yahoo?symbol=${encodeURIComponent(ticker)}`, {
@@ -711,9 +778,61 @@ async function renderEstadosFinancierosReales(data){
       </div>
       <div id="ef-vista-anual"><table style="width:100%;font-size:12.5px;border-collapse:collapse;"><thead><tr style="background:var(--c3,#f5f5f5);"><th style="padding:6px 8px;text-align:left;">Año</th><th style="padding:6px 8px;text-align:right;">Ingresos</th><th style="padding:6px 8px;text-align:right;">Utilidad neta</th></tr></thead><tbody>${filas(d.anios||[], false)}</tbody></table></div>
       <div id="ef-vista-trimestral" style="display:none;"><table style="width:100%;font-size:12.5px;border-collapse:collapse;"><thead><tr style="background:var(--c3,#f5f5f5);"><th style="padding:6px 8px;text-align:left;">Trimestre</th><th style="padding:6px 8px;text-align:right;">Ingresos</th><th style="padding:6px 8px;text-align:right;">Utilidad neta</th></tr></thead><tbody>${filas(d.trimestres||[], true)}</tbody></table></div>
-      <div class="info-box" style="margin-top:10px;">Ingresos y utilidad neta reales — el resto del estado de resultados (costos, EBIT) no está disponible sin una fuente de pago, así que no se muestra en vez de estimarlo.${d.urlYahoo?` <a href="${d.urlYahoo}" target="_blank" rel="noopener">Ver en Yahoo Finance ↗</a>`:''}</div>`;
+      <div class="info-box" style="margin-top:10px;">Ingresos y utilidad neta reales.${d.urlYahoo?` <a href="${d.urlYahoo}" target="_blank" rel="noopener">Ver en Yahoo Finance ↗</a>`:''}</div>`;
   } catch(e){
     cont.innerHTML = `<div class="card-title"><i class="ti ti-file-invoice"></i> Estado de Resultados real</div><div class="info-box">No se pudo cargar el estado de resultados ahora mismo.</div>`;
+  }
+  renderBalanceYFlujoRealesSEC(ticker);
+}
+
+// Balance General y Flujo de Caja REALES vía la SEC — el mismo hueco
+// que Yahoo restringe a cuentas de pago (confirmado empíricamente en
+// el Simulador), resuelto con la fuente OFICIAL de EE.UU. que las
+// empresas públicas están legalmente obligadas a reportar en sus
+// 10-K/10-Q, gratuita y sin restricción. Solo cubre empresas públicas
+// de EE.UU. (~10,400 con CIK registrado) — si el ticker no tiene
+// cobertura (empresa extranjera), se indica con claridad en vez de
+// mostrar algo vacío o inventado.
+async function renderBalanceYFlujoRealesSEC(ticker){
+  const balCont = $('balance-general-box');
+  const cfCont = $('flujo-caja-box');
+  if(!balCont || !cfCont) return;
+  balCont.innerHTML = `<div class="card-title"><i class="ti ti-building"></i> Estado de Situación Financiera</div><div style="text-align:center;padding:14px;color:var(--t3);font-size:12px;">Consultando la SEC…</div>`;
+  cfCont.innerHTML = '';
+  try {
+    const resp = await fetch(`${SIMULADOR_SUPABASE_URL}/functions/v1/estados-financieros-sec?symbol=${encodeURIComponent(ticker)}`, {
+      headers: { 'apikey': SIMULADOR_SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SIMULADOR_SUPABASE_ANON_KEY}` },
+    });
+    const d = await resp.json();
+    if(!d.ok){
+      balCont.innerHTML = `<div class="card-title"><i class="ti ti-building"></i> Estado de Situación Financiera</div><div class="info-box">${ticker} no tiene cobertura en la SEC — esta fuente solo cubre empresas públicas de EE.UU. con reporte 10-K/10-Q.</div>`;
+      return;
+    }
+    const fmtM = v => Math.round(v/1e6).toLocaleString('es-PA');
+    const bal = (d.balanceGeneral?.anual||[]).slice(0,4);
+    if(bal.length>=2){
+      balCont.innerHTML = `
+        <div class="card-title"><i class="ti ti-building"></i> Estado de Situación Financiera — ${ticker}</div>
+        <table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+          <thead><tr style="background:var(--c3,#f5f5f5);"><th style="padding:6px 8px;text-align:left;">Año</th><th style="padding:6px 8px;text-align:right;">Total activos</th><th style="padding:6px 8px;text-align:right;">Total pasivos</th><th style="padding:6px 8px;text-align:right;">Patrimonio</th></tr></thead>
+          <tbody>${bal.map(r=>`<tr><td style="padding:6px 8px;">${r.fecha.slice(0,4)}</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono,monospace);">$${fmtM(r.activos)}M</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono,monospace);color:var(--red,#ff4757);">$${fmtM(r.pasivos)}M</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono,monospace);font-weight:600;color:var(--green,#00d084);">$${fmtM(r.patrimonio)}M</td></tr>`).join('')}</tbody>
+        </table>
+        <div class="info-box" style="margin-top:10px;">100% real — fuente: SEC (10-K), cifras oficiales reportadas por la empresa. <a href="${d.urlSEC}" target="_blank" rel="noopener">Ver en SEC EDGAR ↗</a></div>`;
+    } else {
+      balCont.innerHTML = `<div class="card-title"><i class="ti ti-building"></i> Estado de Situación Financiera</div><div class="info-box">La SEC no tiene suficiente historial de balance para ${ticker} todavía.</div>`;
+    }
+    const flujo = (d.flujoCaja?.anual||[]).slice(0,4);
+    if(flujo.length>=2){
+      cfCont.innerHTML = `
+        <div class="card-title"><i class="ti ti-cash"></i> Estado de Flujo de Efectivo — ${ticker}</div>
+        <table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+          <thead><tr style="background:var(--c3,#f5f5f5);"><th style="padding:6px 8px;text-align:left;">Año</th><th style="padding:6px 8px;text-align:right;">Operativo</th><th style="padding:6px 8px;text-align:right;">Inversión</th><th style="padding:6px 8px;text-align:right;">Financiamiento</th></tr></thead>
+          <tbody>${flujo.map(r=>`<tr><td style="padding:6px 8px;">${r.fecha.slice(0,4)}</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono,monospace);color:${r.operativo>=0?'var(--green,#00d084)':'var(--red,#ff4757)'};">$${fmtM(r.operativo)}M</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono,monospace);color:${r.inversion>=0?'var(--green,#00d084)':'var(--red,#ff4757)'};">$${fmtM(r.inversion)}M</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono,monospace);color:${r.financiamiento>=0?'var(--green,#00d084)':'var(--red,#ff4757)'};">$${fmtM(r.financiamiento)}M</td></tr>`).join('')}</tbody>
+        </table>
+        <div class="info-box" style="margin-top:10px;">100% real — fuente: SEC (10-K), cifras oficiales reportadas por la empresa. <a href="${d.urlSEC}" target="_blank" rel="noopener">Ver en SEC EDGAR ↗</a></div>`;
+    }
+  } catch(e){
+    balCont.innerHTML = `<div class="card-title"><i class="ti ti-building"></i> Estado de Situación Financiera</div><div class="info-box">No se pudo cargar el balance ahora mismo.</div>`;
   }
 }
 function cambiarVistaEF(modo, btn){
@@ -738,6 +857,15 @@ async function traerDatosRealesYahoo(){
     if(!d.ok) throw new Error(d.error || 'No se pudo consultar el símbolo.');
 
     if($('f-price')) $('f-price').value = d.precioActual;
+
+    // Auto-relleno del sector según el ticker real — antes era un
+    // paso manual que el usuario tenía que recordar hacer, señalado
+    // explícitamente como un punto de confusión real. Solo se
+    // autocompleta cuando el sector es conocido con certeza (mapa
+    // maestro); si no está en el mapa, el campo se deja como estaba
+    // (el usuario puede elegirlo a mano, pero no se le fuerza nada).
+    const sectorConocido = SECTOR_DE_ESTE_TICKER[ticker.toUpperCase()];
+    if(sectorConocido && $('f-sector')) $('f-sector').value = sectorConocido;
 
     // Volatilidad anualizada real, calculada a partir de los retornos
     // diarios del histórico de 6 meses — la fórmula estándar: desviación

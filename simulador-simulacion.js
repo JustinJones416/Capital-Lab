@@ -4945,9 +4945,9 @@ function renderAnalysis(id,type){
           <div style="height:180px;margin-top:14px;"><canvas id="fs-grafico-trimestral"></canvas></div>
         </div>
       </div>
-      <div class="card">
+      <div class="card" id="an-balance-card">
         <div class="card-title"><i class="ti ti-building" style="color:var(--green);"></i> Estado de Situación Financiera — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
-        <p style="font-size:11px;color:var(--t3);margin-bottom:10px;">Cifras en millones USD (USD M) · Modelo estimado del simulador — Yahoo Finance no entrega este detalle sin costo</p>
+        <p style="font-size:11px;color:var(--t3);margin-bottom:10px;" id="an-balance-fuente">Cifras en millones USD (USD M) · Modelo estimado del simulador — Yahoo Finance no entrega este detalle sin costo</p>
         <table>
           <thead><tr>
             <th>Concepto</th>
@@ -5001,7 +5001,7 @@ function renderAnalysis(id,type){
       divCF.id='an-cashflow';
       divCF.style.marginTop='14px';
       divCF.innerHTML=`
-      <div class="card">
+      <div class="card" id="an-cashflow-card">
         <div class="card-title"><i class="ti ti-cash" style="color:var(--gold);"></i> Estado de Flujo de Efectivo — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
         <p style="font-size:11px;color:var(--t3);margin-bottom:10px;">Cifras en millones USD (USD M) · Modelo estimado del simulador — Yahoo Finance no entrega este detalle sin costo</p>
         <table>
@@ -5055,6 +5055,7 @@ function renderAnalysis(id,type){
     // dibujó arriba, sin que el estudiante note ningún error.
     if(asset.ticker){
       try { intentarCargarEstadosFinancierosReales(asset); } catch(e){}
+      try { intentarCargarBalanceYFlujoRealesSEC(asset); } catch(e){}
     }
   }
 
@@ -5740,6 +5741,68 @@ function dibujarGraficoReplay(){
       ctx.beginPath(); ctx.arc(toX(idxInv), toY(st.serie[idxInv].cierre), 4, 0, Math.PI*2); ctx.fill();
     }
   }
+}
+
+// Balance General y Flujo de Caja REALES vía la SEC (Securities and
+// Exchange Commission de EE.UU.) — a diferencia del Estado de
+// Resultados (que YA tenía Ingresos/Utilidad reales vía Yahoo), esto
+// era el único hueco genuino: Yahoo Finance restringe Balance/Flujo a
+// cuentas de pago, confirmado empíricamente en una ronda anterior. La
+// SEC, siendo la fuente OFICIAL que las empresas están legalmente
+// obligadas a reportar, no tiene esa restricción — gratuita y
+// pública, sin excepción. Solo cubre empresas públicas de EE.UU.
+// (~10,400 con CIK registrado) — para el resto (empresas extranjeras,
+// bonos, derivados, futuros) el modelo estimado del simulador se
+// queda tal cual, con su aviso intacto, porque en esos casos sigue
+// siendo cierto que no hay una fuente real y gratuita disponible.
+async function intentarCargarBalanceYFlujoRealesSEC(asset){
+  if(asset.type !== 'accion' || !asset.ticker) return;
+  try {
+    const resp = await fetch(`${SIM_IA_URL}/functions/v1/estados-financieros-sec?symbol=${encodeURIComponent(asset.ticker)}`, {
+      headers: { 'Authorization': `Bearer ${SIM_IA_ANON_KEY}`, 'apikey': SIM_IA_ANON_KEY },
+    });
+    const d = await resp.json();
+    if(!d.ok) return; // sin cobertura SEC (empresa extranjera) — el modelo estimado se queda como está, correctamente
+
+    const balAnual = d.balanceGeneral?.anual || [];
+    const cajaCard = document.getElementById('an-balance-card');
+    if(cajaCard && balAnual.length >= 2){
+      const enMillones = v => Math.round(v/1e6);
+      const bal = balAnual.map(r => ({ year: r.fecha.slice(0,4), assets: enMillones(r.activos), liabilities: enMillones(r.pasivos), equity: enMillones(r.patrimonio) }));
+      cajaCard.innerHTML = `
+        <div class="card-title"><i class="ti ti-building" style="color:var(--green);"></i> Estado de Situación Financiera — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
+        <p style="font-size:11px;color:var(--t3);margin-bottom:10px;"><i class="ti ti-circle-check" style="color:var(--green);font-size:11px;"></i> 100% real — fuente: SEC (10-K), cifras oficiales reportadas por la empresa · <a href="${d.urlSEC}" target="_blank" rel="noopener">Ver en SEC EDGAR ↗</a></p>
+        <table>
+          <thead><tr><th>Concepto</th>${bal.map(r=>`<th style="text-align:right;">Año ${r.year}</th>`).join('')}<th style="text-align:right;">Var. interanual</th></tr></thead>
+          <tbody>
+            <tr style="background:rgba(0,196,255,.04);"><td style="color:var(--t1);font-weight:500;">Total activos</td>${bal.map(r=>`<td class="mono" style="text-align:right;font-weight:500;">${r.assets.toLocaleString('es-PA')}</td>`).join('')}<td class="mono ${bal[0].assets>bal[1].assets?'g':'r'}" style="text-align:right;">${((bal[0].assets-bal[1].assets)/bal[1].assets*100).toFixed(1)}%</td></tr>
+            <tr><td style="color:var(--t2);">Total pasivos</td>${bal.map(r=>`<td class="mono r" style="text-align:right;">${r.liabilities.toLocaleString('es-PA')}</td>`).join('')}<td class="mono" style="text-align:right;">—</td></tr>
+            <tr style="background:rgba(0,208,132,.04);"><td style="color:var(--t1);font-weight:500;">Patrimonio neto</td>${bal.map(r=>`<td class="mono g" style="text-align:right;font-weight:500;">${r.equity.toLocaleString('es-PA')}</td>`).join('')}<td class="mono ${bal[0].equity>bal[1].equity?'g':'r'}" style="text-align:right;">${((bal[0].equity-bal[1].equity)/Math.abs(bal[1].equity)*100).toFixed(1)}%</td></tr>
+            <tr><td style="color:var(--t2);">Razón deuda/patrimonio (pasivos/patrimonio)</td>${bal.map(r=>`<td class="mono ${r.liabilities/r.equity<2?'g':r.liabilities/r.equity<4?'a':'r'}" style="text-align:right;">${(r.liabilities/r.equity).toFixed(2)}x</td>`).join('')}<td class="mono" style="text-align:right;">—</td></tr>
+          </tbody>
+        </table>`;
+    }
+
+    const flujoAnual = d.flujoCaja?.anual || [];
+    const cfCard = document.getElementById('an-cashflow-card');
+    if(cfCard && flujoAnual.length >= 2){
+      const enMillones = v => Math.round(v/1e6);
+      const cf = flujoAnual.map(r => ({ year: r.fecha.slice(0,4), operating: enMillones(r.operativo), investing: enMillones(r.inversion), financing: enMillones(r.financiamiento) }));
+      const fcl = cf.map(r=>r.operating+r.investing);
+      cfCard.innerHTML = `
+        <div class="card-title"><i class="ti ti-cash" style="color:var(--gold);"></i> Estado de Flujo de Efectivo — ${asset.name}<i class="ti ti-chevron-down card-collapse-toggle" onclick="alternarTarjeta(this)"></i></div>
+        <p style="font-size:11px;color:var(--t3);margin-bottom:10px;"><i class="ti ti-circle-check" style="color:var(--green);font-size:11px;"></i> 100% real — fuente: SEC (10-K), cifras oficiales reportadas por la empresa · <a href="${d.urlSEC}" target="_blank" rel="noopener">Ver en SEC EDGAR ↗</a></p>
+        <table>
+          <thead><tr><th>Concepto</th>${cf.map(r=>`<th style="text-align:right;">Año ${r.year}</th>`).join('')}<th style="text-align:right;">Var. interanual</th></tr></thead>
+          <tbody>
+            <tr><td style="color:var(--t2);">Flujo de efectivo operativo</td>${cf.map(r=>`<td class="mono ${r.operating>=0?'g':'r'}" style="text-align:right;">${r.operating.toLocaleString('es-PA')}</td>`).join('')}<td class="mono" style="text-align:right;">—</td></tr>
+            <tr><td style="color:var(--t2);">Flujo de efectivo de inversión</td>${cf.map(r=>`<td class="mono ${r.investing>=0?'g':'r'}" style="text-align:right;">${r.investing.toLocaleString('es-PA')}</td>`).join('')}<td class="mono" style="text-align:right;">—</td></tr>
+            <tr><td style="color:var(--t2);">Flujo de efectivo de financiamiento</td>${cf.map(r=>`<td class="mono ${r.financing>=0?'g':'r'}" style="text-align:right;">${r.financing.toLocaleString('es-PA')}</td>`).join('')}<td class="mono" style="text-align:right;">—</td></tr>
+            <tr style="background:rgba(0,196,255,.04);"><td style="color:var(--t1);font-weight:500;">Flujo de caja libre (aprox.)</td>${fcl.map(v=>`<td class="mono ${v>=0?'g':'r'}" style="text-align:right;font-weight:500;">${v.toLocaleString('es-PA')}</td>`).join('')}<td class="mono" style="text-align:right;">—</td></tr>
+          </tbody>
+        </table>`;
+    }
+  } catch(e){ /* silencioso — el modelo estimado ya visible se queda como respaldo */ }
 }
 
 async function intentarCargarEstadosFinancierosReales(asset){
