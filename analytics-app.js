@@ -91,6 +91,67 @@ function actualizarBotonCuenta(){
   txt.textContent = clUsuario ? (clUsuario.email.split('@')[0]) : 'Iniciar sesión';
 }
 
+// Documentos legales — mismo contenido condensado ya usado en el
+// Simulador (mismos Términos/Privacidad reales de CapitalLab como
+// marca, aplicables a ambas herramientas), accesible desde el modal
+// de cuenta y desde un enlace permanente en el pie de página.
+const TEXTO_TERMINOS = `
+<p><b>Última actualización:</b> [fecha a completar antes de publicar]</p>
+<p style="background:rgba(255,180,0,.12);padding:10px;border-radius:8px;font-size:11.5px;"><i>Aviso: este documento es un borrador de trabajo. No sustituye la revisión de un abogado licenciado antes de su publicación formal.</i></p>
+<h4>1. Aceptación de los términos</h4>
+<p>Al acceder o usar CapitalLab Simulador y/o CapitalLab Analytics ("la Plataforma"), usted acepta quedar obligado por estos Términos. Si no está de acuerdo, no debe usar la Plataforma.</p>
+<h4>2. Descripción del servicio</h4>
+<p><b>LA PLATAFORMA ES EXCLUSIVAMENTE UNA HERRAMIENTA EDUCATIVA Y DE ANÁLISIS. NO CONSTITUYE ASESORÍA FINANCIERA NI DE INVERSIÓN.</b> Ninguna calificación, veredicto, tesis generada por IA, o proyección constituye una recomendación profesional de inversión.</p>
+<h4>3. Uso aceptable</h4>
+<p>El usuario se compromete a no usar la Plataforma para decisiones de inversión real sin verificación independiente, vulnerar su seguridad, ni usarla con fines comerciales no autorizados.</p>
+<h4>4. Datos de mercado y terceros</h4>
+<p>La Plataforma incorpora datos de Yahoo Finance, la SEC de EE.UU., y Finnhub. CapitalLab no controla ni garantiza su exactitud, integridad, o actualidad.</p>
+<h4>5. Contenido generado por IA</h4>
+<p>Ciertas funciones usan modelos de IA de terceros. Este contenido puede contener errores y no garantiza exactitud.</p>
+<h4>6. Propiedad intelectual</h4>
+<p>El software y diseño de la Plataforma son propiedad de CapitalLab. Se concede una licencia limitada, no exclusiva, con fines educativos.</p>
+<h4>7. Limitación de responsabilidad</h4>
+<p><b>CAPITALLAB NO SERÁ RESPONSABLE POR NINGÚN DAÑO, INCLUYENDO PÉRDIDA FINANCIERA REAL, QUE EL USUARIO PUDIERA ATRIBUIR A DECISIONES DE INVERSIÓN BASADAS EN LA PLATAFORMA.</b> Se proporciona "tal cual", sin garantías.</p>
+<h4>8-11. Modificaciones, terminación, ley aplicable, contacto</h4>
+<p>CapitalLab puede modificar el servicio y estos Términos en cualquier momento. Rige la ley de la República de Panamá. Contacto: [correo a completar].</p>`;
+
+const TEXTO_PRIVACIDAD = `
+<p><b>Última actualización:</b> [fecha a completar antes de publicar]</p>
+<p style="background:rgba(255,180,0,.12);padding:10px;border-radius:8px;font-size:11.5px;"><i>Aviso: este documento es un borrador de trabajo. No sustituye la revisión de un abogado licenciado, en particular respecto a la Ley 81 de 2019 de Panamá.</i></p>
+<h4>1. Datos que recopilamos</h4>
+<p>Datos de cuenta (correo, contraseña cifrada), y los datos que usted ingrese para su análisis (símbolos de activos, cifras financieras).</p>
+<h4>2. Cómo usamos sus datos</h4>
+<p>Para operar la Plataforma, guardar su historial de análisis si crea una cuenta, generar contenido personalizado con IA, y mejorar el servicio.</p>
+<h4>3. Con quién compartimos sus datos</h4>
+<p>No vendemos sus datos. Se comparten únicamente con: Supabase (infraestructura), Google Gemini (generación de texto con IA, solo datos ya calculados, nunca su contraseña), fuentes de datos de mercado (sin datos personales), y autoridades cuando sea legalmente requerido.</p>
+<h4>4. Seguridad</h4>
+<p>Contraseñas cifradas. Crear una cuenta es opcional — puede usar Analytics sin registrarse.</p>
+<h4>5. Sus derechos (Ley 81 de 2019, Panamá)</h4>
+<p>Acceder, corregir, y solicitar la eliminación de sus datos. Contacto: [correo a completar].</p>
+<h4>6. Cambios a esta Política</h4>
+<p>Notificaremos cambios significativos publicando la nueva versión con su fecha de actualización.</p>`;
+
+function abrirDocumentoLegal(tipo){
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.id = 'legal-overlay';
+  overlay.innerHTML = `
+    <div class="export-modal" style="max-width:640px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm ${tipo==='terminos'?'':'btn-ghost'}" onclick="abrirDocumentoLegal('terminos')">Términos y Condiciones</button>
+          <button class="btn btn-sm ${tipo==='privacidad'?'':'btn-ghost'}" onclick="abrirDocumentoLegal('privacidad')">Política de Privacidad</button>
+        </div>
+        <button class="modal-close" style="position:static;" onclick="document.getElementById('legal-overlay').remove()"><i class="ti ti-x"></i></button>
+      </div>
+      <div style="max-height:65vh;overflow-y:auto;font-size:12.5px;line-height:1.6;color:var(--t2);">
+        ${tipo==='terminos' ? TEXTO_TERMINOS : TEXTO_PRIVACIDAD}
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+}
+
 function abrirModalCuenta(){
   if(clUsuario){ abrirModalCuentaConectada(); return; }
   const overlay = document.createElement('div');
@@ -107,6 +168,10 @@ function abrirModalCuenta(){
     <input type="password" id="cuenta-password" placeholder="Contraseña" style="width:100%;padding:11px 13px;background:var(--c2);border:1px solid var(--c4);border-radius:var(--r);color:var(--t1);font-size:14px;margin-bottom:14px;">
     <button class="btn" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="iniciarSesionCuenta()"><i class="ti ti-login"></i> Iniciar sesión</button>
     <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:10px;" onclick="crearCuenta()"><i class="ti ti-user-plus"></i> Crear cuenta nueva</button>
+    <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;font-size:11px;color:var(--t3);cursor:pointer;">
+      <input type="checkbox" id="cuenta-acepta-legal" style="width:auto;margin-top:2px;flex-shrink:0;">
+      <span>Al crear una cuenta, acepto los <a href="#" onclick="event.preventDefault();abrirDocumentoLegal('terminos');" style="color:var(--accent);">Términos y Condiciones</a> y la <a href="#" onclick="event.preventDefault();abrirDocumentoLegal('privacidad');" style="color:var(--accent);">Política de Privacidad</a>.</span>
+    </label>
     <div style="text-align:center;margin-bottom:14px;"><button style="background:none;border:none;color:var(--t3);font-size:11.5px;cursor:pointer;text-decoration:underline;" onclick="recuperarContrasenaCuenta()">¿Olvidaste tu contraseña?</button></div>
     <div id="cuenta-msg" style="font-size:12px;text-align:center;margin-bottom:14px;"></div>
     <div style="border-top:1px solid var(--c3);padding-top:14px;text-align:center;">
@@ -188,6 +253,7 @@ async function crearCuenta(){
   const msg = $('cuenta-msg');
   if(!email || !password){ msg.style.color='var(--red, #ff4757)'; msg.textContent='Completa correo y contraseña.'; return; }
   if(password.length<6){ msg.style.color='var(--red, #ff4757)'; msg.textContent='La contraseña debe tener al menos 6 caracteres.'; return; }
+  if(!$('cuenta-acepta-legal').checked){ msg.style.color='var(--red, #ff4757)'; msg.textContent='Debes aceptar los Términos y Condiciones y la Política de Privacidad para crear una cuenta.'; return; }
   msg.style.color='var(--t3)'; msg.textContent='Creando cuenta…';
   const { data, error } = await clsb.auth.signUp({ email, password });
   if(error){ msg.style.color='var(--red, #ff4757)'; msg.textContent = error.message; return; }

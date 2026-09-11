@@ -144,6 +144,7 @@ async function authSignup(){
 
   if(!nombre || !correo || !password){ authMsg('Completa nombre, correo y contraseña.'); return; }
   if(password.length < 6){ authMsg('La contraseña debe tener al menos 6 caracteres.'); return; }
+  if(!document.getElementById('signup-acepta-legal').checked){ authMsg('Debes aceptar los Términos y Condiciones y la Política de Privacidad para crear una cuenta.'); return; }
   if(rol==='estudiante' && !codigoIngresado){ authMsg('Ingresa el código de sesión que te dio tu docente.'); return; }
   if(rol==='docente' && !sesionNombre){ authMsg('Indica el nombre de la sesión de clase que vas a crear.'); return; }
   if(rol==='docente' && !pinDocente){ authMsg('Ingresa el PIN de docente para poder registrarte con ese rol.'); return; }
@@ -1091,6 +1092,10 @@ function mostrarFormularioCompletarPerfil(user){
         <label style="margin-top:10px;">PIN de docente</label>
         <input type="text" id="cp-pin-docente" placeholder="Pídeselo a la coordinación de tu facultad" style="letter-spacing:.08em;">
       </div>
+      <label style="display:flex;align-items:flex-start;gap:8px;margin-top:14px;font-size:12px;color:var(--t2);cursor:pointer;">
+        <input type="checkbox" id="cp-acepta-legal" style="width:auto;margin-top:2px;flex-shrink:0;">
+        <span>He leído y acepto los <a href="#" onclick="event.preventDefault();abrirDocumentoLegal('terminos');" style="color:var(--accent2);">Términos y Condiciones</a> y la <a href="#" onclick="event.preventDefault();abrirDocumentoLegal('privacidad');" style="color:var(--accent2);">Política de Privacidad</a> de CapitalLab.</span>
+      </label>
       <button class="auth-submit" id="cp-btn">Continuar</button>
       <button class="btn btn-ghost" id="cp-cancelar" style="width:100%;margin-top:10px;">Cancelar y volver al inicio</button>
     </div>`;
@@ -1131,6 +1136,7 @@ function mostrarFormularioCompletarPerfil(user){
     const sesionNombre = overlay.querySelector('#cp-sesion-nombre').value.trim();
     const pinDocente = overlay.querySelector('#cp-pin-docente').value.trim();
     if(!nombre){ cpMsg.className='auth-msg show error'; cpMsg.textContent='Ingresa tu nombre.'; return; }
+    if(!overlay.querySelector('#cp-acepta-legal').checked){ cpMsg.className='auth-msg show error'; cpMsg.textContent='Debes aceptar los Términos y Condiciones y la Política de Privacidad para continuar.'; return; }
     if(cpRol==='estudiante' && !codigo){ cpMsg.className='auth-msg show error'; cpMsg.textContent='Ingresa el código de sesión.'; return; }
     if(cpRol==='docente' && !sesionNombre){ cpMsg.className='auth-msg show error'; cpMsg.textContent='Ingresa el nombre de la sesión a crear.'; return; }
     if(cpRol==='docente' && !pinDocente){ cpMsg.className='auth-msg show error'; cpMsg.textContent='Ingresa el PIN de docente.'; return; }
@@ -5728,6 +5734,73 @@ function abrirCalificacionMasiva(){
       btn.disabled = false; btn.textContent = 'Calificar seleccionados';
     }
   };
+}
+
+// Documentos legales — accesibles desde el registro (enlaces del
+// checkbox de aceptación) y desde cualquier parte de la app (enlace
+// permanente en el menú lateral). Contenido condensado del documento
+// completo ya entregado en Word — mismo texto, formato más breve
+// para pantalla. Nunca se descarga ni genera de nuevo aquí: es el
+// mismo contenido fijo, solo mostrado dentro de la app.
+const TEXTO_TERMINOS = `
+<p><b>Última actualización:</b> [fecha a completar antes de publicar]</p>
+<p style="background:rgba(255,180,0,.12);padding:10px;border-radius:8px;font-size:11.5px;"><i>Aviso: este documento es un borrador de trabajo. No sustituye la revisión de un abogado licenciado antes de su publicación formal.</i></p>
+<h4>1. Aceptación de los términos</h4>
+<p>Al acceder o usar CapitalLab Simulador y/o CapitalLab Analytics ("la Plataforma"), usted acepta quedar obligado por estos Términos. Si no está de acuerdo, no debe usar la Plataforma.</p>
+<h4>2. Descripción del servicio</h4>
+<p><b>LA PLATAFORMA ES EXCLUSIVAMENTE UNA HERRAMIENTA EDUCATIVA Y DE ANÁLISIS. NO CONSTITUYE ASESORÍA FINANCIERA NI DE INVERSIÓN.</b> Ninguna calificación, veredicto, tesis generada por IA, o proyección constituye una recomendación profesional de inversión.</p>
+<h4>3. Elegibilidad y cuentas</h4>
+<p>El acceso como docente requiere un código de autorización institucional. El usuario es responsable de la confidencialidad de sus credenciales.</p>
+<h4>4. Uso aceptable</h4>
+<p>El usuario se compromete a no usar la Plataforma para decisiones de inversión real sin verificación independiente, vulnerar su seguridad, ni usarla con fines comerciales no autorizados.</p>
+<h4>5. Datos de mercado y terceros</h4>
+<p>La Plataforma incorpora datos de Yahoo Finance, la SEC de EE.UU., y Finnhub. CapitalLab no controla ni garantiza su exactitud, integridad, o actualidad.</p>
+<h4>6. Contenido generado por IA</h4>
+<p>Ciertas funciones usan modelos de IA de terceros. Este contenido puede contener errores y no garantiza exactitud.</p>
+<h4>7. Propiedad intelectual</h4>
+<p>El software y diseño de la Plataforma son propiedad de CapitalLab. Se concede una licencia limitada, no exclusiva, con fines educativos.</p>
+<h4>8. Limitación de responsabilidad</h4>
+<p><b>CAPITALLAB NO SERÁ RESPONSABLE POR NINGÚN DAÑO, INCLUYENDO PÉRDIDA FINANCIERA REAL, QUE EL USUARIO PUDIERA ATRIBUIR A DECISIONES DE INVERSIÓN BASADAS EN LA PLATAFORMA.</b> Se proporciona "tal cual", sin garantías.</p>
+<h4>9-12. Modificaciones, terminación, ley aplicable, contacto</h4>
+<p>CapitalLab puede modificar el servicio y estos Términos en cualquier momento. Rige la ley de la República de Panamá. Contacto: [correo a completar].</p>`;
+
+const TEXTO_PRIVACIDAD = `
+<p><b>Última actualización:</b> [fecha a completar antes de publicar]</p>
+<p style="background:rgba(255,180,0,.12);padding:10px;border-radius:8px;font-size:11.5px;"><i>Aviso: este documento es un borrador de trabajo. No sustituye la revisión de un abogado licenciado, en particular respecto a la Ley 81 de 2019 de Panamá.</i></p>
+<h4>1. Datos que recopilamos</h4>
+<p>Datos de registro (nombre, correo, contraseña cifrada, rol), datos académicos (sesión de clase, calificaciones), datos de uso de la simulación (con capital virtual, nunca dinero real), datos ingresados en Analytics, y datos técnicos básicos.</p>
+<h4>2. Cómo usamos sus datos</h4>
+<p>Para operar la Plataforma, permitir que su docente vea su desempeño dentro de su sesión con fines de evaluación, generar contenido personalizado con IA, y mejorar el servicio.</p>
+<h4>3. Con quién compartimos sus datos</h4>
+<p>No vendemos sus datos. Se comparten únicamente con: Supabase (infraestructura), Google Gemini (generación de texto con IA, solo datos ya calculados, nunca su contraseña), fuentes de datos de mercado (sin datos personales), su docente e institución (desempeño académico), y autoridades cuando sea legalmente requerido.</p>
+<h4>4. Seguridad</h4>
+<p>Contraseñas cifradas y controles de acceso por rol. Ningún sistema es completamente seguro.</p>
+<h4>5. Sus derechos (Ley 81 de 2019, Panamá)</h4>
+<p>Acceder, corregir, y solicitar la eliminación de sus datos, sujeto a obligaciones académicas de retención. Contacto: [correo a completar].</p>
+<h4>6. Menores de edad</h4>
+<p>La Plataforma está diseñada para educación superior (universitaria), no dirigida a menores de edad.</p>
+<h4>7. Cambios a esta Política</h4>
+<p>Notificaremos cambios significativos publicando la nueva versión con su fecha de actualización.</p>`;
+
+function abrirDocumentoLegal(tipo){
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.id = 'legal-overlay';
+  overlay.innerHTML = `
+    <div class="export-modal" style="max-width:640px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="display:flex;gap:6px;">
+          <button class="mkt-chart-toggle-btn ${tipo==='terminos'?'active':''}" onclick="abrirDocumentoLegal('terminos')" style="border:1px solid var(--c4);border-radius:6px;">Términos y Condiciones</button>
+          <button class="mkt-chart-toggle-btn ${tipo==='privacidad'?'active':''}" onclick="abrirDocumentoLegal('privacidad')" style="border:1px solid var(--c4);border-radius:6px;">Política de Privacidad</button>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('legal-overlay').remove()"><i class="ti ti-x"></i></button>
+      </div>
+      <div style="max-height:65vh;overflow-y:auto;font-size:12.5px;line-height:1.6;color:var(--t2);">
+        ${tipo==='terminos' ? TEXTO_TERMINOS : TEXTO_PRIVACIDAD}
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
 }
 
 function abrirModalCalificar(usuarioId, nombre, sesionId, editando){

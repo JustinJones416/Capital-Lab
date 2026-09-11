@@ -114,6 +114,10 @@
         <div class="auth-hint">Requerido para registrarse como docente — evita que cualquier persona externa cree una cuenta con acceso a datos de estudiantes.</div>
       </div>
 
+      <label style="display:flex;align-items:flex-start;gap:8px;margin-top:14px;font-size:12px;color:var(--t2);cursor:pointer;">
+        <input type="checkbox" id="signup-acepta-legal" style="width:auto;margin-top:2px;flex-shrink:0;">
+        <span>He leído y acepto los <a href="#" onclick="event.preventDefault();abrirDocumentoLegal('terminos');" style="color:var(--accent2);">Términos y Condiciones</a> y la <a href="#" onclick="event.preventDefault();abrirDocumentoLegal('privacidad');" style="color:var(--accent2);">Política de Privacidad</a> de CapitalLab.</span>
+      </label>
       <button class="auth-submit" id="btn-signup" onclick="authSignup()">Crear cuenta</button>
       <div class="auth-guest-sep" style="margin:14px 0;"><span>o bien</span></div>
       <button class="auth-submit" id="btn-google-signup" onclick="authConGoogle()" style="background:#fff;color:#1a1a1a;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;gap:10px;">
@@ -353,6 +357,9 @@
     </div>
   </div>
   <div class="wl-body" id="wl-body"></div>
+  <div style="padding:12px 14px;text-align:center;">
+    <button onclick="abrirDocumentoLegal('terminos')" style="background:none;border:none;color:var(--t3);font-size:10.5px;cursor:pointer;text-decoration:underline;padding:0;">Términos y Privacidad</button>
+  </div>
 </div>
 
 <!-- ── MAIN ── -->
