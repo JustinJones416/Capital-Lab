@@ -467,12 +467,19 @@
             </div>
             <div class="trade-panel">
               <div class="tp-title"><i class="ti ti-arrows-exchange"></i> Ejecutar operación a precio de mercado</div>
-              <div class="tp-row">
+              <div style="display:flex;gap:6px;margin-bottom:8px;">
+                <button type="button" class="btn btn-ghost btn-sm active" id="trade-modo-qty" onclick="setModoOrden('qty')" style="flex:1;justify-content:center;">Por cantidad</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="trade-modo-monto" onclick="setModoOrden('monto')" style="flex:1;justify-content:center;">Por monto ($)</button>
+              </div>
+              <div class="tp-row" id="trade-row-qty">
                 <div class="tp-qty-stepper">
                   <button type="button" class="tp-qty-btn" onclick="ajustarCantidadOperacion(-1)" aria-label="Restar una unidad"><i class="ti ti-minus"></i></button>
                   <input type="number" id="trade-qty" min="1" value="10" placeholder="Cantidad" oninput="updateTradeCalc()">
                   <button type="button" class="tp-qty-btn" onclick="ajustarCantidadOperacion(1)" aria-label="Sumar una unidad"><i class="ti ti-plus"></i></button>
                 </div>
+              </div>
+              <div class="tp-row" id="trade-row-monto" style="display:none;">
+                <input type="number" id="trade-monto" min="1" placeholder="Monto a invertir en $" step="any" style="width:100%;background:var(--bg2, #10141d);border:1px solid var(--c4);border-radius:var(--r);padding:11px 13px;color:var(--t1);font-size:14px;" oninput="actualizarDesdeMonto()">
               </div>
               <div class="tp-info">
                 <div class="tp-kpi"><div class="tp-kpi-label">Precio de mercado</div><div class="tp-kpi-val mono" id="trade-price-show">—</div></div>
@@ -989,6 +996,7 @@
     <div class="metric"><div class="metric-label">Ratio Sortino <i class="ti ti-info-circle" style="font-size:11px;" title="Como el Sharpe, pero solo penaliza la volatilidad a la baja — una cartera puede ser volátil por subidas fuertes sin que eso sea un problema real."></i></div><div class="metric-val mono" id="res-sortino">—</div></div>
     <div class="metric"><div class="metric-label">Máximo Drawdown</div><div class="metric-val mono r" id="res-drawdown">—</div></div>
     <div class="metric"><div class="metric-label">Ratio Calmar <i class="ti ti-info-circle" style="font-size:11px;" title="Retorno anualizado dividido entre el Máximo Drawdown — mide el retorno obtenido por cada punto de caída máxima soportada."></i></div><div class="metric-val mono" id="res-calmar">—</div></div>
+    <div class="metric"><div class="metric-label">Ratio Treynor <i class="ti ti-info-circle" style="font-size:11px;" title="Como el Sharpe, pero divide entre beta en vez de volatilidad total — mide el retorno por cada unidad de riesgo de mercado (sistemático), no del riesgo total de la cartera."></i></div><div class="metric-val mono" id="res-treynor">—</div></div>
   </div>
 
   <!-- Row 2: market session metrics -->

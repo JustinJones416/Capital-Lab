@@ -1453,6 +1453,34 @@ function ajustarCantidadOperacion(delta){
   updateTradeCalc();
 }
 
+// Comprar "por monto" en vez de "por cantidad" es el estándar real en
+// cualquier bróker moderno (Robinhood, Fidelity, etc.) — el estudiante
+// dice cuánto dinero quiere invertir, y el sistema calcula cuántas
+// unidades le corresponden, incluso fraccionarias, en vez de forzarlo
+// a calcular la cantidad exacta a mano. trade-qty se mantiene como el
+// campo real que el resto del sistema ya usa (ejecución, cálculo de
+// costos) — el modo "por monto" solo lo actualiza automáticamente.
+function setModoOrden(modo){
+  const esQty = modo==='qty';
+  document.getElementById('trade-row-qty').style.display = esQty ? '' : 'none';
+  document.getElementById('trade-row-monto').style.display = esQty ? 'none' : '';
+  document.getElementById('trade-modo-qty').classList.toggle('active', esQty);
+  document.getElementById('trade-modo-monto').classList.toggle('active', !esQty);
+  if(!esQty && selectedAsset){
+    const p = selectedAsset.currentPrice||selectedAsset.price;
+    const qtyActual = +document.getElementById('trade-qty').value||0;
+    document.getElementById('trade-monto').value = (qtyActual*p).toFixed(2);
+  }
+}
+function actualizarDesdeMonto(){
+  if(!selectedAsset) return;
+  const monto = +document.getElementById('trade-monto').value||0;
+  const p = selectedAsset.currentPrice||selectedAsset.price;
+  const qty = p>0 ? monto/p : 0;
+  document.getElementById('trade-qty').value = qty>0 ? qty.toFixed(6) : 0; // hasta 6 decimales, suficiente para no perder precisión del monto exacto
+  updateTradeCalc();
+}
+
 function updateTradeCalc(){
   if(!selectedAsset)return;
   const qty=+document.getElementById('trade-qty').value||0;

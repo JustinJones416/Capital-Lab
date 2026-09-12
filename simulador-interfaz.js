@@ -338,6 +338,7 @@ function renderResults(){
   setKpi('res-sortino', sortino.toFixed(2));
   setKpi('res-drawdown', '-'+maxDD.toFixed(1)+'%');
   setKpi('res-calmar', calmar.toFixed(2));
+  setKpi('res-treynor', pmR.treynor.toFixed(2));
 
   // ── Market session KPIs ──
   const completedSessions = marketSessionLog.filter(s=>s.closedAt);
@@ -385,6 +386,9 @@ function renderResults(){
         <div style="font-size:32px;font-family:var(--font-mono);font-weight:700;color:var(--t1);">${indexLevel.toLocaleString('es-PA',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
         <div style="font-size:16px;font-family:var(--font-mono);font-weight:600;color:${indexChg>=0?'var(--green)':'var(--red)'};">${indexChg>=0?'▲ +':'▼ '}${indexChg.toFixed(2)}%</div>
         <div style="font-size:11px;color:var(--t3);">Base 1,000 pts · Índice equiponderado de 150 activos</div>
+      </div>
+      <div style="font-size:10.5px;color:var(--t3);margin-bottom:12px;line-height:1.5;background:rgba(255,255,255,.02);border-radius:6px;padding:8px 10px;">
+        <b>Metodología del CL-30:</b> equiponderado entre las 5 clases de activo (Renta Variable, Renta Fija, Divisas, Futuros, Derivados) y, dentro de cada clase, entre todos sus activos por igual — no ponderado por capitalización de mercado. Se recalcula desde cero en cada actualización de precios, como la variación promedio de la sesión actual, sin rebalanceo periódico ni fecha base histórica: es un snapshot del momento, no un índice acumulativo con nivel persistente a través de sesiones distintas.
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
         ${classChanges.map(c=>`

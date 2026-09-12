@@ -7411,7 +7411,7 @@ function calificarActivoCapitalLab(asset){
 // se descompone en componente sistemática (vía beta ponderada) + idiosincrásica residual,
 // en lugar de asumir correlación perfecta (ρ=1) entre todas las posiciones.
 function computePortfolioMetrics(positions){
-  const out = { value:0, wRet:0, wSigma:0, sharpe:0, var95:0, beta:0 };
+  const out = { value:0, wRet:0, wSigma:0, sharpe:0, treynor:0, var95:0, beta:0 };
   if(!positions || positions.length === 0) return out;
   let totVal = 0;
   positions.forEach(p=>{ totVal += (p.currentPrice||p.buyPrice)*p.qty; });
@@ -7443,6 +7443,7 @@ function computePortfolioMetrics(positions){
   out.wSigma = portSigma;
   out.beta   = wBeta;
   out.sharpe = portSigma>0 ? (wRet - RF)/portSigma : 0;
+  out.treynor = wBeta!==0 ? (wRet - RF)/wBeta : 0;
   out.var95  = totVal * (portSigma/100) * 1.645;
   return out;
 }
