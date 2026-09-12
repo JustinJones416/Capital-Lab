@@ -4666,11 +4666,11 @@ function ensureAnalysisBody(){
         <div class="card"><div class="card-title"><i class="ti ti-target"></i> Riesgo vs Rentabilidad</div><div class="chart-box-lg"><canvas id="an-rv-chart"></canvas></div></div>
       </div>
       <div class="card" id="an-calificacion-card" style="margin-bottom:14px;"></div>
+      <div class="card" id="an-lider-sector-box" style="margin-bottom:14px;display:none;"></div>
       <div class="card" id="an-noticias-card">
         <div class="card-title"><i class="ti ti-news"></i> Noticias de este activo</div>
         <div id="an-noticias-cuerpo"><div class="auth-hint">Cargando…</div></div>
       </div>
-      <div class="card" id="an-lider-sector-box" style="margin-top:14px;display:none;"></div>
     </div>
     <div id="an-tab-estadisticas" class="an-tab-panel" style="display:none;">
       <div class="card" style="margin-bottom:14px;"><div class="card-title"><i class="ti ti-gauge"></i> Indicadores clave</div><div id="an-indicators"></div></div>

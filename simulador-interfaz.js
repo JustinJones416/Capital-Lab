@@ -1843,7 +1843,23 @@ function configurarInteraccionCandlestick(){
   canvas.addEventListener('mousemove', (e) => manejarMovimiento(e.clientX, e.clientY));
   canvas.addEventListener('mousedown', (e) => {
     const rect = canvas.getBoundingClientRect();
-    arrastrandoLinea = lineaBajoCursor(e.clientY - rect.top);
+    const mouseY = e.clientY - rect.top;
+    const existente = lineaBajoCursor(mouseY);
+    if (existente){ arrastrandoLinea = existente; return; }
+    // Sin línea existente bajo el cursor: si hay una posición abierta
+    // en este activo, el primer clic-y-arrastre en cualquier parte
+    // del gráfico CREA el nivel ahí mismo (SL si el punto está por
+    // debajo del precio actual, TP si está por encima), y continúa
+    // arrastrando de inmediato — no hace falta pasar por el modal
+    // primero para empezar a interactuar con el gráfico.
+    const layout = window.__candleLayout;
+    const pos = obtenerPosicionSLTP();
+    if (!layout || !pos) return;
+    const precioClic = layout.lo + (layout.hi - layout.lo) * (1 - (mouseY - layout.pad.t) / layout.cH);
+    const cur = layout.asset.currentPrice || layout.asset.price;
+    if (precioClic < cur){ pos.stopLoss = +precioClic.toFixed(getDecimals(layout.asset)); arrastrandoLinea = 'sl'; }
+    else { pos.takeProfit = +precioClic.toFixed(getDecimals(layout.asset)); arrastrandoLinea = 'tp'; }
+    dibujarCandlestickBase(layout);
   });
   window.addEventListener('mouseup', () => {
     if (arrastrandoLinea) { arrastrandoLinea = null; guardarPosicionSLTPArrastrada(); }
