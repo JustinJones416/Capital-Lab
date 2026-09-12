@@ -260,6 +260,59 @@ function renderResultsLab(){
 }
 
 // ═══════════════════ RESULTS ═══════════════════
+// Historial temporal del valor de cartera — necesario para Máximo
+// Drawdown, Sortino, y Calmar, que a diferencia del Sharpe (que solo
+// necesita un snapshot de riesgo/retorno estimado) requieren una
+// SERIE de valores a través del tiempo. Antes no existía ningún
+// registro de este tipo. Se guarda solo mientras el mercado está
+// abierto (mismo ciclo de tickPrices), con un límite razonable de
+// puntos para no crecer indefinidamente en una sesión muy larga.
+window.__historialValorCartera = window.__historialValorCartera || [];
+function registrarValorCarteraParaMetricas(){
+  const v = capital + portfolio.reduce((s,p)=>s+(p.currentPrice||p.buyPrice)*p.qty, 0);
+  window.__historialValorCartera.push(v);
+  if(window.__historialValorCartera.length > 5000) window.__historialValorCartera.shift();
+}
+
+// Máximo Drawdown real: la mayor caída porcentual desde un máximo
+// hasta un mínimo posterior en la serie histórica — no una estimación
+// teórica, sino calculado sobre los valores de cartera realmente
+// observados durante la sesión.
+function calcularMaxDrawdown(){
+  const serie = window.__historialValorCartera;
+  if(serie.length < 2) return 0;
+  let pico = serie[0], maxCaida = 0;
+  serie.forEach(v => {
+    if(v > pico) pico = v;
+    const caida = pico>0 ? (pico-v)/pico*100 : 0;
+    if(caida > maxCaida) maxCaida = caida;
+  });
+  return maxCaida;
+}
+
+// Ratio Sortino: como el Sharpe, pero la desviación estándar solo
+// considera los retornos NEGATIVOS (downside deviation) — una cartera
+// volátil por subidas fuertes no debería penalizarse igual que una
+// volátil por caídas.
+function calcularSortino(retPct){
+  const serie = window.__historialValorCartera;
+  if(serie.length < 3) return 0;
+  const retornos = [];
+  for(let i=1;i<serie.length;i++){ if(serie[i-1]>0) retornos.push((serie[i]-serie[i-1])/serie[i-1]*100); }
+  const negativos = retornos.filter(r => r < 0);
+  if(negativos.length === 0) return retPct > 0 ? 99 : 0; // sin caídas observadas: Sortino no penalizado, tope razonable para mostrar
+  const downsideVar = negativos.reduce((s,r)=>s+r*r,0) / negativos.length;
+  const downsideDev = Math.sqrt(downsideVar) * Math.sqrt(retornos.length); // anualizado a la escala de la serie observada
+  return downsideDev>0 ? (retPct - RF)/downsideDev : 0;
+}
+
+// Ratio Calmar: retorno anualizado dividido entre el Máximo Drawdown
+// — penaliza estrategias con caídas profundas aunque su retorno
+// promedio se vea bien.
+function calcularCalmar(retPct, maxDD){
+  return maxDD>0 ? retPct/maxDD : 0;
+}
+
 function renderResults(){
   // ── Metrics ──
   const tI = portfolio.reduce((s,p)=>s+p.invested,0);
@@ -277,6 +330,14 @@ function renderResults(){
   document.getElementById('res-sigma').textContent = aS.toFixed(1)+'%';
   document.getElementById('res-sharpe').textContent = sh.toFixed(2);
   document.getElementById('res-ops').textContent = txHistory.length;
+
+  const maxDD = calcularMaxDrawdown();
+  const sortino = calcularSortino(retPct);
+  const calmar = calcularCalmar(retPct, maxDD);
+  const setKpi = (id, val, cls) => { const el = document.getElementById(id); if(el){ el.textContent = val; if(cls) el.className = 'metric-val mono '+cls; } };
+  setKpi('res-sortino', sortino.toFixed(2));
+  setKpi('res-drawdown', '-'+maxDD.toFixed(1)+'%');
+  setKpi('res-calmar', calmar.toFixed(2));
 
   // ── Market session KPIs ──
   const completedSessions = marketSessionLog.filter(s=>s.closedAt);
@@ -1391,6 +1452,7 @@ function tickPrices() {
   autosave();
   verificarAlertasPrecio();
   verificarStopLossTakeProfit();
+  registrarValorCarteraParaMetricas();
 }
 
 // Box-Muller transform: standard normal random variable
