@@ -1494,12 +1494,6 @@ function usarSaldoMaximoOrden(){
   document.getElementById('trade-monto').value = (Math.floor(maximoInvertibleAhora()*100)/100).toFixed(2);
   actualizarDesdeMonto();
 }
-function usarPorcentajeSaldoOrden(pct){
-  if(!selectedAsset) return;
-  const monto = Math.min(Math.max(capital,0)*pct, maximoInvertibleAhora());
-  document.getElementById('trade-monto').value = (Math.floor(monto*100)/100).toFixed(2);
-  actualizarDesdeMonto();
-}
 function actualizarDesdeMonto(){
   if(!selectedAsset) return;
   const monto = +document.getElementById('trade-monto').value||0;
