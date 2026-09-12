@@ -638,6 +638,7 @@
       <button class="an-tab-btn active" data-tab="resumen" onclick="cambiarTabAnalisisActivo('resumen',this)">Resumen</button>
       <button class="an-tab-btn" data-tab="estadisticas" onclick="cambiarTabAnalisisActivo('estadisticas',this)">Estadísticas</button>
       <button class="an-tab-btn" data-tab="perfil" onclick="cambiarTabAnalisisActivo('perfil',this)">Perfil y detalle</button>
+      <button class="an-tab-btn" data-tab="dcf" onclick="cambiarTabAnalisisActivo('dcf',this)">Modelo DCF</button>
     </div>
 
     <div id="an-tab-resumen" class="an-tab-panel">
@@ -665,6 +666,35 @@
            Especificaciones de contrato, Griegas...) se insertan aquí
            dinámicamente desde renderAnalysis(), según el tipo del
            activo que se esté viendo. -->
+    </div>
+
+    <!-- Modelo Financiero DCF — mismo modelo ya construido y
+         verificado en Analytics, portado aquí con los mismos datos
+         reales de la SEC ya conectados en el Simulador (Estado de
+         Resultados y Balance). Solo aplica a acciones con cobertura
+         SEC real; para el resto se explica por qué no está disponible
+         en vez de mostrar algo vacío. -->
+    <div id="an-tab-dcf" class="an-tab-panel" style="display:none;">
+      <div class="card">
+        <div class="card-title"><i class="ti ti-building-bank"></i> Modelo Financiero — Flujo de Caja Descontado (DCF)</div>
+        <p style="font-size:12px;color:var(--t3);margin-bottom:12px;">Estándar real de banca de inversión: proyecta el flujo de caja libre de la empresa a 5 años y lo descuenta a valor presente para estimar cuánto vale realmente el negocio, con datos reales de la SEC como punto de partida.</p>
+        <div id="dcf-sin-datos" class="info-box" style="display:none;">Este modelo requiere el Estado de Resultados real del activo — solo disponible para acciones de empresas públicas de EE.UU. con cobertura en la SEC.</div>
+        <div id="dcf-contenido" style="display:none;">
+          <div style="font-size:12.5px;font-weight:600;margin:6px 0 8px;">Supuestos del modelo</div>
+          <div class="grid-4-resp" style="gap:10px;margin-bottom:14px;">
+            <div class="field"><label>Crecimiento anual de ingresos <span class="hint">· próximos 5 años</span></label><input id="dcf-growth" type="number" step="0.1" oninput="calcularDCF()"><span class="u">%</span></div>
+            <div class="field"><label>Margen EBIT proyectado</label><input id="dcf-margin" type="number" step="0.1" oninput="calcularDCF()"><span class="u">%</span></div>
+            <div class="field"><label>Tasa de impuesto corporativo</label><input id="dcf-tax" type="number" step="0.5" value="21" oninput="calcularDCF()"><span class="u">%</span></div>
+            <div class="field"><label>CapEx neto de D&A <span class="hint">· % de ingresos</span></label><input id="dcf-capex" type="number" step="0.5" value="5" oninput="calcularDCF()"><span class="u">%</span></div>
+            <div class="field"><label>Variación en capital de trabajo <span class="hint">· % del ingreso incremental</span></label><input id="dcf-nwc" type="number" step="0.5" value="10" oninput="calcularDCF()"><span class="u">%</span></div>
+            <div class="field"><label>Crecimiento terminal (perpetuidad)</label><input id="dcf-terminal" type="number" step="0.1" value="2.5" oninput="calcularDCF()"><span class="u">%</span></div>
+            <div class="field"><label>Costo de la deuda (antes de impuesto)</label><input id="dcf-costdeuda" type="number" step="0.1" value="5.5" oninput="calcularDCF()"><span class="u">%</span></div>
+          </div>
+          <div id="dcf-wacc-box" style="margin-bottom:14px;"></div>
+          <div id="dcf-tabla-box" style="margin-bottom:14px;"></div>
+          <div id="dcf-resultado-box"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

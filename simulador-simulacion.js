@@ -4793,7 +4793,7 @@ function ensureAnalysisBody(){
 function cambiarTabAnalisisActivo(tab, btn){
   document.querySelectorAll('#an-tabs .an-tab-btn').forEach(b => b.classList.remove('active'));
   (btn || document.querySelector(`#an-tabs [data-tab="${tab}"]`))?.classList.add('active');
-  ['resumen','estadisticas','perfil'].forEach(t => {
+  ['resumen','estadisticas','perfil','dcf'].forEach(t => {
     const panel = document.getElementById('an-tab-'+t);
     if(panel) panel.style.display = (t===tab) ? '' : 'none';
   });
@@ -5161,6 +5161,7 @@ function renderAnalysis(id,type){
       try { intentarCargarEstadosFinancierosReales(asset); } catch(e){}
       try { intentarCargarBalanceYFlujoRealesSEC(asset); } catch(e){}
       try { renderComparacionLiderSectorSim(asset); } catch(e){}
+      try { intentarCargarModeloDCF(asset); } catch(e){}
     }
   }
 
@@ -5866,6 +5867,129 @@ function dibujarGraficoReplay(){
 // bonos, derivados, futuros) el modelo estimado del simulador se
 // queda tal cual, con su aviso intacto, porque en esos casos sigue
 // siendo cierto que no hay una fuente real y gratuita disponible.
+// Modelo Financiero DCF — mismo modelo construido y verificado en
+// Analytics, portado aquí con las mismas fuentes reales ya conectadas
+// en el Simulador. Las acciones en circulación no vienen en
+// estados-financieros-sec (solo estados financieros) — se piden a
+// datos-yahoo-finance, que ya las devuelve en fundamentales.
+async function intentarCargarModeloDCF(asset){
+  const sinDatos = document.getElementById('dcf-sin-datos'), contenido = document.getElementById('dcf-contenido');
+  if(!sinDatos || !contenido) return;
+  if(asset.type!=='accion' || !asset.ticker){ sinDatos.style.display=''; contenido.style.display='none'; return; }
+  try {
+    const [respSec, respYahoo] = await Promise.all([
+      fetch(`${SIM_IA_URL}/functions/v1/estados-financieros-sec?symbol=${encodeURIComponent(asset.ticker)}`, { headers:{ 'apikey':SIM_IA_ANON_KEY, 'Authorization':`Bearer ${SIM_IA_ANON_KEY}` } }),
+      fetch(`${SIM_IA_URL}/functions/v1/datos-yahoo-finance?symbol=${encodeURIComponent(asset.ticker)}`, { headers:{ 'apikey':SIM_IA_ANON_KEY, 'Authorization':`Bearer ${SIM_IA_ANON_KEY}` } }),
+    ]);
+    const d = await respSec.json();
+    const dy = await respYahoo.json().catch(()=>null);
+    if(!d.ok || !d.estadoResultados?.anual?.length){ sinDatos.style.display=''; contenido.style.display='none'; return; }
+    sinDatos.style.display='none'; contenido.style.display='';
+    const anual = d.estadoResultados.anual;
+    const conEbit = anual.filter(a=>a.operatingIncome!=null);
+    let crecimientos=[];
+    for(let i=0;i<anual.length-1;i++){ if(anual[i+1].revenue>0) crecimientos.push((anual[i].revenue-anual[i+1].revenue)/anual[i+1].revenue*100); }
+    const crecimientoHistorico = crecimientos.length ? crecimientos.reduce((s,v)=>s+v,0)/crecimientos.length : 5;
+    const margenEbitUltimo = (conEbit[0]&&conEbit[0].revenue>0) ? (conEbit[0].operatingIncome/conEbit[0].revenue*100) : 15;
+    const bal = d.balanceGeneral?.anual?.[0] || null;
+    window.__dcfDatosSim = {
+      ingresoBase: anual[0].revenue,
+      deudaTotal: bal?.pasivos ?? null,
+      patrimonio: bal?.patrimonio ?? null,
+      accionesEnCirculacion: dy?.fundamentales?.sharesOutstanding ? dy.fundamentales.sharesOutstanding*1e6 : null,
+      price: asset.currentPrice||asset.price,
+      beta: asset.beta!=null ? asset.beta : 1,
+    };
+    document.getElementById('dcf-growth').value = crecimientoHistorico.toFixed(1);
+    document.getElementById('dcf-margin').value = margenEbitUltimo.toFixed(1);
+    calcularDCF();
+  } catch(e){ sinDatos.style.display=''; contenido.style.display='none'; }
+}
+
+function calcularDCF(){
+  const dd = window.__dcfDatosSim;
+  const waccBox = document.getElementById('dcf-wacc-box'), tablaBox = document.getElementById('dcf-tabla-box'), resBox = document.getElementById('dcf-resultado-box');
+  if(!dd || !waccBox) return;
+  const fmtM = v => (v/1e6).toLocaleString('es-PA',{maximumFractionDigits:0});
+  const growth = (+document.getElementById('dcf-growth').value||0)/100;
+  const margin = (+document.getElementById('dcf-margin').value||0)/100;
+  const tax = (+document.getElementById('dcf-tax').value||21)/100;
+  const capexPct = (+document.getElementById('dcf-capex').value||5)/100;
+  const nwcPct = (+document.getElementById('dcf-nwc').value||10)/100;
+  const gTerminal = (+document.getElementById('dcf-terminal').value||2.5)/100;
+  const costoDeuda = (+document.getElementById('dcf-costdeuda').value||5.5)/100;
+
+  const rf=4.5, mrp=5.5;
+  const costoEquity = (rf+dd.beta*mrp)/100;
+  const costoDeudaNeta = costoDeuda*(1-tax);
+  const deuda = dd.deudaTotal||0, patrimonio = dd.patrimonio||0;
+  const totalCapital = deuda+patrimonio;
+  const pesoEquity = totalCapital>0 ? patrimonio/totalCapital : 1;
+  const pesoDeuda = totalCapital>0 ? deuda/totalCapital : 0;
+  const wacc = pesoEquity*costoEquity + pesoDeuda*costoDeudaNeta;
+
+  waccBox.innerHTML = `
+    <div style="font-size:12.5px;font-weight:600;margin-bottom:8px;">Costo de Capital Promedio Ponderado (WACC)</div>
+    <table><tr><td style="color:var(--t3);">Costo de equity (CAPM, β=${fmt(dd.beta)})</td><td class="mono" style="text-align:right;">${fmt(costoEquity*100)}%</td><td style="text-align:right;color:var(--t3);">peso ${fmt(pesoEquity*100)}%</td></tr>
+    <tr><td style="color:var(--t3);">Costo de deuda después de impuesto</td><td class="mono" style="text-align:right;">${fmt(costoDeudaNeta*100)}%</td><td style="text-align:right;color:var(--t3);">peso ${fmt(pesoDeuda*100)}%</td></tr>
+    <tr style="background:rgba(0,196,255,.06);"><td style="font-weight:600;">WACC</td><td colspan="2" class="mono" style="text-align:right;font-weight:700;">${fmt(wacc*100)}%</td></tr></table>`;
+
+  if(wacc <= gTerminal){
+    tablaBox.innerHTML=''; resBox.innerHTML = `<div class="info-box">El WACC (${fmt(wacc*100)}%) debe ser mayor que el crecimiento terminal (${fmt(gTerminal*100)}%) — ajusta los supuestos.</div>`;
+    return;
+  }
+  let ingresoAnterior = dd.ingresoBase;
+  const filas=[];
+  for(let t=1;t<=5;t++){
+    const ingreso = ingresoAnterior*(1+growth);
+    const ebit = ingreso*margin;
+    const nopat = ebit*(1-tax);
+    const capex = ingreso*capexPct;
+    const deltaNwc = (ingreso-ingresoAnterior)*nwcPct;
+    const fcf = nopat-capex-deltaNwc;
+    const vp = fcf/Math.pow(1+wacc,t);
+    filas.push({t,ingreso,ebit,nopat,capex,deltaNwc,fcf,vp});
+    ingresoAnterior = ingreso;
+  }
+  const valorTerminal = filas[4].fcf*(1+gTerminal)/(wacc-gTerminal);
+  const vpTerminal = valorTerminal/Math.pow(1+wacc,5);
+  const enterpriseValue = filas.reduce((s,f)=>s+f.vp,0)+vpTerminal;
+  const equityValue = enterpriseValue-(dd.deudaTotal||0);
+  const precioImplicito = dd.accionesEnCirculacion ? equityValue/dd.accionesEnCirculacion : null;
+
+  tablaBox.innerHTML = `
+    <div style="font-size:12.5px;font-weight:600;margin-bottom:8px;">Proyección a 5 años (millones USD)</div>
+    <table style="font-size:11.5px;"><thead><tr><th>Concepto</th>${filas.map(f=>`<th style="text-align:right;">Año ${f.t}</th>`).join('')}</tr></thead>
+    <tbody>
+      <tr><td style="color:var(--t3);">Ingresos</td>${filas.map(f=>`<td class="mono" style="text-align:right;">${fmtM(f.ingreso)}</td>`).join('')}</tr>
+      <tr><td style="color:var(--t3);">EBIT</td>${filas.map(f=>`<td class="mono" style="text-align:right;">${fmtM(f.ebit)}</td>`).join('')}</tr>
+      <tr><td style="color:var(--t3);">NOPAT</td>${filas.map(f=>`<td class="mono" style="text-align:right;">${fmtM(f.nopat)}</td>`).join('')}</tr>
+      <tr><td style="color:var(--t3);">(−) CapEx neto</td>${filas.map(f=>`<td class="mono r" style="text-align:right;">-${fmtM(f.capex)}</td>`).join('')}</tr>
+      <tr><td style="color:var(--t3);">(−) Variación capital de trabajo</td>${filas.map(f=>`<td class="mono r" style="text-align:right;">-${fmtM(f.deltaNwc)}</td>`).join('')}</tr>
+      <tr style="background:rgba(0,196,255,.06);"><td style="font-weight:600;">Flujo de Caja Libre</td>${filas.map(f=>`<td class="mono" style="text-align:right;font-weight:600;">${fmtM(f.fcf)}</td>`).join('')}</tr>
+      <tr><td style="color:var(--t3);">Valor presente del FCL</td>${filas.map(f=>`<td class="mono" style="text-align:right;">${fmtM(f.vp)}</td>`).join('')}</tr>
+    </tbody></table>`;
+
+  const margenSeg = dd.price ? ((precioImplicito-dd.price)/dd.price*100) : null;
+  const colorV = margenSeg==null?'var(--t3)':margenSeg>0?'var(--green)':'var(--red)';
+  resBox.innerHTML = `
+    <div style="font-size:12.5px;font-weight:600;margin-bottom:8px;">Resultado del modelo</div>
+    <table style="margin-bottom:10px;">
+      <tr><td style="color:var(--t3);">Valor terminal</td><td class="mono" style="text-align:right;">$${fmtM(valorTerminal)}M</td></tr>
+      <tr><td style="color:var(--t3);">Valor presente del valor terminal</td><td class="mono" style="text-align:right;">$${fmtM(vpTerminal)}M</td></tr>
+      <tr style="background:rgba(0,196,255,.06);"><td style="font-weight:600;">Valor de la Empresa (EV)</td><td class="mono" style="text-align:right;font-weight:700;">$${fmtM(enterpriseValue)}M</td></tr>
+      <tr><td style="color:var(--t3);">(−) Deuda total (proxy de deuda neta)</td><td class="mono r" style="text-align:right;">-$${fmtM(dd.deudaTotal||0)}M</td></tr>
+      <tr style="background:rgba(0,208,132,.06);"><td style="font-weight:600;">Valor del Patrimonio</td><td class="mono" style="text-align:right;font-weight:700;">$${fmtM(equityValue)}M</td></tr>
+    </table>
+    ${precioImplicito!=null ? `
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;">
+      <div><div style="font-size:11px;color:var(--t3);">Precio implícito por el DCF</div><div style="font-size:22px;font-weight:700;">$${fmt(precioImplicito)}</div></div>
+      <div><div style="font-size:11px;color:var(--t3);">Precio actual</div><div style="font-size:18px;font-weight:600;">$${fmt(dd.price)}</div></div>
+      <div style="color:${colorV};font-weight:600;">${margenSeg>=0?'+':''}${fmt(margenSeg)}% ${margenSeg>=0?'de margen de seguridad':'por encima del valor del DCF'}</div>
+    </div>` : `<div class="info-box">No se pudieron obtener las acciones en circulación reales — se muestra solo el valor total de la empresa.</div>`}
+    <div class="info-box" style="margin-top:10px;">Este modelo es tan bueno como sus supuestos — ajusta los campos arriba y observa cómo cambia el resultado. Úsalo para entender qué tendría que ser cierto sobre el futuro del negocio para justificar el precio actual.</div>`;
+}
+
 async function intentarCargarBalanceYFlujoRealesSEC(asset){
   if(asset.type !== 'accion' || !asset.ticker) return;
   try {
