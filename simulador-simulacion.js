@@ -684,6 +684,7 @@ function goPage(p){
   if(p==='logros') intentar(renderLogrosPage);
   if(p==='admin') intentar(renderAdminPage);
   if(p==='noticias')intentar(renderNewsCenter);
+  if(p==='glosario')intentar(renderGlosario);
   if(p==='tesis'){ intentar(renderFormularioTesis); intentar(renderMiTesis); }
   // Close mobile drawer on navigation
   if(window.innerWidth<=768)closeMobileSidebar();
@@ -6090,6 +6091,93 @@ function checkMarginCall(){
 // Antes de vender una posición completa desde la Cartera, pide confirmación
 // con el mismo criterio que ya se usa al comprar/vender desde el Mercado
 // (evitar que un clic accidental liquide una posición sin querer).
+// Stop Loss / Take Profit — estándar de mercado en cualquier
+// plataforma de trading real, ahora con interacción real: se puede
+// fijar por número aquí, o arrastrando la línea directamente en el
+// gráfico de Mercado (ver dibujarLineasSLTP / iniciarArrastreSLTP
+// más abajo, junto al gráfico). Se guarda POR POSICIÓN abierta, no
+// por activo en general — dos compras del mismo activo en momentos
+// distintos pueden tener niveles de salida distintos, igual que en
+// un bróker real.
+function abrirConfigSLTP(id, type){
+  const p = portfolio.find(x => x.id===id && x.type===type);
+  if(!p) return;
+  const cur = p.currentPrice||p.buyPrice;
+  const overlay = document.createElement('div');
+  overlay.className = 'export-modal-overlay';
+  overlay.id = 'sltp-overlay';
+  overlay.innerHTML = `
+    <div class="export-modal" style="max-width:420px;">
+      <div class="card-title" style="margin-bottom:4px;"><i class="ti ti-target-arrow"></i> Stop Loss / Take Profit — ${p.name}</div>
+      <div style="font-size:11.5px;color:var(--t3);margin-bottom:14px;">Precio actual: <b class="mono">$${fmt(cur)}</b> · precio de compra: <b class="mono">$${fmt(p.buyPrice)}</b></div>
+      <label style="font-size:12px;color:var(--red);font-weight:600;">Stop Loss (vender si el precio CAE hasta aquí)</label>
+      <input type="number" id="sltp-sl" value="${p.stopLoss||''}" placeholder="Ej. ${(cur*0.95).toFixed(2)}" class="wl-search" style="margin:6px 0 12px;">
+      <label style="font-size:12px;color:var(--green);font-weight:600;">Take Profit (vender si el precio SUBE hasta aquí)</label>
+      <input type="number" id="sltp-tp" value="${p.takeProfit||''}" placeholder="Ej. ${(cur*1.10).toFixed(2)}" class="wl-search" style="margin:6px 0 14px;">
+      <div class="auth-hint" style="margin-bottom:12px;">También puedes arrastrar las líneas directamente en el gráfico de Mercado, con este activo seleccionado. Deja un campo vacío para quitar ese nivel.</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" style="flex:1;justify-content:center;" onclick="document.getElementById('sltp-overlay').remove()">Cancelar</button>
+        <button class="btn" style="flex:1;justify-content:center;" onclick="guardarConfigSLTP('${id}','${type}')">Guardar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+}
+
+function guardarConfigSLTP(id, type){
+  const p = portfolio.find(x => x.id===id && x.type===type);
+  if(!p) return;
+  const cur = p.currentPrice||p.buyPrice;
+  const slVal = document.getElementById('sltp-sl').value;
+  const tpVal = document.getElementById('sltp-tp').value;
+  const sl = slVal ? Number(slVal) : null;
+  const tp = tpVal ? Number(tpVal) : null;
+  if(sl!=null && sl>=cur){ notify('El Stop Loss debe estar por debajo del precio actual.', 'error'); return; }
+  if(tp!=null && tp<=cur){ notify('El Take Profit debe estar por encima del precio actual.', 'error'); return; }
+  p.stopLoss = sl;
+  p.takeProfit = tp;
+  document.getElementById('sltp-overlay')?.remove();
+  notify('Stop Loss / Take Profit actualizado.', 'success');
+  autosave();
+  renderPortfolio(true);
+  if(selectedAsset && selectedAsset.id===p.id && selectedAsset.type===p.type) redibujarGraficoMercado(selectedAsset);
+}
+
+// Verificación en cada tick de precio — si el precio de una posición
+// cruzó su Stop Loss o Take Profit, se ejecuta la venta real de
+// forma automática (no solo una notificación), con el mismo motor
+// de ejecución ya usado para una venta manual.
+function verificarStopLossTakeProfit(){
+  [...portfolio].forEach(p => {
+    if(!p.stopLoss && !p.takeProfit) return;
+    const cur = p.currentPrice||p.buyPrice;
+    let motivo = null;
+    if(p.stopLoss && cur<=p.stopLoss) motivo = 'Stop Loss';
+    else if(p.takeProfit && cur>=p.takeProfit) motivo = 'Take Profit';
+    if(!motivo) return;
+    const qty = p.qty;
+    ejecutarVentaAutomatica(p.id, p.type, qty, motivo, cur);
+  });
+}
+
+function ejecutarVentaAutomatica(id, type, qty, motivo, precioDisparo){
+  const idx = portfolio.findIndex(x => x.id===id && x.type===type);
+  if(idx===-1) return;
+  const p = portfolio[idx];
+  const px = execPrice(precioDisparo, p.type, 'sell');
+  const gross = qty*px;
+  const fee = commissionFor(gross);
+  const total = gross-fee;
+  capital += total;
+  txHistory.unshift({ date:new Date().toLocaleString('es-PA'), action:'Venta', name:p.name, ticker:p.ticker, type:p.type, qty, price:px, total:gross, fee, auto:motivo });
+  portfolio.splice(idx,1);
+  const ganancia = total-(p.invested||0);
+  notify(`🎯 ${motivo} ejecutado: ${p.name} vendido a $${fmt(px)} (${ganancia>=0?'+':''}$${fmt(Math.abs(ganancia))})`, ganancia>=0?'success':'error');
+  enviarNotificacionNativa('CapitalLab — '+motivo+' ejecutado', `${p.name} vendido automáticamente a $${fmt(px)}`);
+  autosave();
+  renderPortfolio(true);
+}
+
 function sellFromPortfolio(id,type){
   const pos=portfolio.find(p=>p.id===id&&p.type===type);
   if(!pos||pos.qty<=0){notify('Sin unidades para vender','error');return;}
@@ -6174,13 +6262,16 @@ function renderPortfolio(permitirSaltarGraficos){
         const pl=cur*p.qty-p.invested;
         const plPct=p.invested>0?(pl/p.invested*100):0;
         return`<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 100px;gap:8px;align-items:center;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.03);background:${pl>=0?'rgba(0,208,132,.045)':'rgba(255,71,87,.045)'};border-left:2px solid ${pl>=0?'var(--green)':'var(--red)'};">
-          <div><div style="font-weight:500;font-size:13px;">${p.name}</div><div style="font-size:10px;color:var(--t3);">${p.ticker}</div></div>
+          <div><div style="font-weight:500;font-size:13px;">${p.name}</div><div style="font-size:10px;color:var(--t3);">${p.ticker}</div>${(p.stopLoss||p.takeProfit)?`<div style="font-size:9.5px;margin-top:2px;">${p.stopLoss?`<span style="color:var(--red);">SL $${fmt(p.stopLoss)}</span>`:''}${p.stopLoss&&p.takeProfit?' · ':''}${p.takeProfit?`<span style="color:var(--green);">TP $${fmt(p.takeProfit)}</span>`:''}</div>`:''}</div>
           <div><span class="badge ${typeBadgeCls(p.type)}">${p.type}</span></div>
           <div class="mono" style="font-size:12px;">${p.qty}</div>
           <div class="mono" style="font-size:12px;">$${fmt(p.buyPrice)}</div>
           <div class="mono" style="font-size:12px;">$${fmt(cur)}</div>
           <div class="mono ${pl>=0?'g':'r'}" style="font-size:12px;">${pl>=0?'+':'-'}$${fmt(Math.abs(pl))} (${plPct.toFixed(1)}%)</div>
-          <button class="btn btn-sell btn-xs" onclick="sellFromPortfolio('${p.id}','${p.type}')"><i class="ti ti-minus"></i> Vender</button>
+          <div style="display:flex;gap:4px;">
+            <button class="btn btn-ghost btn-xs" onclick="abrirConfigSLTP('${p.id}','${p.type}')" title="Configurar Stop Loss / Take Profit"><i class="ti ti-target-arrow"></i></button>
+            <button class="btn btn-sell btn-xs" onclick="sellFromPortfolio('${p.id}','${p.type}')"><i class="ti ti-minus"></i></button>
+          </div>
         </div>`;
       }).join('');
   }

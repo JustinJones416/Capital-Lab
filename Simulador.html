@@ -309,6 +309,7 @@
     <button class="wl-nav-btn"        id="nav-laboratorio"   onclick="goPage('laboratorio')"><i class="ti ti-flask"></i> Laboratorio</button>
     <button class="wl-nav-btn"        id="nav-resultados"    onclick="goPage('resultados')"><i class="ti ti-award"></i> Resultados</button>
     <button class="wl-nav-btn"        id="nav-investigacion" onclick="goPage('investigacion')"><i class="ti ti-microscope"></i> Investigación</button>
+    <button class="wl-nav-btn"        id="nav-glosario"      onclick="goPage('glosario')"><i class="ti ti-book-2"></i> Glosario</button>
     <!-- Los botones originales siguen existiendo, ocultos, para que
          goPage() los siga encontrando sin ningún cambio en el resto
          del código — el lanzador navega a las mismas páginas de
@@ -1042,6 +1043,22 @@
 </div>
 
 <!-- ════════ NOTICIAS ════════ -->
+<div id="page-glosario" class="page">
+  <div class="page-header">
+    <div class="page-title">Glosario</div>
+    <div class="page-sub">Términos financieros explicados en lenguaje claro, con enlace a la fuente oficial para profundizar</div>
+  </div>
+  <input type="text" id="glosario-buscar" placeholder="Buscar un término…" class="wl-search" style="max-width:420px;margin-bottom:14px;" oninput="filtrarGlosario(this.value)">
+  <div class="news-classes" id="glosario-categorias">
+    <button class="news-class-btn active" data-cat="all" onclick="setGlosarioCategoria('all',this)"><i class="ti ti-world"></i> Todos</button>
+    <button class="news-class-btn" data-cat="mercados" onclick="setGlosarioCategoria('mercados',this)"><i class="ti ti-chart-line"></i> Mercados</button>
+    <button class="news-class-btn" data-cat="analisis" onclick="setGlosarioCategoria('analisis',this)"><i class="ti ti-calculator"></i> Análisis</button>
+    <button class="news-class-btn" data-cat="derivados" onclick="setGlosarioCategoria('derivados',this)"><i class="ti ti-file-description"></i> Derivados</button>
+    <button class="news-class-btn" data-cat="macro" onclick="setGlosarioCategoria('macro',this)"><i class="ti ti-world-dollar"></i> Macroeconomía</button>
+  </div>
+  <div id="glosario-lista"></div>
+</div>
+
 <div id="page-noticias" class="page">
   <div class="page-header">
     <div class="page-title">Centro de Noticias</div>

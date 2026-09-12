@@ -1383,6 +1383,7 @@ function tickPrices() {
   if (newsPage && newsPage.classList.contains('active')) { try { renderNewsCenter(); } catch(e){} }
   autosave();
   verificarAlertasPrecio();
+  verificarStopLossTakeProfit();
 }
 
 // Box-Muller transform: standard normal random variable
@@ -1584,7 +1585,7 @@ function drawAreaChart(asset) {
   const pad = { l: 60, r: 12, t: 14, b: 24 };
   const cW  = W - pad.l - pad.r;
   const cH  = H - pad.t - pad.b;
-  const { toX, toY, n } = dibujarFondoYEjesGrafico(ctx, W, H, pad, cW, cH, candles, asset);
+  const { toX, toY, lo, hi, n } = dibujarFondoYEjesGrafico(ctx, W, H, pad, cW, cH, candles, asset);
 
   const primera = candles[0].c;
   const ultima = candles[candles.length - 1].c;
@@ -1620,7 +1621,8 @@ function drawAreaChart(asset) {
   ctx.font = 'bold 10px DM Mono';
   ctx.fillText(formatPrice(ultima, asset), W - pad.r, ly - 6);
 
-  window.__candleLayout = { asset, candles, pad, cW, cH, W, H, toX, toY, n, modoArea: true };
+  window.__candleLayout = { asset, candles, pad, cW, cH, W, H, lo, hi, toX, toY, n, modoArea: true };
+  dibujarLineasSLTP(ctx, window.__candleLayout);
   actualizarHudVela(candles[candles.length - 1], candles[0], asset);
   configurarInteraccionCandlestick();
 }
@@ -1745,6 +1747,7 @@ function drawCandlestickChart(asset) {
   // movimiento del mouse, sin tener que rehacer todo drawCandlestickChart
   // solo para saber a qué vela corresponde una posición X del cursor.
   window.__candleLayout = { asset, candles, pad, cW, cH, W, H, lo, hi, n, toX, toY, bodyW };
+  dibujarLineasSLTP(ctx, window.__candleLayout);
 
   // Actualiza la cabecera O/H/L/C — por defecto muestra la vela más
   // reciente; con el cursor sobre el gráfico, muestra la vela bajo el
@@ -1788,24 +1791,80 @@ function configurarInteraccionCandlestick(){
   __candlestickListenersListos = true;
 
   let cuadroPendiente = null;
+  let arrastrandoLinea = null; // 'sl' | 'tp' | null
 
-  canvas.addEventListener('mousemove', (e) => {
-    if (cuadroPendiente) return; // ya hay un redibujado pedido para el siguiente frame
+  // Distancia en píxeles Y desde el cursor hasta la línea SL/TP más
+  // cercana — si está dentro de un margen razonable (12px, suficiente
+  // para el dedo en móvil), esa línea "atrapa" el arrastre.
+  function lineaBajoCursor(mouseY){
+    const layout = window.__candleLayout;
+    if (!layout) return null;
+    const pos = obtenerPosicionSLTP();
+    if (!pos) return null;
+    if (pos.stopLoss != null && Math.abs(layout.toY(pos.stopLoss) - mouseY) < 12) return 'sl';
+    if (pos.takeProfit != null && Math.abs(layout.toY(pos.takeProfit) - mouseY) < 12) return 'tp';
+    return null;
+  }
+
+  function manejarMovimiento(clientX, clientY){
+    const layout = window.__candleLayout;
+    if (!layout) return;
+    const rect = canvas.getBoundingClientRect();
+    const mouseY = clientY - rect.top;
+
+    if (arrastrandoLinea){
+      canvas.style.cursor = 'ns-resize';
+      const nuevoPrecio = layout.lo + (layout.hi - layout.lo) * (1 - (mouseY - layout.pad.t) / layout.cH);
+      const pos = obtenerPosicionSLTP();
+      if (!pos) return;
+      const cur = layout.asset.currentPrice || layout.asset.price;
+      if (arrastrandoLinea === 'sl' && nuevoPrecio < cur) pos.stopLoss = +nuevoPrecio.toFixed(getDecimals(layout.asset));
+      if (arrastrandoLinea === 'tp' && nuevoPrecio > cur) pos.takeProfit = +nuevoPrecio.toFixed(getDecimals(layout.asset));
+      dibujarCandlestickBase(layout);
+      return;
+    }
+
+    const bajoCursor = lineaBajoCursor(mouseY);
+    canvas.style.cursor = bajoCursor ? 'ns-resize' : 'crosshair';
+
+    if (cuadroPendiente) return;
     cuadroPendiente = requestAnimationFrame(() => {
       cuadroPendiente = null;
-      const layout = window.__candleLayout;
-      if (!layout) return;
-      const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      // Índice de la vela más cercana a la posición X del cursor.
+      const mouseX = clientX - rect.left;
       const idx = Math.max(0, Math.min(layout.n - 1, Math.round((mouseX - layout.pad.l) / (layout.cW / layout.n) - 0.5)));
       const vela = layout.candles[idx];
       if (!vela) return;
-
       dibujarCandlestickBase(layout);
       dibujarCrosshairVela(layout, idx, vela);
       actualizarHudVela(vela, layout.candles[0], layout.asset);
     });
+  }
+
+  canvas.addEventListener('mousemove', (e) => manejarMovimiento(e.clientX, e.clientY));
+  canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    arrastrandoLinea = lineaBajoCursor(e.clientY - rect.top);
+  });
+  window.addEventListener('mouseup', () => {
+    if (arrastrandoLinea) { arrastrandoLinea = null; guardarPosicionSLTPArrastrada(); }
+  });
+
+  // Soporte táctil — mismo mecanismo, para poder ajustar el nivel
+  // arrastrando con el dedo en móvil, no solo con mouse en escritorio.
+  canvas.addEventListener('touchstart', (e) => {
+    const t = e.touches[0]; if (!t) return;
+    const rect = canvas.getBoundingClientRect();
+    const linea = lineaBajoCursor(t.clientY - rect.top);
+    if (linea){ arrastrandoLinea = linea; e.preventDefault(); }
+  }, { passive:false });
+  canvas.addEventListener('touchmove', (e) => {
+    if (!arrastrandoLinea) return;
+    const t = e.touches[0]; if (!t) return;
+    e.preventDefault();
+    manejarMovimiento(t.clientX, t.clientY);
+  }, { passive:false });
+  canvas.addEventListener('touchend', () => {
+    if (arrastrandoLinea) { arrastrandoLinea = null; guardarPosicionSLTPArrastrada(); }
   });
 
   canvas.addEventListener('mouseleave', () => {
@@ -1814,6 +1873,55 @@ function configurarInteraccionCandlestick(){
     dibujarCandlestickBase(layout);
     actualizarHudVela(layout.candles[layout.candles.length - 1], layout.candles[0], layout.asset);
   });
+}
+
+// La posición abierta correspondiente al activo actualmente
+// mostrado en el gráfico de Mercado — el arrastre solo tiene sentido
+// si el estudiante tiene una posición real ahí; si no, no hay nada
+// que arrastrar y las líneas simplemente no se dibujan.
+function obtenerPosicionSLTP(){
+  const layout = window.__candleLayout;
+  if (!layout) return null;
+  return portfolio.find(p => p.id===layout.asset.id && p.type===layout.asset.type) || null;
+}
+function guardarPosicionSLTPArrastrada(){
+  notify('Nivel actualizado por arrastre.', 'success');
+  autosave();
+  renderPortfolio(true);
+}
+
+// Dibuja las líneas horizontales de Stop Loss (roja) y Take Profit
+// (verde) sobre el gráfico, con su precio y una manija visual — solo
+// si el activo mostrado tiene una posición abierta con alguno de los
+// dos niveles configurado. Estándar de cualquier plataforma de
+// trading real (TradingView, brokers), ahora también arrastrable.
+function dibujarLineasSLTP(ctx, layout){
+  const pos = obtenerPosicionSLTP();
+  if (!pos || (!pos.stopLoss && !pos.takeProfit)) return;
+  const { pad, W } = layout;
+  const dibujarLinea = (precio, color, etiqueta) => {
+    if (precio == null) return;
+    const y = layout.toY(precio);
+    if (y < pad.t - 5 || y > layout.H - pad.b + 5) return; // fuera del rango visible del gráfico
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.setLineDash([]);
+    // Etiqueta con el precio, extremo derecho — funciona como manija para arrastrar.
+    const texto = `${etiqueta} $${formatPrice(precio, layout.asset)}`;
+    ctx.font = 'bold 10px DM Mono';
+    const anchoTexto = ctx.measureText(texto).width + 10;
+    ctx.fillStyle = color;
+    ctx.fillRect(W - pad.r - anchoTexto, y - 9, anchoTexto, 18);
+    ctx.fillStyle = '#0a0c10';
+    ctx.textAlign = 'left';
+    ctx.fillText(texto, W - pad.r - anchoTexto + 5, y + 3);
+    ctx.restore();
+  };
+  dibujarLinea(pos.stopLoss, '#ff4757', 'SL');
+  dibujarLinea(pos.takeProfit, '#00d084', 'TP');
 }
 
 // Redibuja el gráfico completo desde la geometría ya calculada, sin
@@ -3348,6 +3456,86 @@ function setNewsCategory(cat,btn){
   document.querySelectorAll('.news-class-btn').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   renderNewsCenter();
+}
+
+// Términos financieros explicados en lenguaje simple, con enlace a
+// una fuente oficial real para quien quiera profundizar — el FMI y
+// el Banco Mundial para macroeconomía, la SEC (a través de su portal
+// de protección al inversionista) para mercados, análisis, y
+// derivados. Definiciones propias, no copiadas de ninguna fuente.
+const FUENTE_MACRO = { nombre:'FMI — Glosario oficial', url:'https://www.imf.org/en/about/glossary' };
+const FUENTE_BM = { nombre:'Banco Mundial — Indicadores de desarrollo', url:'https://datatopics.worldbank.org/world-development-indicators/' };
+const FUENTE_SEC = { nombre:'SEC (Investor.gov) — Glosario del inversionista', url:'https://www.investor.gov/introduction-investing/investing-basics/glossary' };
+
+const TERMINOS_GLOSARIO = [
+  {t:'Acción', c:'mercados', d:'Representa una parte proporcional de la propiedad de una empresa. Quien la posee tiene derecho a una porción de las utilidades y, en muchos casos, a votar en decisiones importantes de la compañía.', f:FUENTE_SEC},
+  {t:'Bono', c:'mercados', d:'Instrumento de deuda: quien lo compra le presta dinero al emisor (un gobierno o una empresa) a cambio de pagos de interés periódicos y la devolución del capital al vencimiento.', f:FUENTE_SEC},
+  {t:'Dividendo', c:'mercados', d:'Parte de las utilidades de una empresa que se reparte a sus accionistas, generalmente en efectivo, de forma periódica.', f:FUENTE_SEC},
+  {t:'Mercado alcista (bull market)', c:'mercados', d:'Periodo prolongado en el que los precios de un mercado suben de forma sostenida, generalmente acompañado de optimismo entre los inversionistas.', f:FUENTE_SEC},
+  {t:'Mercado bajista (bear market)', c:'mercados', d:'Periodo prolongado de caída sostenida en los precios de un mercado, típicamente una baja de 20% o más desde su punto más alto reciente.', f:FUENTE_SEC},
+  {t:'Liquidez', c:'mercados', d:'Facilidad con la que un activo puede comprarse o venderse rápidamente sin afectar de forma significativa su precio. El efectivo es el activo más líquido que existe.', f:FUENTE_SEC},
+  {t:'Capitalización de mercado', c:'mercados', d:'Valor total de una empresa que cotiza en bolsa, calculado multiplicando el precio de una acción por el número total de acciones en circulación.', f:FUENTE_SEC},
+  {t:'ETF (fondo cotizado en bolsa)', c:'mercados', d:'Fondo de inversión que agrupa muchos activos distintos (acciones, bonos, u otros) y se negocia en bolsa igual que una acción individual, dando acceso a diversificación con una sola compra.', f:FUENTE_SEC},
+  {t:'Volatilidad', c:'analisis', d:'Medida de qué tanto varía el precio de un activo en un periodo de tiempo. Una volatilidad alta significa movimientos de precio más bruscos e impredecibles, en cualquier dirección.', f:FUENTE_SEC},
+  {t:'Beta', c:'analisis', d:'Mide qué tan sensible es el precio de un activo frente a los movimientos generales del mercado. Un beta de 1.5 sugiere que, en promedio, el activo se mueve 50% más que el mercado en la misma dirección.', f:FUENTE_SEC},
+  {t:'Ratio P/E (precio/utilidad)', c:'analisis', d:'Compara el precio de una acción contra la utilidad que la empresa genera por cada acción. Un P/E alto puede indicar que el mercado espera crecimiento futuro, o que el activo está sobrevalorado.', f:FUENTE_SEC},
+  {t:'ROE (retorno sobre patrimonio)', c:'analisis', d:'Mide qué tan eficiente es una empresa generando utilidades con el dinero que sus propios accionistas han invertido en ella, expresado como porcentaje.', f:FUENTE_SEC},
+  {t:'Ratio Sharpe', c:'analisis', d:'Mide el retorno de una inversión ajustado por el riesgo asumido para conseguirlo. A igual retorno, un Sharpe más alto indica que se logró con menos volatilidad.', f:FUENTE_SEC},
+  {t:'Diversificación', c:'analisis', d:'Estrategia de repartir una inversión entre distintos activos, sectores, o mercados, para reducir el impacto de que uno solo de ellos tenga un mal desempeño.', f:FUENTE_SEC},
+  {t:'Valor en Riesgo (VaR)', c:'analisis', d:'Estimación de la pérdida máxima esperada de una inversión, en un periodo de tiempo determinado y con un nivel de confianza dado (por ejemplo, 95%).', f:FUENTE_SEC},
+  {t:'Margen', c:'derivados', d:'Cantidad de dinero que un inversionista debe depositar como garantía para abrir una posición apalancada, mucho menor que el valor total de la posición.', f:FUENTE_SEC},
+  {t:'Apalancamiento', c:'derivados', d:'Uso de capital prestado o de instrumentos con margen para tomar una posición mayor a la que el capital propio permitiría, lo cual amplifica tanto las ganancias como las pérdidas.', f:FUENTE_SEC},
+  {t:'Contrato de futuros', c:'derivados', d:'Acuerdo estandarizado, negociado en bolsa, para comprar o vender un activo en una fecha futura a un precio fijado hoy.', f:FUENTE_SEC},
+  {t:'Opción financiera', c:'derivados', d:'Contrato que da el derecho, pero no la obligación, de comprar (call) o vender (put) un activo a un precio determinado antes de o en una fecha específica.', f:FUENTE_SEC},
+  {t:'Swap', c:'derivados', d:'Contrato entre dos partes para intercambiar flujos de pago futuros, por ejemplo, una tasa de interés fija por una variable.', f:FUENTE_SEC},
+  {t:'Cámara de compensación', c:'derivados', d:'Entidad que actúa como contraparte de ambos lados de una operación de futuros u opciones, eliminando el riesgo de que la otra parte no cumpla.', f:FUENTE_SEC},
+  {t:'Stop Loss', c:'derivados', d:'Orden automática para vender un activo si su precio cae hasta un nivel definido de antemano, limitando la pérdida máxima de una posición.', f:FUENTE_SEC},
+  {t:'Take Profit', c:'derivados', d:'Orden automática para vender un activo si su precio sube hasta un nivel definido de antemano, asegurando una ganancia sin depender de estar pendiente del mercado.', f:FUENTE_SEC},
+  {t:'Producto Interno Bruto (PIB)', c:'macro', d:'Valor total de todos los bienes y servicios producidos por un país en un periodo determinado, el indicador más usado para medir el tamaño de una economía.', f:FUENTE_BM},
+  {t:'Inflación', c:'macro', d:'Aumento generalizado y sostenido de los precios de bienes y servicios en una economía a lo largo del tiempo, que reduce el poder de compra del dinero.', f:FUENTE_MACRO},
+  {t:'Tasa de interés activa', c:'macro', d:'Tasa que los bancos cobran a quienes les prestan dinero, por ejemplo en un préstamo personal o hipotecario.', f:FUENTE_BM},
+  {t:'Tasa de interés pasiva', c:'macro', d:'Tasa que los bancos pagan a quienes depositan su dinero con ellos, por ejemplo en una cuenta de ahorro o un certificado de depósito.', f:FUENTE_BM},
+  {t:'Spread bancario', c:'macro', d:'Diferencia entre la tasa de interés activa y la pasiva de un sistema bancario; un spread más amplio puede reflejar menor eficiencia o mayor riesgo percibido.', f:FUENTE_BM},
+  {t:'Tipo de cambio', c:'macro', d:'Precio de una moneda expresado en términos de otra; determina cuánto de una divisa se necesita para comprar una unidad de otra.', f:FUENTE_MACRO},
+  {t:'Balanza de pagos', c:'macro', d:'Registro contable de todas las transacciones económicas de un país con el resto del mundo durante un periodo determinado.', f:FUENTE_MACRO},
+  {t:'Política monetaria', c:'macro', d:'Conjunto de acciones que un banco central toma para influir en la cantidad de dinero en circulación y las tasas de interés de una economía, generalmente para controlar la inflación.', f:FUENTE_MACRO},
+  {t:'Deuda soberana', c:'macro', d:'Deuda emitida por el gobierno de un país, generalmente a través de bonos, para financiar su gasto público.', f:FUENTE_MACRO},
+  {t:'Calificación crediticia', c:'macro', d:'Evaluación que agencias especializadas asignan a un emisor de deuda (un gobierno o una empresa) sobre su capacidad de pagar lo que debe, expresada en una escala de letras como AAA o BBB.', f:FUENTE_SEC},
+  {t:'Recesión', c:'macro', d:'Periodo de contracción significativa de la actividad económica de un país, comúnmente identificado como dos trimestres consecutivos de caída en el PIB.', f:FUENTE_BM},
+  {t:'Producto Bruto vs. PIB per cápita', c:'macro', d:'Mientras el PIB mide el tamaño total de una economía, el PIB per cápita lo divide entre la población, dando una idea más cercana del nivel de vida promedio.', f:FUENTE_BM},
+];
+
+function renderGlosario(){
+  const buscar = document.getElementById('glosario-buscar');
+  if(buscar) buscar.value = '';
+  window.__glosarioCategoriaActual = 'all';
+  document.querySelectorAll('#glosario-categorias .news-class-btn').forEach((b,i)=>b.classList.toggle('active', i===0));
+  pintarGlosario(TERMINOS_GLOSARIO);
+}
+function setGlosarioCategoria(cat, btn){
+  window.__glosarioCategoriaActual = cat;
+  document.querySelectorAll('#glosario-categorias .news-class-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  filtrarGlosario(document.getElementById('glosario-buscar')?.value || '');
+}
+function filtrarGlosario(texto){
+  const cat = window.__glosarioCategoriaActual || 'all';
+  const q = texto.trim().toLowerCase();
+  const filtrados = TERMINOS_GLOSARIO.filter(x =>
+    (cat==='all' || x.c===cat) && (!q || x.t.toLowerCase().includes(q) || x.d.toLowerCase().includes(q))
+  );
+  pintarGlosario(filtrados);
+}
+function pintarGlosario(lista){
+  const cont = document.getElementById('glosario-lista');
+  if(!cont) return;
+  if(!lista.length){ cont.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;">Ningún término coincide con la búsqueda.</div>'; return; }
+  cont.innerHTML = lista.map(x => `
+    <div class="card" style="margin-bottom:10px;">
+      <div style="font-size:14.5px;font-weight:600;color:var(--t1);">${x.t}</div>
+      <div style="font-size:12.5px;color:var(--t2);margin-top:6px;line-height:1.5;">${x.d}</div>
+      <div style="font-size:10.5px;margin-top:8px;"><a href="${x.f.url}" target="_blank" rel="noopener" style="color:var(--accent2);"><i class="ti ti-external-link"></i> Ampliar en ${x.f.nombre}</a></div>
+    </div>`).join('');
 }
 
 function renderNewsCenter(){
