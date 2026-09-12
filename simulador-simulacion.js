@@ -4108,7 +4108,15 @@ function ejecutarOrdenDirecta(op, qty){
     if(posNueva && tpCampo>0 && tpCampo>mid){ posNueva.takeProfit = tpCampo; document.getElementById('tp-precio').value=''; document.getElementById('tp-resultado').style.display='none'; }
     txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Compra',name:selectedAsset.name,type:selectedAsset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
     autosave();
-    mostrarPromptDiarioTrading('Compra', selectedAsset.name);
+    // El registro de razonamiento PREVIO (abrirRegistroDecisionPrevia,
+    // que va directo al profesor) pregunta exactamente lo mismo que
+    // este prompt posterior — mostrar ambos en el mismo flujo era
+    // pedir la misma reflexión dos veces. El prompt posterior solo
+    // tiene sentido cuando el previo NUNCA se mostró (cuenta invitado
+    // o sin backend conectado), donde sigue siendo la única forma de
+    // capturar el razonamiento de la operación.
+    const yaSeRegistroRazonamientoPrevio = sb && currentUser?.usuario_id && !guestMode;
+    if(!yaSeRegistroRazonamientoPrevio) mostrarPromptDiarioTrading('Compra', selectedAsset.name);
     const avisoSLTP = (slCampo>0&&slCampo<mid) || (tpCampo>0&&tpCampo>mid) ? ' Stop Loss/Take Profit aplicados a la posición.' : '';
     mostrarDeshacerToast(snapshotPrevio, `Compra de ${qty}u ${selectedAsset.ticker} · costo $${fmt(fee)} realizada.${avisoSLTP}`);
   } else {
@@ -4129,7 +4137,7 @@ function ejecutarOrdenDirecta(op, qty){
     if(pos.qty===0)portfolio=portfolio.filter(x=>!(x.id===selectedAsset.id&&x.type===selectedAsset.type));
     txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Venta',name:selectedAsset.name,type:selectedAsset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
     autosave();
-    mostrarPromptDiarioTrading('Venta', selectedAsset.name);
+    if(!(sb && currentUser?.usuario_id && !guestMode)) mostrarPromptDiarioTrading('Venta', selectedAsset.name);
     mostrarDeshacerToast(snapshotPrevio, `Venta de ${qty}u ${selectedAsset.ticker} · costo $${fmt(fee)} realizada.`);
   }
   updateNavCapital();

@@ -1158,7 +1158,7 @@ function analyzeAccion(d){
 
   // Gordon (valor intrínseco por dividendos crecientes) si hay dividendo
   let gordon=null;
-  if(div>0 && er/100 > g){
+  if(div>0 && (er/100 - g) > 0.02){
     gordon = (div*(1+g)) / (er/100 - g);
     formulas.push(F('Modelo de Gordon (valor intrínseco)','Valoración','V = D₁ / (r − g)', gordon, '$ por acción',
       'Valor teórico de la acción según el valor presente de dividendos futuros crecientes.',
@@ -1205,11 +1205,54 @@ function analyzeAccion(d){
   const capmGap = capm-er; // positivo = no compensa
   riskFactors.push(RF('Premio sobre el rendimiento requerido (CAPM)', Math.min(100, Math.max(0, 50+capmGap*8)), capmGap<=0?`Compensa su riesgo sistemático (+${fmt(-capmGap)}% sobre lo requerido).`:`No compensa del todo su riesgo (${fmt(capmGap)}% por debajo de lo requerido).`));
 
+  // ═══ VALUACIÓN DE PRECIO JUSTO — combina 3 metodologías reales de
+  // valuación, no solo un número aislado, para responder la pregunta
+  // real de un inversionista: ¿a qué precio debería comprar esto?
+  // Cada método tiene supuestos distintos, así que un RANGO es más
+  // honesto que un único "precio correcto".
+  const preciosJustos = [];
+  if(gordon!=null) preciosJustos.push({metodo:'Gordon (dividendos futuros)', valor:gordon});
+  if(eps>0 && (capm/100 - g) > 0.02){
+    // Igual que Gordon, pero sobre utilidad por acción en vez de
+    // dividendo — aplicable a empresas que no reparten dividendos,
+    // usando el rendimiento requerido por CAPM como tasa de descuento.
+    // El modelo de crecimiento perpetuo se vuelve matemáticamente
+    // inestable cuando la tasa de descuento está muy cerca de la de
+    // crecimiento (dividir entre un número casi cero dispara el
+    // resultado a valores absurdos) — se exige un margen mínimo de 2
+    // puntos porcentuales entre ambas, o el método simplemente no se
+    // incluye, en vez de mostrar un número técnicamente calculado
+    // pero sin ningún valor práctico.
+    const vEps = (eps*(1+g)) / (capm/100 - g);
+    preciosJustos.push({metodo:'Utilidades descontadas a CAPM', valor:vEps});
+  }
+  if(eps>0 && g>0){
+    // P/E "razonable" ligado al crecimiento (idea del PEG ratio: un
+    // P/E igual a la tasa de crecimiento en % se considera razonable,
+    // acotado a un rango sensato para no producir múltiplos absurdos
+    // con crecimientos muy altos o muy bajos).
+    const peRazonable = Math.min(40, Math.max(8, g*100));
+    preciosJustos.push({metodo:'P/E ajustado por crecimiento (estilo PEG)', valor: eps*peRazonable});
+  }
+  let valuacion = null;
+  if(preciosJustos.length){
+    const valores = preciosJustos.map(p=>p.valor).sort((a,b)=>a-b);
+    const min = valores[0], max = valores[valores.length-1];
+    const promedio = valores.reduce((s,v)=>s+v,0)/valores.length;
+    const margenSeguridad = ((promedio-price)/price*100);
+    let veredictoValuacion, colorValuacion;
+    if(price < min){ veredictoValuacion='Posiblemente infravalorada'; colorValuacion='var(--green,#00d084)'; }
+    else if(price > max){ veredictoValuacion='Posiblemente sobrevalorada'; colorValuacion='var(--red,#ff4757)'; }
+    else { veredictoValuacion='Dentro de un rango razonable'; colorValuacion='var(--amber,#ffb400)'; }
+    valuacion = { metodos:preciosJustos, min, max, promedio, price, margenSeguridad, veredictoValuacion, colorValuacion };
+  }
+
   return {
     kpis, formulas, riskFactors,
     mc:{ mean:price, sigma:vol/100, expReturnAnnual:er/100, horizonYears:1, label:'precio de la acción' },
     stressBase:{ price, vol:vol/100, er:er/100 },
-    verdictInputs:{ er, capm, sharpe, vol, gordon, price }
+    verdictInputs:{ er, capm, sharpe, vol, gordon, price },
+    valuacion,
   };
 }
 
@@ -1448,6 +1491,33 @@ function setAudience(a){
   renderResults();
 }
 
+// Valuación de Precio Justo — responde directamente la pregunta real
+// de cualquier inversionista: ¿a qué precio debería comprar esto?
+// Combina 3 metodologías con supuestos distintos (dividendos futuros,
+// utilidades descontadas al rendimiento requerido por riesgo, y
+// múltiplo de mercado ajustado por crecimiento), mostrando un RANGO
+// en vez de un único número — más honesto que fingir precisión que
+// ningún modelo de valuación tiene realmente.
+function renderValuacionPrecioJusto(valuacion, data){
+  const cont = $('valuacion-precio-justo-box');
+  if(!cont) return;
+  if(!valuacion || !valuacion.metodos.length){ cont.style.display='none'; return; }
+  cont.style.display = '';
+  const v = valuacion;
+  cont.innerHTML = `
+    <div class="card-title"><i class="ti ti-target-arrow"></i> Valuación de Precio Justo — ¿a qué precio comprar?</div>
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:10px;">
+      <div><div style="font-size:11px;color:var(--t3);">Rango de precio justo estimado</div><div style="font-size:22px;font-weight:700;">$${fmt(v.min)} – $${fmt(v.max)}</div></div>
+      <div><div style="font-size:11px;color:var(--t3);">Precio actual</div><div style="font-size:18px;font-weight:600;">$${fmt(v.price)}</div></div>
+      <div style="background:${v.colorValuacion}22;border:1px solid ${v.colorValuacion};border-radius:8px;padding:6px 12px;"><span style="color:${v.colorValuacion};font-weight:600;font-size:12.5px;">${v.veredictoValuacion}</span></div>
+    </div>
+    <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:10px;">
+      <thead><tr style="background:var(--c3,#f5f5f5);"><th style="padding:6px 8px;text-align:left;">Método</th><th style="padding:6px 8px;text-align:right;">Precio justo estimado</th><th style="padding:6px 8px;text-align:right;">vs. precio actual</th></tr></thead>
+      <tbody>${v.metodos.map(m=>{ const dif=(m.valor-v.price)/v.price*100; return `<tr><td style="padding:6px 8px;">${m.metodo}</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);">$${fmt(m.valor)}</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);color:${dif>=0?'var(--green,#00d084)':'var(--red,#ff4757)'};">${dif>=0?'+':''}${fmt(dif)}%</td></tr>`; }).join('')}</tbody>
+    </table>
+    <div class="info-box">El promedio de estos métodos implica un margen de seguridad de <b style="color:${v.margenSeguridad>=0?'var(--green,#00d084)':'var(--red,#ff4757)'};">${v.margenSeguridad>=0?'+':''}${fmt(v.margenSeguridad)}%</b> frente al precio actual. Cada método parte de supuestos distintos (crecimiento, tasa de descuento) — el rango importa más que cualquier número individual, y ninguno reemplaza tu propio análisis del negocio.</div>`;
+}
+
 function renderResults(){
   if(!lastResult) return;
   const { data, result, mcRes, verdict, stress, market } = lastResult;
@@ -1455,6 +1525,7 @@ function renderResults(){
   $('result-asset-name').textContent = (data.ticker||m.name)+' · '+m.name;
 
   renderVerdict(verdict, mcRes, data.sector);
+  renderValuacionPrecioJusto(result.valuacion, data);
   renderComparacionLiderSector(data);
   renderEstadosFinancierosReales(data);
   renderGraficoPrecioReal(data);
