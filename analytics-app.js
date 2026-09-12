@@ -96,7 +96,7 @@ function actualizarBotonCuenta(){
 // marca, aplicables a ambas herramientas), accesible desde el modal
 // de cuenta y desde un enlace permanente en el pie de página.
 const TEXTO_TERMINOS = `
-<p><b>Última actualización:</b> [fecha a completar antes de publicar]</p>
+<p><b>Última actualización:</b> 11 de septiembre de 2026</p>
 <p style="background:rgba(255,180,0,.12);padding:10px;border-radius:8px;font-size:11.5px;"><i>Aviso: este documento es un borrador de trabajo. No sustituye la revisión de un abogado licenciado antes de su publicación formal.</i></p>
 <h4>1. Aceptación de los términos</h4>
 <p>Al acceder o usar CapitalLab Simulador y/o CapitalLab Analytics ("la Plataforma"), usted acepta quedar obligado por estos Términos. Si no está de acuerdo, no debe usar la Plataforma.</p>
@@ -113,10 +113,10 @@ const TEXTO_TERMINOS = `
 <h4>7. Limitación de responsabilidad</h4>
 <p><b>CAPITALLAB NO SERÁ RESPONSABLE POR NINGÚN DAÑO, INCLUYENDO PÉRDIDA FINANCIERA REAL, QUE EL USUARIO PUDIERA ATRIBUIR A DECISIONES DE INVERSIÓN BASADAS EN LA PLATAFORMA.</b> Se proporciona "tal cual", sin garantías.</p>
 <h4>8-11. Modificaciones, terminación, ley aplicable, contacto</h4>
-<p>CapitalLab puede modificar el servicio y estos Términos en cualquier momento. Rige la ley de la República de Panamá. Contacto: [correo a completar].</p>`;
+<p>CapitalLab puede modificar el servicio y estos Términos en cualquier momento. Rige la ley de la República de Panamá. Contacto: capitallabpty@gmail.com.</p>`;
 
 const TEXTO_PRIVACIDAD = `
-<p><b>Última actualización:</b> [fecha a completar antes de publicar]</p>
+<p><b>Última actualización:</b> 11 de septiembre de 2026</p>
 <p style="background:rgba(255,180,0,.12);padding:10px;border-radius:8px;font-size:11.5px;"><i>Aviso: este documento es un borrador de trabajo. No sustituye la revisión de un abogado licenciado, en particular respecto a la Ley 81 de 2019 de Panamá.</i></p>
 <h4>1. Datos que recopilamos</h4>
 <p>Datos de cuenta (correo, contraseña cifrada), y los datos que usted ingrese para su análisis (símbolos de activos, cifras financieras).</p>
@@ -127,7 +127,7 @@ const TEXTO_PRIVACIDAD = `
 <h4>4. Seguridad</h4>
 <p>Contraseñas cifradas. Crear una cuenta es opcional — puede usar Analytics sin registrarse.</p>
 <h4>5. Sus derechos (Ley 81 de 2019, Panamá)</h4>
-<p>Acceder, corregir, y solicitar la eliminación de sus datos. Contacto: [correo a completar].</p>
+<p>Acceder, corregir, y solicitar la eliminación de sus datos. Contacto: capitallabpty@gmail.com.</p>
 <h4>6. Cambios a esta Política</h4>
 <p>Notificaremos cambios significativos publicando la nueva versión con su fecha de actualización.</p>`;
 
