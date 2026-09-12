@@ -191,6 +191,7 @@ function abrirModalCuentaConectada(){
       <p style="font-size:12px;color:var(--t2);">Tu historial se sincroniza automáticamente en la nube.</p>
     </div>
     <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="cerrarSesionCuenta()"><i class="ti ti-logout"></i> Cerrar sesión</button>
+    <div style="text-align:center;margin-top:14px;"><button onclick="abrirDocumentoLegal('terminos')" style="background:none;border:none;color:var(--t3);font-size:10.5px;cursor:pointer;text-decoration:underline;">Términos y Privacidad</button></div>
   </div>`;
   document.body.appendChild(overlay);
 }
