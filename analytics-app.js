@@ -848,7 +848,7 @@ async function renderEstadosFinancierosReales(data){
   } catch(e){
     cont.innerHTML = `<div class="card-title"><i class="ti ti-file-invoice"></i> Estado de Resultados real</div><div class="info-box">No se pudo cargar el estado de resultados ahora mismo.</div>`;
   }
-  renderBalanceYFlujoRealesSEC(ticker);
+  renderBalanceYFlujoRealesSEC(ticker, data);
 }
 
 // Balance General y Flujo de Caja REALES vía la SEC — el mismo hueco
@@ -859,7 +859,147 @@ async function renderEstadosFinancierosReales(data){
 // de EE.UU. (~10,400 con CIK registrado) — si el ticker no tiene
 // cobertura (empresa extranjera), se indica con claridad en vez de
 // mostrar algo vacío o inventado.
-async function renderBalanceYFlujoRealesSEC(ticker){
+// Modelo Financiero DCF — el estándar real de banca de inversión para
+// valuar una empresa independiente de su precio de mercado: proyecta
+// el flujo de caja libre que el negocio generará, y lo descuenta a
+// valor presente con el WACC (costo de capital ponderado). A
+// diferencia de un múltiplo (P/E, P/B), un DCF construye el valor
+// desde los fundamentos del negocio hacia arriba.
+function inicializarModeloDCF(d, data){
+  const sinDatos = $('dcf-sin-datos'), contenido = $('dcf-contenido');
+  const cajaExterna = $('dcf-box');
+  if(cajaExterna) cajaExterna.style.display = '';
+  if(!d || !d.estadoResultados?.anual?.length){
+    sinDatos.style.display = ''; contenido.style.display = 'none';
+    return;
+  }
+  sinDatos.style.display = 'none'; contenido.style.display = '';
+  const anual = d.estadoResultados.anual; // más reciente primero
+  const conEbit = anual.filter(a => a.operatingIncome != null);
+  const ultimo = anual[0];
+  // Crecimiento histórico promedio de ingresos (año a año, sobre los
+  // periodos disponibles) — usado como punto de partida sugerido, no
+  // impuesto: el usuario puede y debe ajustarlo según su propio
+  // criterio sobre el futuro del negocio.
+  let crecimientos = [];
+  for(let i=0;i<anual.length-1;i++){ if(anual[i+1].revenue>0) crecimientos.push((anual[i].revenue-anual[i+1].revenue)/anual[i+1].revenue*100); }
+  const crecimientoHistorico = crecimientos.length ? crecimientos.reduce((s,v)=>s+v,0)/crecimientos.length : 5;
+  const margenEbitUltimo = (conEbit[0] && conEbit[0].revenue>0) ? (conEbit[0].operatingIncome/conEbit[0].revenue*100) : 15;
+
+  const bal = d.balanceGeneral?.anual?.[0] || null;
+  window.__dcfDatos = {
+    ticker: d.ticker,
+    ingresoBase: ultimo.revenue,
+    deudaTotal: bal?.pasivos ?? null, // proxy de deuda neta — no hay desglose de deuda financiera pura vs. operativa disponible gratis
+    patrimonio: bal?.patrimonio ?? null,
+    accionesEnCirculacion: data.shares ? Number(data.shares)*1e6 : null,
+    price: Number(data.price)||null,
+    beta: data.beta!=null ? Number(data.beta) : 1,
+  };
+  $('dcf-growth').value = crecimientoHistorico.toFixed(1);
+  $('dcf-margin').value = margenEbitUltimo.toFixed(1);
+  calcularDCF();
+}
+
+function calcularDCF(){
+  const dd = window.__dcfDatos;
+  const waccBox = $('dcf-wacc-box'), tablaBox = $('dcf-tabla-box'), resBox = $('dcf-resultado-box');
+  if(!dd || !waccBox) return;
+  const fmtM = v => (v/1e6).toLocaleString('es-PA',{maximumFractionDigits:0});
+  const growth = (+$('dcf-growth').value||0)/100;
+  const margin = (+$('dcf-margin').value||0)/100;
+  const tax = (+$('dcf-tax').value||21)/100;
+  const capexPct = (+$('dcf-capex').value||5)/100;
+  const nwcPct = (+$('dcf-nwc').value||10)/100;
+  const gTerminal = (+$('dcf-terminal').value||2.5)/100;
+  const costoDeuda = (+$('dcf-costdeuda').value||5.5)/100;
+
+  // WACC — costo de equity vía CAPM (mismo modelo ya usado en el
+  // resto de Analytics), costo de deuda después de impuesto (el
+  // "escudo fiscal": pagar intereses reduce la utilidad gravable),
+  // ponderados por la estructura de capital real de la empresa
+  // (patrimonio y pasivos reales del balance, no un supuesto).
+  const rf = 4.5, mrp = 5.5;
+  const costoEquity = (rf + dd.beta*mrp)/100;
+  const costoDeudaNeta = costoDeuda*(1-tax);
+  const deuda = dd.deudaTotal||0, patrimonio = dd.patrimonio||0;
+  const totalCapital = deuda+patrimonio;
+  const pesoEquity = totalCapital>0 ? patrimonio/totalCapital : 1;
+  const pesoDeuda = totalCapital>0 ? deuda/totalCapital : 0;
+  const wacc = pesoEquity*costoEquity + pesoDeuda*costoDeudaNeta;
+
+  waccBox.innerHTML = `
+    <div style="font-size:12.5px;font-weight:600;margin-bottom:8px;">Costo de Capital Promedio Ponderado (WACC)</div>
+    <table style="width:100%;font-size:12px;border-collapse:collapse;">
+      <tr><td style="padding:5px 8px;color:var(--t3);">Costo de equity (CAPM, β=${fmt(dd.beta)})</td><td style="padding:5px 8px;text-align:right;font-family:var(--font-mono);">${fmt(costoEquity*100)}%</td><td style="padding:5px 8px;text-align:right;color:var(--t3);">peso ${fmt(pesoEquity*100)}%</td></tr>
+      <tr><td style="padding:5px 8px;color:var(--t3);">Costo de deuda después de impuesto</td><td style="padding:5px 8px;text-align:right;font-family:var(--font-mono);">${fmt(costoDeudaNeta*100)}%</td><td style="padding:5px 8px;text-align:right;color:var(--t3);">peso ${fmt(pesoDeuda*100)}%</td></tr>
+      <tr style="background:rgba(0,196,255,.06);"><td style="padding:5px 8px;font-weight:600;">WACC</td><td colspan="2" style="padding:5px 8px;text-align:right;font-family:var(--font-mono);font-weight:700;">${fmt(wacc*100)}%</td></tr>
+    </table>`;
+
+  if(wacc <= gTerminal){
+    tablaBox.innerHTML = ''; resBox.innerHTML = `<div class="info-box">El WACC (${fmt(wacc*100)}%) debe ser mayor que el crecimiento terminal (${fmt(gTerminal*100)}%) para que el modelo tenga sentido matemático — el valor terminal se volvería infinito. Ajusta los supuestos.</div>`;
+    return;
+  }
+
+  // Proyección a 5 años del flujo de caja libre no apalancado
+  // (Unlevered Free Cash Flow) — el flujo disponible para TODOS los
+  // proveedores de capital (deuda y equity), antes de decidir cómo se
+  // financia el negocio, que es justamente lo que el WACC descuenta.
+  let ingresoAnterior = dd.ingresoBase;
+  const filas = [];
+  for(let t=1;t<=5;t++){
+    const ingreso = ingresoAnterior*(1+growth);
+    const ebit = ingreso*margin;
+    const nopat = ebit*(1-tax);
+    const capex = ingreso*capexPct;
+    const deltaNwc = (ingreso-ingresoAnterior)*nwcPct;
+    const fcf = nopat - capex - deltaNwc;
+    const vp = fcf/Math.pow(1+wacc, t);
+    filas.push({t, ingreso, ebit, nopat, capex, deltaNwc, fcf, vp});
+    ingresoAnterior = ingreso;
+  }
+  const valorTerminal = filas[4].fcf*(1+gTerminal)/(wacc-gTerminal);
+  const vpTerminal = valorTerminal/Math.pow(1+wacc,5);
+  const enterpriseValue = filas.reduce((s,f)=>s+f.vp,0) + vpTerminal;
+  const equityValue = enterpriseValue - (dd.deudaTotal||0);
+  const precioImplicito = dd.accionesEnCirculacion ? equityValue/dd.accionesEnCirculacion : null;
+
+  tablaBox.innerHTML = `
+    <div style="font-size:12.5px;font-weight:600;margin-bottom:8px;">Proyección a 5 años (millones USD)</div>
+    <table style="width:100%;font-size:11.5px;border-collapse:collapse;">
+      <thead><tr style="background:var(--c3,#f5f5f5);"><th style="padding:5px 8px;text-align:left;">Concepto</th>${filas.map(f=>`<th style="padding:5px 8px;text-align:right;">Año ${f.t}</th>`).join('')}</tr></thead>
+      <tbody>
+        <tr><td style="padding:5px 8px;color:var(--t3);">Ingresos</td>${filas.map(f=>`<td style="padding:5px 8px;text-align:right;font-family:var(--font-mono);">${fmtM(f.ingreso)}</td>`).join('')}</tr>
+        <tr><td style="padding:5px 8px;color:var(--t3);">EBIT</td>${filas.map(f=>`<td style="padding:5px 8px;text-align:right;font-family:var(--font-mono);">${fmtM(f.ebit)}</td>`).join('')}</tr>
+        <tr><td style="padding:5px 8px;color:var(--t3);">NOPAT (EBIT después de impuesto)</td>${filas.map(f=>`<td style="padding:5px 8px;text-align:right;font-family:var(--font-mono);">${fmtM(f.nopat)}</td>`).join('')}</tr>
+        <tr><td style="padding:5px 8px;color:var(--t3);">(−) CapEx neto</td>${filas.map(f=>`<td style="padding:5px 8px;text-align:right;font-family:var(--font-mono);color:var(--red,#ff4757);">-${fmtM(f.capex)}</td>`).join('')}</tr>
+        <tr><td style="padding:5px 8px;color:var(--t3);">(−) Variación en capital de trabajo</td>${filas.map(f=>`<td style="padding:5px 8px;text-align:right;font-family:var(--font-mono);color:var(--red,#ff4757);">-${fmtM(f.deltaNwc)}</td>`).join('')}</tr>
+        <tr style="background:rgba(0,196,255,.06);"><td style="padding:5px 8px;font-weight:600;">Flujo de Caja Libre (FCL)</td>${filas.map(f=>`<td style="padding:5px 8px;text-align:right;font-family:var(--font-mono);font-weight:600;">${fmtM(f.fcf)}</td>`).join('')}</tr>
+        <tr><td style="padding:5px 8px;color:var(--t3);">Valor presente del FCL</td>${filas.map(f=>`<td style="padding:5px 8px;text-align:right;font-family:var(--font-mono);">${fmtM(f.vp)}</td>`).join('')}</tr>
+      </tbody>
+    </table>`;
+
+  const margenSeg = dd.price ? ((precioImplicito-dd.price)/dd.price*100) : null;
+  const colorVeredicto = margenSeg==null ? 'var(--t3)' : margenSeg>0 ? 'var(--green,#00d084)' : 'var(--red,#ff4757)';
+  resBox.innerHTML = `
+    <div style="font-size:12.5px;font-weight:600;margin-bottom:8px;">Resultado del modelo</div>
+    <table style="width:100%;font-size:12.5px;border-collapse:collapse;margin-bottom:10px;">
+      <tr><td style="padding:6px 8px;color:var(--t3);">Valor terminal (perpetuidad tras el año 5)</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);">$${fmtM(valorTerminal)}M</td></tr>
+      <tr><td style="padding:6px 8px;color:var(--t3);">Valor presente del valor terminal</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);">$${fmtM(vpTerminal)}M</td></tr>
+      <tr style="background:rgba(0,196,255,.06);"><td style="padding:6px 8px;font-weight:600;">Valor de la Empresa (EV)</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);font-weight:700;">$${fmtM(enterpriseValue)}M</td></tr>
+      <tr><td style="padding:6px 8px;color:var(--t3);">(−) Deuda total (proxy de deuda neta)</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);color:var(--red,#ff4757);">-$${fmtM(dd.deudaTotal||0)}M</td></tr>
+      <tr style="background:rgba(0,208,132,.06);"><td style="padding:6px 8px;font-weight:600;">Valor del Patrimonio (Equity Value)</td><td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);font-weight:700;">$${fmtM(equityValue)}M</td></tr>
+    </table>
+    ${precioImplicito!=null ? `
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;">
+      <div><div style="font-size:11px;color:var(--t3);">Precio implícito por el DCF</div><div style="font-size:22px;font-weight:700;">$${fmt(precioImplicito)}</div></div>
+      <div><div style="font-size:11px;color:var(--t3);">Precio actual</div><div style="font-size:18px;font-weight:600;">$${fmt(dd.price)}</div></div>
+      <div style="color:${colorVeredicto};font-weight:600;">${margenSeg>=0?'+':''}${fmt(margenSeg)}% ${margenSeg>=0?'de margen de seguridad':'por encima del valor del DCF'}</div>
+    </div>` : `<div class="info-box">Ingresa las acciones en circulación en el formulario para ver el precio implícito por acción — por ahora solo se muestra el valor total de la empresa.</div>`}
+    <div class="info-box" style="margin-top:10px;">Este modelo es tan bueno como sus supuestos — pequeños cambios en el crecimiento o el WACC mueven el resultado de forma significativa (pruébalo ajustando los campos arriba). Úsalo para entender qué tendría que ser cierto sobre el futuro del negocio para justificar el precio actual, no como una cifra definitiva.</div>`;
+}
+
+async function renderBalanceYFlujoRealesSEC(ticker, data){
   const balCont = $('balance-general-box');
   const cfCont = $('flujo-caja-box');
   if(!balCont || !cfCont) return;
@@ -872,8 +1012,10 @@ async function renderBalanceYFlujoRealesSEC(ticker){
     const d = await resp.json();
     if(!d.ok){
       balCont.innerHTML = `<div class="card-title"><i class="ti ti-building"></i> Estado de Situación Financiera</div><div class="info-box">${ticker} no tiene cobertura en la SEC — esta fuente solo cubre empresas públicas de EE.UU. con reporte 10-K/10-Q.</div>`;
+      inicializarModeloDCF(null, data);
       return;
     }
+    inicializarModeloDCF(d, data);
     const fmtM = v => Math.round(v/1e6).toLocaleString('es-PA');
     const bal = (d.balanceGeneral?.anual||[]).slice(0,4);
     if(bal.length>=2){
