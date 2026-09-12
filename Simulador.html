@@ -479,7 +479,17 @@
                 </div>
               </div>
               <div class="tp-row" id="trade-row-monto" style="display:none;">
-                <input type="number" id="trade-monto" min="1" placeholder="Monto a invertir en $" step="any" style="width:100%;background:var(--bg2, #10141d);border:1px solid var(--c4);border-radius:var(--r);padding:11px 13px;color:var(--t1);font-size:14px;" oninput="actualizarDesdeMonto()">
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <input type="number" id="trade-monto" min="1" placeholder="Monto a invertir en $" step="any" style="flex:1;background:var(--bg2, #10141d);border:1px solid var(--c4);border-radius:var(--r);padding:11px 13px;color:var(--t1);font-size:14px;" oninput="actualizarDesdeMonto()">
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="usarSaldoMaximoOrden()" title="Usar todo tu saldo disponible">Máx.</button>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:6px;">
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="usarPorcentajeSaldoOrden(0.25)" style="flex:1;justify-content:center;">25%</button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="usarPorcentajeSaldoOrden(0.5)" style="flex:1;justify-content:center;">50%</button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="usarPorcentajeSaldoOrden(0.75)" style="flex:1;justify-content:center;">75%</button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="usarPorcentajeSaldoOrden(1)" style="flex:1;justify-content:center;">100%</button>
+                </div>
+                <div id="trade-monto-saldo" style="font-size:11px;color:var(--t3);margin-top:6px;"></div>
               </div>
               <div class="tp-info">
                 <div class="tp-kpi"><div class="tp-kpi-label">Precio de mercado</div><div class="tp-kpi-val mono" id="trade-price-show">—</div></div>

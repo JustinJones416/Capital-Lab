@@ -1470,7 +1470,35 @@ function setModoOrden(modo){
     const p = selectedAsset.currentPrice||selectedAsset.price;
     const qtyActual = +document.getElementById('trade-qty').value||0;
     document.getElementById('trade-monto').value = (qtyActual*p).toFixed(2);
+    actualizarDesdeMonto();
   }
+}
+// Máximo invertible real basado en el saldo de la cartera — estándar
+// de mercado (todo bróker muestra el saldo disponible junto al monto
+// y ofrece usarlo directo). No es simplemente el saldo bruto: hay que
+// descontar la comisión y el medio spread de la ejecución, o el
+// estudiante pediría más de lo que realmente puede pagar y la compra
+// fallaría al confirmar sin haberlo advertido antes.
+function maximoInvertibleAhora(){
+  if(!selectedAsset) return 0;
+  const factorCostos = 1 + COMMISSION_RATE + (spreadFor(selectedAsset.type)/2);
+  return Math.max(0, capital / factorCostos);
+}
+function usarSaldoMaximoOrden(){
+  if(!selectedAsset) return;
+  // Redondeo siempre hacia abajo (nunca hacia arriba) — con .toFixed()
+  // normal, el valor mostrado podía quedar una fracción de centavo por
+  // ENCIMA del máximo real tras el redondeo, disparando la propia
+  // advertencia de "excede tu saldo" con el botón que se supone debe
+  // usar exactamente el máximo permitido.
+  document.getElementById('trade-monto').value = (Math.floor(maximoInvertibleAhora()*100)/100).toFixed(2);
+  actualizarDesdeMonto();
+}
+function usarPorcentajeSaldoOrden(pct){
+  if(!selectedAsset) return;
+  const monto = Math.min(Math.max(capital,0)*pct, maximoInvertibleAhora());
+  document.getElementById('trade-monto').value = (Math.floor(monto*100)/100).toFixed(2);
+  actualizarDesdeMonto();
 }
 function actualizarDesdeMonto(){
   if(!selectedAsset) return;
@@ -1479,6 +1507,20 @@ function actualizarDesdeMonto(){
   const qty = p>0 ? monto/p : 0;
   document.getElementById('trade-qty').value = qty>0 ? qty.toFixed(6) : 0; // hasta 6 decimales, suficiente para no perder precisión del monto exacto
   updateTradeCalc();
+  // Saldo disponible siempre visible junto al campo, con advertencia
+  // clara en vivo si el monto pedido excede lo que realmente se puede
+  // pagar (incluyendo comisión y spread) — antes esto solo se
+  // descubría al intentar confirmar la compra, sin ningún aviso
+  // mientras se escribía el monto.
+  const maxReal = maximoInvertibleAhora();
+  const saldoEl = document.getElementById('trade-monto-saldo');
+  if(saldoEl){
+    if(monto > maxReal){
+      saldoEl.innerHTML = `<span style="color:var(--red, #ff4757);"><i class="ti ti-alert-triangle"></i> Excede tu saldo disponible — el máximo que puedes invertir ahora es $${fmt(maxReal)}</span>`;
+    } else {
+      saldoEl.innerHTML = `Saldo disponible: <b class="mono">$${fmt(capital)}</b> · máximo invertible ahora (con comisión y spread): <b class="mono">$${fmt(maxReal)}</b>`;
+    }
+  }
 }
 
 function updateTradeCalc(){
