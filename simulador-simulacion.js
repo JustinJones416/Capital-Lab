@@ -4669,6 +4669,7 @@ function ensureAnalysisBody(){
         <div class="card-title"><i class="ti ti-news"></i> Noticias de este activo</div>
         <div id="an-noticias-cuerpo"><div class="auth-hint">Cargando…</div></div>
       </div>
+      <div class="card" id="an-lider-sector-box" style="margin-top:14px;display:none;"></div>
     </div>
     <div id="an-tab-estadisticas" class="an-tab-panel" style="display:none;">
       <div class="card" style="margin-bottom:14px;"><div class="card-title"><i class="ti ti-gauge"></i> Indicadores clave</div><div id="an-indicators"></div></div>
@@ -5056,6 +5057,7 @@ function renderAnalysis(id,type){
     if(asset.ticker){
       try { intentarCargarEstadosFinancierosReales(asset); } catch(e){}
       try { intentarCargarBalanceYFlujoRealesSEC(asset); } catch(e){}
+      try { renderComparacionLiderSectorSim(asset); } catch(e){}
     }
   }
 
@@ -5164,6 +5166,12 @@ function renderAnalysis(id,type){
         </div>
       </div>`;
     body.appendChild(div);
+    const divFmi = document.createElement('div');
+    divFmi.id = 'an-fmi-box';
+    divFmi.className = 'card';
+    divFmi.style.marginTop = '14px';
+    body.appendChild(divFmi);
+    try { renderEstadisticasFMI(asset); } catch(e){}
   }
 
   // ── ESPECIFICACIONES (futuros y derivados) ──
@@ -5803,6 +5811,109 @@ async function intentarCargarBalanceYFlujoRealesSEC(asset){
         </table>`;
     }
   } catch(e){ /* silencioso — el modelo estimado ya visible se queda como respaldo */ }
+}
+
+// Líder real y conocido de cada sector de acciones del catálogo —
+// mismo patrón ya construido y verificado en Analytics: se pide su
+// cotización real en vivo por ticker, sin necesitar ningún cambio de
+// backend, solo un segundo símbolo conocido al endpoint ya usado en
+// el resto de la app.
+const SECTOR_LEADER_SIM = {
+  'Tecnología': {ticker:'MSFT', nombre:'Microsoft'},
+  'Semiconductores/IA': {ticker:'NVDA', nombre:'NVIDIA'},
+  'Comunicación': {ticker:'GOOGL', nombre:'Alphabet (Google)'},
+  'Comercio/Nube': {ticker:'AMZN', nombre:'Amazon'},
+  'Automotriz': {ticker:'GM', nombre:'General Motors'},
+  'Automotriz/EV': {ticker:'TSLA', nombre:'Tesla'},
+  'Banca': {ticker:'JPM', nombre:'JPMorgan Chase'},
+  'Banca regional': {ticker:'USB', nombre:'U.S. Bancorp'},
+  'Finanzas': {ticker:'JPM', nombre:'JPMorgan Chase'},
+  'Energía': {ticker:'XOM', nombre:'ExxonMobil'},
+  'Materiales': {ticker:'LIN', nombre:'Linde'},
+  'Consumo': {ticker:'WMT', nombre:'Walmart'},
+  'Salud': {ticker:'JNJ', nombre:'Johnson & Johnson'},
+  'Agrícola': {ticker:'DE', nombre:'Deere & Company'},
+};
+
+async function renderComparacionLiderSectorSim(asset){
+  const cont = document.getElementById('an-lider-sector-box');
+  if(!cont) return;
+  const lider = SECTOR_LEADER_SIM[asset.sector];
+  if(asset.type!=='accion' || !asset.ticker || !lider){ cont.style.display='none'; return; }
+  cont.style.display = '';
+  if(asset.ticker === lider.ticker){
+    cont.innerHTML = `<div class="card-title"><i class="ti ti-crown" style="color:var(--gold);"></i> Comparación contra el líder del sector</div><div class="info-box">${asset.ticker} ya es el líder de referencia de este sector — no hay una comparación distinta que mostrar.</div>`;
+    return;
+  }
+  cont.innerHTML = `<div class="card-title"><i class="ti ti-crown" style="color:var(--gold);"></i> Comparación contra el líder del sector</div><div style="text-align:center;padding:14px;color:var(--t3);font-size:12px;">Consultando datos reales de ${lider.nombre}…</div>`;
+  try {
+    const resp = await fetch(`${SIM_IA_URL}/functions/v1/datos-yahoo-finance?symbol=${encodeURIComponent(lider.ticker)}`, {
+      headers: { 'apikey': SIM_IA_ANON_KEY, 'Authorization': `Bearer ${SIM_IA_ANON_KEY}` },
+    });
+    const d = await resp.json();
+    if(!d.ok || !d.fundamentales){ cont.innerHTML = `<div class="card-title"><i class="ti ti-crown" style="color:var(--gold);"></i> Comparación contra el líder del sector</div><div class="info-box">No se pudieron obtener datos reales de ${lider.nombre} ahora mismo.</div>`; return; }
+    const f = d.fundamentales;
+    const peLider = f.eps ? (d.precioActual/f.eps).toFixed(1) : null;
+    const divYLider = (f.dividend && d.precioActual) ? (f.dividend/d.precioActual*100).toFixed(2) : null;
+    const divYActivo = (asset.dividend && (asset.currentPrice||asset.price)) ? (asset.dividend/(asset.currentPrice||asset.price)*100).toFixed(2) : null;
+    const fila = (etq, vA, vL, suf='') => `<tr><td style="padding:7px 8px;color:var(--t3);">${etq}</td><td style="padding:7px 8px;text-align:right;font-family:var(--font-mono);font-weight:600;">${vA!=null?vA+suf:'—'}</td><td style="padding:7px 8px;text-align:right;font-family:var(--font-mono);">${vL!=null?vL+suf:'—'}</td></tr>`;
+    cont.innerHTML = `
+      <div class="card-title"><i class="ti ti-crown" style="color:var(--gold);"></i> Comparación contra el líder del sector</div>
+      <table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+        <thead><tr style="background:var(--c3);"><th style="padding:7px 8px;text-align:left;">Indicador</th><th style="padding:7px 8px;text-align:right;">${asset.ticker}</th><th style="padding:7px 8px;text-align:right;">${lider.ticker} (líder)</th></tr></thead>
+        <tbody>
+          ${fila('Dividend Yield', divYActivo, divYLider, '%')}
+          ${fila('Beta (riesgo sistemático)', asset.beta, f.beta)}
+          ${fila('P/E Ratio (solo del líder — no modelado para activos simulados)', null, peLider)}
+          ${fila('ROE (solo del líder — no modelado para activos simulados)', null, f.roe, '%')}
+        </tbody>
+      </table>
+      <div class="info-box" style="margin-top:10px;">${lider.nombre} es la referencia dominante real del sector. Las métricas fundamentales de valoración (P/E, ROE) solo están disponibles para el líder real — el activo simulado no las modela — se muestran como referencia de contexto de mercado, no como comparación directa.</div>`;
+  } catch(e){
+    cont.innerHTML = `<div class="card-title"><i class="ti ti-crown" style="color:var(--gold);"></i> Comparación contra el líder del sector</div><div class="info-box">No se pudo cargar esta comparación ahora mismo.</div>`;
+  }
+}
+
+// Mapa país → código ISO3, para consultar estadísticas financieras
+// internacionales reales (tasa activa, pasiva, spread — pedidas
+// explícitamente por el profesor de la asignatura, fuente: Banco
+// Mundial, con datos originados del FMI). "Eurozona" y "Global" no
+// tienen ISO3 real (son agrupaciones, no países), quedan sin esta
+// tarjeta — sería engañoso inventarles un país.
+const ISO3_POR_PAIS = {
+  'Alemania':'DEU','Argentina':'ARG','Australia':'AUS','Brasil':'BRA','Canadá':'CAN','Chile':'CHL','China':'CHN',
+  'Colombia':'COL','Corea del Sur':'KOR','Costa Rica':'CRI','Dinamarca':'DNK','EE.UU.':'USA','España':'ESP',
+  'Francia':'FRA','Hong Kong':'HKG','India':'IND','Indonesia':'IDN','Italia':'ITA','Japón':'JPN','México':'MEX',
+  'Noruega':'NOR','Nueva Zelanda':'NZL','Panamá':'PAN','Perú':'PER','Polonia':'POL','Reino Unido':'GBR',
+  'Singapur':'SGP','Sudáfrica':'ZAF','Suecia':'SWE','Suiza':'CHE','Tailandia':'THA','Taiwán':'TWN','Turquía':'TUR',
+};
+
+async function renderEstadisticasFMI(asset){
+  const cont = document.getElementById('an-fmi-box');
+  if(!cont) return;
+  const iso3 = ISO3_POR_PAIS[asset.country];
+  if(!iso3){ cont.style.display='none'; return; }
+  cont.style.display = '';
+  cont.innerHTML = `<div class="card-title"><i class="ti ti-building-bank" style="color:var(--accent2);"></i> Estadísticas Financieras Internacionales</div><div style="text-align:center;padding:14px;color:var(--t3);font-size:12px;">Consultando datos reales de ${asset.country}…</div>`;
+  try {
+    const resp = await fetch(`${SIM_IA_URL}/functions/v1/estadisticas-fmi?pais=${iso3}`, {
+      headers: { 'apikey': SIM_IA_ANON_KEY, 'Authorization': `Bearer ${SIM_IA_ANON_KEY}` },
+    });
+    const d = await resp.json();
+    if(!d.ok){ cont.innerHTML = `<div class="card-title"><i class="ti ti-building-bank" style="color:var(--accent2);"></i> Estadísticas Financieras Internacionales</div><div class="info-box">No se pudieron obtener datos reales para ${asset.country} ahora mismo.</div>`; return; }
+    const celda = (etq, obj, suf='%') => `<div class="metric"><div class="metric-label">${etq}</div><div class="metric-val">${obj ? obj.valor+suf : '—'}</div>${obj ? `<div style="font-size:10px;color:var(--t3);margin-top:2px;">Dato de ${obj.anio}</div>` : `<div style="font-size:10px;color:var(--t3);margin-top:2px;">Sin cobertura para este país</div>`}</div>`;
+    cont.innerHTML = `
+      <div class="card-title"><i class="ti ti-building-bank" style="color:var(--accent2);"></i> Estadísticas Financieras Internacionales — ${asset.country}</div>
+      <div class="grid-4-resp" style="gap:10px;">
+        ${celda('Tasa activa (préstamos)', d.tasaActiva)}
+        ${celda('Tasa pasiva (depósitos)', d.tasaPasiva)}
+        ${celda('Spread bancario', d.spread)}
+        ${celda('Inflación anual (IPC)', d.inflacion)}
+      </div>
+      <div class="info-box" style="margin-top:12px;">Fuente: ${d.fuente}. ${!d.tasaPasiva ? 'Este país no reporta tasa pasiva ni spread en la base consultada — común en economías dolarizadas o sin tasa de política monetaria propia, no un error de la consulta.' : `El spread bancario (${d.spread?.valor}%) mide la diferencia entre lo que los bancos cobran por préstamos y lo que pagan por depósitos — un spread alto sugiere menor eficiencia o mayor riesgo percibido en el sistema bancario del país.`} <a href="${d.urlFuente}" target="_blank" rel="noopener">Ver en World Bank Data ↗</a></div>`;
+  } catch(e){
+    cont.innerHTML = `<div class="card-title"><i class="ti ti-building-bank" style="color:var(--accent2);"></i> Estadísticas Financieras Internacionales</div><div class="info-box">No se pudo cargar esta información ahora mismo.</div>`;
+  }
 }
 
 async function intentarCargarEstadosFinancierosReales(asset){
