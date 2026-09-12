@@ -726,6 +726,7 @@ function candleSigma(annualSigma) {
   return ((annualSigma / 100) / Math.sqrt(EFFECTIVE_PERIODS)) * RISK_MULTIPLIER;
 }
 
+
 // Seed initial candle history for an asset
 function initCandles(asset) {
   const id = asset.id;
@@ -734,10 +735,16 @@ function initCandles(asset) {
   const candles = [];
   let price = asset.currentPrice || asset.price;
   for (let i = CANDLE_COUNT; i > 0; i--) {
-    const drift = (asset.ret / 100) / EFFECTIVE_PERIODS;
-    const r1 = (Math.random() - 0.5) * 2;
-    const r2 = (Math.random() - 0.5) * 2;
-    const r3 = (Math.random() - 0.5) * 2;
+    // Corregido: antes el drift omitía la corrección de Itô (μ − σ²/2),
+    // necesaria para que un GBM (movimiento browniano geométrico) esté
+    // bien planteado, y el ruido usaba (Math.random()-0.5)*2, una
+    // distribución uniforme — los retornos de mercado se aproximan
+    // mejor con una distribución normal (Box-Muller). Ambas corregidas
+    // sin cambiar la escala de volatilidad ya calibrada (cs).
+    const drift = (asset.ret / 100) / EFFECTIVE_PERIODS - 0.5 * cs * cs;
+    const r1 = randn();
+    const r2 = randn();
+    const r3 = randn();
     const open  = price;
     const close = Math.max(0.01, open * (1 + drift + r1 * cs));
     const high  = Math.max(open, close) * (1 + Math.abs(r2) * cs * 0.8);
@@ -1313,7 +1320,7 @@ function tickPrices() {
         return;
       }
       const cs    = candleSigma(a.sigma);
-      const drift = (a.ret / 100) / EFFECTIVE_PERIODS;
+      const drift = (a.ret / 100) / EFFECTIVE_PERIODS - 0.5 * cs * cs; // corrección de Itô (antes ausente)
       const beta  = betaFor(a);
       // Shock = drift + systematic (market) + idiosyncratic + market regime event
       const systematic   = beta * MARKET_VOL * marketZ;
@@ -4725,6 +4732,7 @@ function initApp() {
   // punto donde se guarda el borrador).
   setInterval(() => { if(typeof guardarBorradorInvestigacionLocal === 'function') guardarBorradorInvestigacionLocal(); }, 20000);
   try { computePrices(6); } catch(e) { console.error('computePrices failed', e); }
+  try { cargarTasaLibreDeRiesgoReal(); } catch(e){}
   try { loadTeacherRoster(); } catch(e) { console.error('loadTeacherRoster failed', e); }
   // Load saved progress BEFORE rendering
   try {

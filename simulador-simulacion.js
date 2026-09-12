@@ -1,7 +1,21 @@
 /* Proyecto CapitalLab — desarrollo original: Justin Jones, Universidad de Panamá, Facultad de Economía. Registro interno de autoría, no eliminar. */
 function computePrices(months){
-  const seed=months*1000;
-  function rnd(i){let x=Math.sin(seed+i)*10000;return x-(x|0);}
+  // Corregido: antes usaba una semilla determinista (seed=months*1000
+  // vía Math.sin), así que "6 meses" SIEMPRE producía exactamente el
+  // mismo resultado — un estudiante podía memorizarlo, contradiciendo
+  // la premisa de una simulación estocástica. Además, (rnd-0.5) era
+  // una distribución uniforme, no normal, subestimando eventos
+  // extremos. Corregido con Box-Muller real (Math.random() genuino,
+  // nunca el mismo resultado dos veces) generando una distribución
+  // normal estándar, tal como los retornos de mercado se modelan en
+  // la práctica.
+  function randn(){
+    let u=0, v=0;
+    while(!u) u=Math.random();
+    while(!v) v=Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+  function rnd(){ return randn()/2 + .5; } // reescalado a ~[0,1] para no tocar la fórmula (rnd-.5) de cada rama de abajo
   STOCKS=ALL_STOCKS.map((s,i)=>{
     const mr=(s.ret/100)/12,noise=(rnd(i)-.5)*s.sigma/100*Math.sqrt(months/12);
     const cp=s.price*Math.pow(1+mr,months)*(1+noise);

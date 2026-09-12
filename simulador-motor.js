@@ -6228,6 +6228,24 @@ async function authBoot(){
 }
 document.addEventListener('DOMContentLoaded', authBoot);
 
+// El navegador puede sugerir autocompletar campos numéricos con
+// valores ya ingresados en otros campos similares del sitio —
+// confirmado por el cliente que esto genera confusión, pareciendo un
+// gestor de contraseñas ofreciendo "recordar" cifras financieras.
+// Se desactiva de forma global, sin tener que agregar autocomplete="off"
+// campo por campo — cualquier input numérico nuevo que se agregue
+// después queda cubierto automáticamente, sin más mantenimiento.
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('input[type="number"]').forEach(el => el.setAttribute('autocomplete', 'off'));
+  new MutationObserver(muts => {
+    muts.forEach(m => m.addedNodes.forEach(n => {
+      if(n.nodeType!==1) return;
+      if(n.matches?.('input[type="number"]')) n.setAttribute('autocomplete','off');
+      n.querySelectorAll?.('input[type="number"]').forEach(el => el.setAttribute('autocomplete','off'));
+    }));
+  }).observe(document.body, { childList:true, subtree:true });
+});
+
 // Revisa cada cierto tiempo, y cada vez que el celular "despierta" la
 // pestaña (por ejemplo, tras tener la pantalla bloqueada un rato largo),
 // que la sesión siga siendo válida DE VERDAD contra el servidor — no solo
@@ -6252,9 +6270,24 @@ async function verificarSesionValida(){
 }
 
 // ═══════════════════ DATA ═══════════════════
-const RF=4.5;
+// Tasa libre de riesgo: antes fija en 4.5% siempre, sin relación con
+// el entorno real de tasas — corregido a variable actualizable, con
+// 4.5% como valor de arranque/respaldo. cargarTasaLibreDeRiesgoReal()
+// la reemplaza con el rendimiento real del T-Bill de 13 semanas
+// (^IRX) al iniciar sesión de mercado; si la fuente falla, se queda
+// en el valor de respaldo — nunca rompe el cálculo de Sharpe.
+let RF=4.5;
+async function cargarTasaLibreDeRiesgoReal(){
+  try {
+    const resp = await fetch(`${SIM_IA_URL}/functions/v1/datos-yahoo-finance?symbol=%5EIRX`, {
+      headers: { 'apikey': SIM_IA_ANON_KEY, 'Authorization': `Bearer ${SIM_IA_ANON_KEY}` },
+    });
+    const d = await resp.json();
+    if(d.ok && d.precioActual > 0 && d.precioActual < 20) RF = d.precioActual; // ^IRX ya cotiza directo en % anualizado
+  } catch(e){ /* se queda en el valor de respaldo, silencioso a propósito */ }
+}
 const ALL_STOCKS=[
-  {id:'AAPL',name:'Apple Inc.',ticker:'AAPL',sector:'Tecnología',country:'EE.UU.',price:189.5,beta:1.19,sigma:22.1,ret:12.4,profile:'Apple Inc. fundada en 1976 por Steve Jobs. Mayor capitalización del mundo. iPhone domina cerca del 17% del mercado global de teléfonos inteligentes. Ingresos año fiscal 2024: $391B. Utilidad neta: $93.7B. Calificación crediticia: AAA.',rating:'AAA',dividend:0.92,type:'accion',
+  {id:'AAPL',name:'Apple Inc.',ticker:'AAPL',sector:'Tecnología',country:'EE.UU.',price:189.5,beta:1.19,sigma:22.1,ret:12.4,profile:'Apple Inc. fundada en 1976 por Steve Jobs. Mayor capitalización del mundo. iPhone domina cerca del 17% del mercado global de teléfonos inteligentes. Ingresos año fiscal 2024: $391B. Utilidad neta: $93.7B. Calificación crediticia: AA+.',rating:'AA+',dividend:0.92,type:'accion',
    fs:{
      income:[
        {year:2024,revenue:391035,grossProfit:180683,ebit:123216,netIncome:93736},
