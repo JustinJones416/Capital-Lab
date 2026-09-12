@@ -4022,10 +4022,25 @@ function ejecutarOrdenDirecta(op, qty){
     // El costo base de la posición incluye comisión (criterio contable: costo de adquisición).
     if(ex){ex.qty+=qty;ex.invested+=cashOut;ex.currentPrice=mid;}
     else portfolio.push({...selectedAsset,qty,invested:cashOut,buyPrice:gross/qty,currentPrice:mid});
+    // Estándar de mercado real: poder fijar Stop Loss / Take Profit en
+    // la MISMA orden de compra, no como un paso separado después. Antes
+    // esos campos solo servían para "Colocar" una orden pendiente que
+    // exigía una posición YA existente — inútil en el instante mismo de
+    // comprar. Ahora, si el estudiante ya escribió un precio ahí antes
+    // de confirmar la compra, se aplica de inmediato a la posición
+    // recién creada/ampliada, reutilizando el mismo sistema interactivo
+    // ya construido (líneas arrastrables en el gráfico, ejecución
+    // automática real) — sin que el usuario tenga que hacer nada más.
+    const posNueva = portfolio.find(x=>x.id===selectedAsset.id&&x.type===selectedAsset.type);
+    const slCampo = +document.getElementById('sl-precio')?.value;
+    const tpCampo = +document.getElementById('tp-precio')?.value;
+    if(posNueva && slCampo>0 && slCampo<mid){ posNueva.stopLoss = slCampo; document.getElementById('sl-precio').value=''; document.getElementById('sl-resultado').style.display='none'; }
+    if(posNueva && tpCampo>0 && tpCampo>mid){ posNueva.takeProfit = tpCampo; document.getElementById('tp-precio').value=''; document.getElementById('tp-resultado').style.display='none'; }
     txHistory.unshift({date:new Date().toLocaleTimeString('es-PA'),timestamp:Date.now(),action:'Compra',name:selectedAsset.name,type:selectedAsset.type,qty,price:px,total:gross,fee:+fee.toFixed(2)});
     autosave();
     mostrarPromptDiarioTrading('Compra', selectedAsset.name);
-    mostrarDeshacerToast(snapshotPrevio, `Compra de ${qty}u ${selectedAsset.ticker} · costo $${fmt(fee)} realizada.`);
+    const avisoSLTP = (slCampo>0&&slCampo<mid) || (tpCampo>0&&tpCampo>mid) ? ' Stop Loss/Take Profit aplicados a la posición.' : '';
+    mostrarDeshacerToast(snapshotPrevio, `Compra de ${qty}u ${selectedAsset.ticker} · costo $${fmt(fee)} realizada.${avisoSLTP}`);
   } else {
     const pos=portfolio.find(x=>x.id===selectedAsset.id&&x.type===selectedAsset.type);
     if(!pos||pos.qty<qty){notify('No tienes suficientes unidades','error');return;}
@@ -4142,33 +4157,31 @@ function calcularTakeProfit(){
 
 function placeStopLoss(){
   if(!selectedAsset){ notify('Selecciona un activo primero','error'); return; }
-  const qty = +document.getElementById('trade-qty').value;
-  if(qty<=0){ notify('Ingresa una cantidad válida','error'); return; }
   const trigger = +document.getElementById('sl-precio').value;
   if(!trigger || trigger<=0){ notify('Ingresa el precio de salida del stop loss','error'); return; }
   const pos = portfolio.find(x=>x.id===selectedAsset.id && x.type===selectedAsset.type);
-  if(!pos || pos.qty<qty){ notify('No tienes unidades suficientes de este activo para protegerlas con un stop loss','error'); return; }
-  pendingOrders.push({ id: Date.now()+Math.random(), assetId:selectedAsset.id, type:selectedAsset.type, ticker:selectedAsset.ticker, name:selectedAsset.name, kind:'stop-loss', side:'sell', qty, trigger });
-  notify(`Stop loss colocado: se venderán ${qty}u de ${selectedAsset.ticker} si el precio cae a $${fmt(trigger)} ✓`);
+  if(!pos){ notify('No tienes una posición abierta de este activo todavía — escribe el precio aquí y confírmalo al momento de comprar, se aplicará solo.','error'); return; }
+  const mid = selectedAsset.currentPrice || selectedAsset.price;
+  if(trigger >= mid){ notify('El stop loss debe estar por debajo del precio actual.','error'); return; }
+  pos.stopLoss = trigger;
+  notify(`Stop loss colocado: se venderá tu posición de ${selectedAsset.ticker} si el precio cae a $${fmt(trigger)} ✓`);
   document.getElementById('sl-precio').value = '';
   document.getElementById('sl-resultado').style.display = 'none';
-  renderOrderList();
   autosave();
 }
 
 function placeTakeProfit(){
   if(!selectedAsset){ notify('Selecciona un activo primero','error'); return; }
-  const qty = +document.getElementById('trade-qty').value;
-  if(qty<=0){ notify('Ingresa una cantidad válida','error'); return; }
   const trigger = +document.getElementById('tp-precio').value;
   if(!trigger || trigger<=0){ notify('Ingresa el precio de salida del take profit','error'); return; }
   const pos = portfolio.find(x=>x.id===selectedAsset.id && x.type===selectedAsset.type);
-  if(!pos || pos.qty<qty){ notify('No tienes unidades suficientes de este activo para asegurar una ganancia con un take profit','error'); return; }
-  pendingOrders.push({ id: Date.now()+Math.random(), assetId:selectedAsset.id, type:selectedAsset.type, ticker:selectedAsset.ticker, name:selectedAsset.name, kind:'limit-sell', side:'sell', qty, trigger });
-  notify(`Take profit colocado: se venderán ${qty}u de ${selectedAsset.ticker} si el precio sube a $${fmt(trigger)} ✓`);
+  if(!pos){ notify('No tienes una posición abierta de este activo todavía — escribe el precio aquí y confírmalo al momento de comprar, se aplicará solo.','error'); return; }
+  const mid = selectedAsset.currentPrice || selectedAsset.price;
+  if(trigger <= mid){ notify('El take profit debe estar por encima del precio actual.','error'); return; }
+  pos.takeProfit = trigger;
+  notify(`Take profit colocado: se venderá tu posición de ${selectedAsset.ticker} si el precio sube a $${fmt(trigger)} ✓`);
   document.getElementById('tp-precio').value = '';
   document.getElementById('tp-resultado').style.display = 'none';
-  renderOrderList();
   autosave();
 }
 
