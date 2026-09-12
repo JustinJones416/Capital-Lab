@@ -21,7 +21,7 @@ const MARKETS = {
     formDesc:'Ingresa los datos de la acción. Los campos marcados con * son indispensables; los demás enriquecen el análisis fundamental.',
     fields:[
       {k:'ticker', label:'Símbolo / Nombre', type:'text', req:true, placeholder:'Ej. AAPL', ex:'AAPL', src:'Símbolo bursátil de la empresa (símbolo bursátil) visible en el buscador de Yahoo Finance.'},
-      {k:'sector', label:'Sector de la empresa', type:'select', options:[['general','General (sin ponderación especial)'],['banca','Banca y Finanzas'],['energia','Energía y Commodities'],['retail','Retail y Consumo'],['tecnologia','Tecnología y SaaS'],['inmobiliario','Real Estate / REITs'],['manufactura','Manufactura e Industria']], note:'se autocompleta con "Traer datos reales" para empresas conocidas', src:'Determina qué indicadores pesan más en la Calificación CapitalLab — un banco se evalúa distinto a una tecnológica. Cámbialo a mano solo si el sector detectado no es el correcto.'},
+      {k:'sector', label:'Sector de la empresa', type:'select', options:[['general','General (sin ponderación especial)'],['banca','Banca y Finanzas'],['energia','Energía y Commodities'],['retail','Retail y Consumo'],['tecnologia','Tecnología'],['inmobiliario','Real Estate / REITs'],['manufactura','Manufactura e Industria']], note:'se autocompleta con "Traer datos reales" para empresas conocidas', src:'Determina qué indicadores pesan más en la Calificación CapitalLab — un banco se evalúa distinto a una tecnológica. Cámbialo a mano solo si el sector detectado no es el correcto.'},
       {k:'price', label:'Precio actual', type:'num', req:true, unit:'$', placeholder:'185.00', ex:185, sl:[1,1000,0.5], src:'Cotización en tiempo real (precio de mercado) en la cabecera de la acción en Yahoo Finance.'},
       {k:'shares', label:'Acciones en circulación', type:'num', unit:'mill.', placeholder:'15500', ex:15500, note:'En millones', src:'Pestaña "Statistics" en Yahoo Finance, campo de acciones en circulación ("Shares Outstanding").'},
       {k:'eps', label:'Utilidad por acción (EPS)', type:'num', unit:'$', placeholder:'6.13', ex:6.13, sl:[-10,50,0.1], src:'Cabecera de la acción en Yahoo Finance, campo de utilidad por acción de los últimos doce meses ("EPS (TTM)").'},
@@ -369,7 +369,7 @@ const NOMBRE_POR_TICKER = {
   PLD:'Prologis', AMT:'American Tower', EQIX:'Equinix', SPG:'Simon Property Group', O:'Realty Income', PSA:'Public Storage',
   CAT:'Caterpillar', GE:'General Electric', BA:'Boeing', HON:'Honeywell', MMM:'3M', DE:'Deere & Company', LMT:'Lockheed Martin',
 };
-const NOMBRE_SECTOR_LABEL = { tecnologia:'Tecnología y SaaS', banca:'Banca y Finanzas', energia:'Energía y Commodities', retail:'Retail y Consumo', inmobiliario:'Real Estate / REITs', manufactura:'Manufactura e Industria' };
+const NOMBRE_SECTOR_LABEL = { tecnologia:'Tecnología', banca:'Banca y Finanzas', energia:'Energía y Commodities', retail:'Retail y Consumo', inmobiliario:'Real Estate / REITs', manufactura:'Manufactura e Industria' };
 // Búsqueda inversa: ticker -> clave de sector, construida una vez.
 const SECTOR_DE_ESTE_TICKER = {};
 Object.entries(SECTOR_POR_TICKER).forEach(([sector, tickers]) => tickers.forEach(t => { SECTOR_DE_ESTE_TICKER[t] = sector; }));
@@ -661,7 +661,7 @@ function renderForm(){
     const botonInflacion = f.k==='inflationBase' ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-inflacion-real" onclick="traerInflacionRealDivisa()" style="margin-top:6px;"><i class="ti ti-building-bank"></i> Traer inflación real (Banco Mundial)</button><div id="inflacion-real-msg" style="font-size:11.5px;margin-top:4px;"></div>` : '';
     return `<div class="field">
       <label>${f.label} ${reqMark}${hint}</label>
-      <div class="unit"><input id="f-${f.k}" type="${inputType}"${step} placeholder="${f.placeholder||''}">${unit}</div>
+      <div class="unit"><input id="f-${f.k}" type="${inputType}"${step} placeholder="${f.placeholder||''}" autocomplete="off">${unit}</div>
       ${src}
       ${botonTraer}
       ${botonInflacion}
@@ -733,7 +733,7 @@ async function renderComparacionLiderSector(data){
           ${fila('Dividend Yield', divYieldActivo, divYieldLider, '%')}
         </tbody>
       </table>
-      <div class="info-box" style="margin-top:10px;">${lider.nombre} es la referencia dominante real del sector — útil para ver si ${tickerActivo} cotiza con prima o descuento frente al líder, no como una recomendación de inversión.</div>`;
+      <div class="info-box" style="margin-top:10px;">${lider.nombre} se usa aquí como benchmark comparable del sector, por su tamaño y relevancia — no representa necesariamente a todas las empresas del sector, ni esta comparación constituye una recomendación de inversión.</div>`;
   } catch(e){
     cont.innerHTML = `<div class="card-title"><i class="ti ti-crown"></i> Comparación contra el líder del sector</div><div class="info-box">No se pudo cargar esta comparación ahora mismo.</div>`;
   }
@@ -1467,7 +1467,7 @@ function renderResults(){
 }
 
 function renderVerdict(v, mcRes, sector){
-  const NOMBRE_SECTOR = {banca:'Banca y Finanzas', energia:'Energía y Commodities', retail:'Retail y Consumo', tecnologia:'Tecnología y SaaS', inmobiliario:'Real Estate / REITs', manufactura:'Manufactura e Industria'};
+  const NOMBRE_SECTOR = {banca:'Banca y Finanzas', energia:'Energía y Commodities', retail:'Retail y Consumo', tecnologia:'Tecnología', inmobiliario:'Real Estate / REITs', manufactura:'Manufactura e Industria'};
   const colorMap={success:'var(--green)',warn:'var(--amber)',danger:'var(--red)'};
   const col=colorMap[v.cls];
   const ringPct = v.composite;
@@ -1803,6 +1803,10 @@ function renderStress(stress){
 function renderFormulas(formulas){
   const cats = ['Todas', ...new Set(formulas.map(f=>f.cat))];
   $('formula-toolbar').innerHTML = cats.map((c,i)=>`<button class="fchip ${i===0?'active':''}" onclick="filterFormulas('${c}',this)">${c}</button>`).join('');
+  const notaOrigen = $('formula-nota-origen') || (() => { const d = document.createElement('div'); d.id='formula-nota-origen'; $('formula-list').before(d); return d; })();
+  notaOrigen.className = 'info-box';
+  notaOrigen.style.marginBottom = '12px';
+  notaOrigen.innerHTML = 'Indicadores como P/E, ROE, y Deuda/Patrimonio son datos que tú ingresas o que se traen de Yahoo Finance ya calculados — CapitalLab no los recalcula desde el balance. Yahoo puede usar una metodología distinta a la de un cálculo directo con cifras del último 10-K (por ejemplo, distinto criterio de qué cuenta como "deuda"), así que una pequeña diferencia frente a un cálculo manual no es un error, es una diferencia de fuente y metodología.';
   window._allFormulas = formulas;
   paintFormulas(formulas);
 }
@@ -2213,3 +2217,18 @@ goToMarket = function(){ _origGoToMarket(); renderHistory(); };
 
 // Init sesión e historial al cargar
 iniciarSesionEstado();
+
+// El navegador puede sugerir autocompletar campos numéricos con
+// valores ya ingresados en otros campos similares del sitio —
+// confirmado por el cliente que esto genera confusión. Refuerzo
+// global además del autocomplete="off" ya puesto en cada campo del
+// formulario — cubre cualquier input numérico que aparezca en otra
+// parte de la app sin tener que revisarlos uno por uno.
+document.querySelectorAll('input[type="number"]').forEach(el => el.setAttribute('autocomplete', 'off'));
+new MutationObserver(muts => {
+  muts.forEach(m => m.addedNodes.forEach(n => {
+    if(n.nodeType!==1) return;
+    if(n.matches?.('input[type="number"]')) n.setAttribute('autocomplete','off');
+    n.querySelectorAll?.('input[type="number"]').forEach(el => el.setAttribute('autocomplete','off'));
+  }));
+}).observe(document.body, { childList:true, subtree:true });

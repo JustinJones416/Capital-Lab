@@ -5926,43 +5926,50 @@ async function intentarCargarEstadosFinancierosReales(asset){
   if(!tabla || !fuenteEl) return; // la tarjeta ni siquiera está en pantalla
 
   try {
-    const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/estados-financieros-yahoo?symbol=${encodeURIComponent(asset.ticker)}`, {
+    // Antes solo Ingresos/Utilidad neta venían de Yahoo, y Utilidad
+    // bruta/EBIT quedaban con el modelo estimado porque Yahoo no los
+    // entrega sin costo — resuelto usando la SEC (mismo endpoint ya
+    // construido para Balance/Flujo de Efectivo), que sí reporta
+    // Utilidad Bruta y Utilidad Operativa (EBIT) como tags XBRL
+    // estándar. Ahora el Estado de Resultados completo es real.
+    const respuesta = await fetch(`${SIM_IA_URL}/functions/v1/estados-financieros-sec?symbol=${encodeURIComponent(asset.ticker)}`, {
       headers: { 'apikey': SIM_IA_ANON_KEY, 'Authorization': `Bearer ${SIM_IA_ANON_KEY}` },
     });
     const d = await respuesta.json();
-    if(!d.ok || !Array.isArray(d.anios) || d.anios.length < 2) throw new Error(d.error||'Sin datos reales disponibles.');
+    if(!d.ok || !d.estadoResultados?.anual?.length) throw new Error(d.error||'Sin datos reales disponibles.');
 
-    // Se guardan los trimestres ya obtenidos en esta misma consulta —
-    // el toggle Anual/Trimestral los muestra sin tener que volver a
-    // llamar a la función cada vez que el usuario cambia de vista.
-    window.__datosTrimestralesFS = { ticker: asset.ticker, trimestres: d.trimestres || [], urlYahoo: d.urlYahoo };
+    window.__datosTrimestralesFS = { ticker: asset.ticker, trimestres: (d.estadoResultados.trimestral||[]).map(t => ({ fecha:t.fecha, revenue:t.revenue, netIncome:t.netIncome })), urlYahoo: d.urlSEC };
 
-    // Yahoo entrega en dólares exactos; el modelo del simulador usa
-    // millones — se convierte para que ambas cifras se lean igual.
-    const aniosReales = d.anios.map(a => ({ year:a.year, revenue:Math.round(a.revenue/1e6), netIncome:Math.round(a.netIncome/1e6) }));
+    const aniosReales = d.estadoResultados.anual.map(a => ({
+      year: a.fecha.slice(0,4),
+      revenue: Math.round(a.revenue/1e6), netIncome: Math.round(a.netIncome/1e6),
+      grossProfit: a.grossProfit!=null ? Math.round(a.grossProfit/1e6) : null,
+      operatingIncome: a.operatingIncome!=null ? Math.round(a.operatingIncome/1e6) : null,
+    }));
 
-    // Actualizar solo las filas de Ingresos y Utilidad neta, que ya
-    // existen en la tabla simulada — el resto de las filas (utilidad
-    // bruta, EBIT, margen) se quedan con el valor estimado del
-    // modelo, porque Yahoo no entrega esos campos sin costo.
-    const filaIngresos = [...tabla.querySelectorAll('td')].find(td => td.textContent.trim()==='Ingresos totales')?.parentElement;
-    const filaUtilidadNeta = [...tabla.querySelectorAll('td')].find(td => td.textContent.trim()==='Utilidad neta')?.parentElement;
+    const filaPorNombre = (nombre) => [...tabla.querySelectorAll('td')].find(td => td.textContent.trim()===nombre)?.parentElement;
+    const actualizarFila = (fila, valores, coloreada) => {
+      if(!fila) return;
+      const celdas = fila.querySelectorAll('td.mono');
+      valores.forEach((v,i) => { if(celdas[i] && v!=null){ celdas[i].textContent = v.toLocaleString('es-PA'); if(coloreada){ celdas[i].className = 'mono '+(v>=0?'g':'r'); celdas[i].style.fontWeight='500'; } } });
+    };
+    actualizarFila(filaPorNombre('Ingresos totales'), aniosReales.map(a=>a.revenue));
+    actualizarFila(filaPorNombre('Utilidad bruta'), aniosReales.map(a=>a.grossProfit));
+    actualizarFila(filaPorNombre('EBIT (Utilidad operativa)'), aniosReales.map(a=>a.operatingIncome));
+    actualizarFila(filaPorNombre('Utilidad neta'), aniosReales.map(a=>a.netIncome), true);
 
-    if(filaIngresos){
+    const filaIngresos = filaPorNombre('Ingresos totales');
+    if(filaIngresos && aniosReales.length>=2){
       const celdas = filaIngresos.querySelectorAll('td.mono');
-      aniosReales.forEach((a,i) => { if(celdas[i]) celdas[i].textContent = a.revenue.toLocaleString('es-PA'); });
-      if(celdas[celdas.length-1] && aniosReales.length>=2){
+      if(celdas[celdas.length-1]){
         const variacion = ((aniosReales[0].revenue-aniosReales[1].revenue)/aniosReales[1].revenue*100);
         celdas[celdas.length-1].textContent = variacion.toFixed(1)+'%';
         celdas[celdas.length-1].className = 'mono '+(variacion>=0?'g':'r');
       }
     }
-    if(filaUtilidadNeta){
-      const celdas = filaUtilidadNeta.querySelectorAll('td.mono');
-      aniosReales.forEach((a,i) => { if(celdas[i]) { celdas[i].textContent = a.netIncome.toLocaleString('es-PA'); celdas[i].className = 'mono '+(a.netIncome>=0?'g':'r'); celdas[i].style.fontWeight = '500'; } });
-    }
 
-    fuenteEl.innerHTML = `Cifras en millones USD (USD M) · <span style="color:var(--green);"><i class="ti ti-circle-check" style="font-size:11px;"></i> Ingresos y Utilidad neta reales</span>, resto estimado · <a href="${d.urlYahoo}" target="_blank" rel="noopener" style="color:var(--accent2);">Ver en Yahoo Finance ↗</a>`;
+    const completo = aniosReales.every(a => a.grossProfit!=null && a.operatingIncome!=null);
+    fuenteEl.innerHTML = `Cifras en millones USD (USD M) · <span style="color:var(--green);"><i class="ti ti-circle-check" style="font-size:11px;"></i> ${completo?'100% real':'Ingresos y Utilidad neta reales'}</span>${completo?'':', resto estimado'} · <a href="${d.urlSEC}" target="_blank" rel="noopener" style="color:var(--accent2);">Ver en SEC EDGAR ↗</a>`;
   } catch(e){
     // Silencioso a propósito — el modelo simulado ya está en pantalla
     // y sigue siendo perfectamente utilizable para fines educativos.
