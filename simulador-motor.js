@@ -5744,7 +5744,6 @@ function abrirCalificacionMasiva(){
 // mismo contenido fijo, solo mostrado dentro de la app.
 const TEXTO_TERMINOS = `
 <p><b>Última actualización:</b> 11 de septiembre de 2026</p>
-<p style="background:rgba(255,180,0,.12);padding:10px;border-radius:8px;font-size:11.5px;"><i>Aviso: este documento es un borrador de trabajo. No sustituye la revisión de un abogado licenciado antes de su publicación formal.</i></p>
 <h4>1. Aceptación de los términos</h4>
 <p>Al acceder o usar CapitalLab Simulador y/o CapitalLab Analytics ("la Plataforma"), usted acepta quedar obligado por estos Términos. Si no está de acuerdo, no debe usar la Plataforma.</p>
 <h4>2. Descripción del servicio</h4>
@@ -5766,7 +5765,6 @@ const TEXTO_TERMINOS = `
 
 const TEXTO_PRIVACIDAD = `
 <p><b>Última actualización:</b> 11 de septiembre de 2026</p>
-<p style="background:rgba(255,180,0,.12);padding:10px;border-radius:8px;font-size:11.5px;"><i>Aviso: este documento es un borrador de trabajo. No sustituye la revisión de un abogado licenciado, en particular respecto a la Ley 81 de 2019 de Panamá.</i></p>
 <h4>1. Datos que recopilamos</h4>
 <p>Datos de registro (nombre, correo, contraseña cifrada, rol), datos académicos (sesión de clase, calificaciones), datos de uso de la simulación (con capital virtual, nunca dinero real), datos ingresados en Analytics, y datos técnicos básicos.</p>
 <h4>2. Cómo usamos sus datos</h4>
@@ -5783,6 +5781,13 @@ const TEXTO_PRIVACIDAD = `
 <p>Notificaremos cambios significativos publicando la nueva versión con su fecha de actualización.</p>`;
 
 function abrirDocumentoLegal(tipo){
+  // Si ya hay un modal legal abierto (por ejemplo, al cambiar de
+  // pestaña entre Términos y Privacidad sin cerrar primero), se
+  // elimina antes de crear el siguiente — antes quedaban dos
+  // superpuestos con el mismo id, y cerrar solo eliminaba el
+  // primero, dejando el segundo visible sin ninguna forma de cerrarlo
+  // salvo repetir la acción.
+  document.getElementById('legal-overlay')?.remove();
   const overlay = document.createElement('div');
   overlay.className = 'export-modal-overlay';
   overlay.id = 'legal-overlay';

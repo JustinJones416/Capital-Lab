@@ -158,23 +158,30 @@ document.addEventListener('click',e=>{
 // BUSCADOR UNIVERSAL (Ctrl+K) — saltar a cualquier página, activo o
 // estudiante sin tener que navegar el menú entero.
 // ══════════════════════════════════════════════════
-const CMDK_PAGINAS = [
-  { pagina:'inicio', texto:'Inicio', icono:'ti-home' },
-  { pagina:'mercado', texto:'Mercado', icono:'ti-chart-candle' },
-  { pagina:'analisis', texto:'Análisis', icono:'ti-chart-bar' },
-  { pagina:'personalizado', texto:'Personalizado', icono:'ti-adjustments-horizontal' },
-  { pagina:'cartera', texto:'Mi Cartera', icono:'ti-briefcase' },
-  { pagina:'laboratorio', texto:'Laboratorio', icono:'ti-flask' },
-  { pagina:'resultados', texto:'Resultados', icono:'ti-award' },
-  { pagina:'resultados-lab', texto:'Resultados · Laboratorio', icono:'ti-report-analytics' },
-  { pagina:'noticias', texto:'Noticias', icono:'ti-news' },
-  { pagina:'calificaciones', texto:'Calificaciones', icono:'ti-certificate' },
-  { pagina:'cuestionarios', texto:'Cuestionarios', icono:'ti-list-check' },
-  { pagina:'posiciones', texto:'Posiciones', icono:'ti-trophy' },
-  { pagina:'logros', texto:'Logros', icono:'ti-award' },
-  { pagina:'profesor', texto:'Modo Profesor', icono:'ti-school', soloDocente:true },
-  { pagina:'admin', texto:'Administración', icono:'ti-shield-cog', soloSuperadmin:true },
-];
+// La paleta de comandos (Ctrl+K) antes mantenía esta lista a mano —
+// cada página nueva que se agregaba al menú (como "Glosario") había
+// que recordar añadirla aquí también, y se quedaba desactualizada en
+// la práctica, confirmado por reporte real del cliente. Ahora se lee
+// directamente de los botones reales del menú lateral (.wl-nav-btn)
+// en el momento de abrir el buscador — cualquier página nueva que se
+// agregue al menú aparece aquí automáticamente, sin tocar este
+// archivo nunca más. La visibilidad por rol (solo docente, solo
+// superadmin) se hereda gratis: si el botón está oculto en el DOM
+// para ese usuario, tampoco aparece en la búsqueda, sin necesitar
+// una bandera separada que mantener sincronizada a mano.
+function obtenerPaginasCmdk(){
+  return Array.from(document.querySelectorAll('.wl-nav-btn[onclick*="goPage("]'))
+    .filter(btn => btn.offsetParent !== null) // solo botones visibles para el usuario actual
+    .map(btn => {
+      const match = btn.getAttribute('onclick').match(/goPage\('([^']+)'\)/);
+      const icono = btn.querySelector('i')?.className.replace('ti ', '') || 'ti-file';
+      const texto = btn.textContent.trim();
+      return match ? { pagina: match[1], texto, icono } : null;
+    })
+    .filter(Boolean);
+}
+
+
 let cmdkEstudiantesCache = null;
 let cmdkIndiceActivo = 0;
 
@@ -313,11 +320,7 @@ function renderResultadosCmdk(query){
   const q = query.toLowerCase();
   const esDocente = currentUser && (currentUser.rol==='docente'||currentUser.rol==='superadmin');
 
-  const paginas = CMDK_PAGINAS.filter(p => {
-    if(p.soloDocente && !esDocente) return false;
-    if(p.soloSuperadmin && (!currentUser||currentUser.rol!=='superadmin')) return false;
-    return !q || p.texto.toLowerCase().includes(q);
-  }).slice(0, 8);
+  const paginas = obtenerPaginasCmdk().filter(p => !q || p.texto.toLowerCase().includes(q)).slice(0, 8);
 
   let activos = [];
   if(q.length>=2 && typeof allAssets==='function'){

@@ -97,7 +97,6 @@ function actualizarBotonCuenta(){
 // de cuenta y desde un enlace permanente en el pie de página.
 const TEXTO_TERMINOS = `
 <p><b>Última actualización:</b> 11 de septiembre de 2026</p>
-<p style="background:rgba(255,180,0,.12);padding:10px;border-radius:8px;font-size:11.5px;"><i>Aviso: este documento es un borrador de trabajo. No sustituye la revisión de un abogado licenciado antes de su publicación formal.</i></p>
 <h4>1. Aceptación de los términos</h4>
 <p>Al acceder o usar CapitalLab Simulador y/o CapitalLab Analytics ("la Plataforma"), usted acepta quedar obligado por estos Términos. Si no está de acuerdo, no debe usar la Plataforma.</p>
 <h4>2. Descripción del servicio</h4>
@@ -117,7 +116,6 @@ const TEXTO_TERMINOS = `
 
 const TEXTO_PRIVACIDAD = `
 <p><b>Última actualización:</b> 11 de septiembre de 2026</p>
-<p style="background:rgba(255,180,0,.12);padding:10px;border-radius:8px;font-size:11.5px;"><i>Aviso: este documento es un borrador de trabajo. No sustituye la revisión de un abogado licenciado, en particular respecto a la Ley 81 de 2019 de Panamá.</i></p>
 <h4>1. Datos que recopilamos</h4>
 <p>Datos de cuenta (correo, contraseña cifrada), y los datos que usted ingrese para su análisis (símbolos de activos, cifras financieras).</p>
 <h4>2. Cómo usamos sus datos</h4>
@@ -132,6 +130,7 @@ const TEXTO_PRIVACIDAD = `
 <p>Notificaremos cambios significativos publicando la nueva versión con su fecha de actualización.</p>`;
 
 function abrirDocumentoLegal(tipo){
+  document.getElementById('legal-overlay')?.remove();
   const overlay = document.createElement('div');
   overlay.className = 'export-modal-overlay';
   overlay.id = 'legal-overlay';
