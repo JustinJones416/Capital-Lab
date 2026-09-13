@@ -238,9 +238,9 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 @keyframes newsIn{from{opacity:0;transform:translateX(-6px);}to{opacity:1;transform:none;}}
 
 /* ── MARKET + NEWS LAYOUT ── */
-.market-with-news{display:grid;grid-template-columns:1fr 270px;height:100%;overflow:hidden;transition:grid-template-columns .25s ease;}
-.market-with-news.news-colapsada{grid-template-columns:1fr 0px;}
-.market-news-panel{border-left:1px solid var(--c4);background:var(--c1);display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.market-with-news{display:grid;grid-template-columns:1fr 270px;height:100%;overflow:hidden;transition:grid-template-columns .25s ease;position:relative;}
+.market-with-news.news-colapsada{grid-template-columns:1fr 0px;height:100%;}
+.market-news-panel{border-left:1px solid var(--c4);background:var(--c1);display:flex;flex-direction:column;overflow:hidden;min-width:0;min-height:0;height:100%;width:270px;flex-shrink:0;}
 .news-panel-header{padding:8px 12px;border-bottom:1px solid var(--c4);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--c2);gap:6px;}
 .news-panel-title{font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .news-count-badge{font-size:9px;padding:1px 7px;border-radius:10px;background:rgba(0,196,255,.15);color:var(--accent2);font-weight:700;flex-shrink:0;}
@@ -310,7 +310,7 @@ body{font-family:var(--font-body);background:var(--c0);color:var(--t1);overflow-
 .ai-right{text-align:right;}
 .ai-price{font-size:13px;font-family:var(--font-mono);color:var(--t1);}
 .ai-chg{font-size:11px;font-family:var(--font-mono);}
-.market-main{display:flex;flex-direction:column;overflow:hidden;}
+.market-main{display:flex;flex-direction:column;overflow:hidden;min-height:0;}
 .market-toolbar{padding:10px 16px;background:var(--c1);border-bottom:1px solid var(--c4);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .mt-asset-name{font-family:var(--font-head);font-size:16px;font-weight:600;}
 /* Precio como elemento "hero" de la pantalla — es el dato más
