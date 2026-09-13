@@ -434,44 +434,46 @@
         </div>
 
         <div id="mkt-detail" style="display:none;">
-          <!-- FULL-WIDTH CANDLESTICK -->
-          <div style="margin-bottom:10px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;flex-wrap:wrap;gap:6px;">
-              <div style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:6px;">
-                <i class="ti ti-chart-line" id="mkt-chart-tipo-icono" style="color:var(--accent2);"></i>
-                <span id="mkt-chart-tipo-texto">Gráfico de área — precios de mercado en tiempo real</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <div class="mkt-chart-toggle">
-                  <button class="mkt-chart-toggle-btn active" data-tipo="area" onclick="cambiarTipoGraficoMercado('area',this)">Área</button>
-                  <button class="mkt-chart-toggle-btn" data-tipo="velas" onclick="cambiarTipoGraficoMercado('velas',this)">Velas</button>
+          <div class="mkt-terminal-grid">
+            <!-- COLUMNA IZQUIERDA: grafico, indicadores, datos, perfil -->
+            <div class="mkt-terminal-izq">
+              <div style="margin-bottom:10px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;flex-wrap:wrap;gap:6px;">
+                  <div style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:6px;">
+                    <i class="ti ti-chart-line" id="mkt-chart-tipo-icono" style="color:var(--accent2);"></i>
+                    <span id="mkt-chart-tipo-texto">Gráfico de área — precios de mercado en tiempo real</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <div class="mkt-chart-toggle">
+                      <button class="mkt-chart-toggle-btn active" data-tipo="area" onclick="cambiarTipoGraficoMercado('area',this)">Área</button>
+                      <button class="mkt-chart-toggle-btn" data-tipo="velas" onclick="cambiarTipoGraficoMercado('velas',this)">Velas</button>
+                    </div>
+                    <div class="mkt-chart-toggle">
+                      <button class="mkt-chart-toggle-btn" id="btn-toggle-sma" onclick="alternarIndicadorTecnico('sma',this)">Media móvil</button>
+                      <button class="mkt-chart-toggle-btn" id="btn-toggle-rsi" onclick="alternarIndicadorTecnico('rsi',this)">RSI</button>
+                    </div>
+                    <span id="mkt-chart-leyenda" style="font-size:10px;color:var(--t3);">Cada punto = 15 min</span>
+                  </div>
                 </div>
-                <div class="mkt-chart-toggle">
-                  <button class="mkt-chart-toggle-btn" id="btn-toggle-sma" onclick="alternarIndicadorTecnico('sma',this)">Media móvil</button>
-                  <button class="mkt-chart-toggle-btn" id="btn-toggle-rsi" onclick="alternarIndicadorTecnico('rsi',this)">RSI</button>
+                <div class="candle-wrap" style="margin-bottom:0;">
+                  <div class="candle-hud" id="candle-hud"></div>
+                  <canvas class="candle-canvas" id="candle-canvas"></canvas>
                 </div>
-                <span id="mkt-chart-leyenda" style="font-size:10px;color:var(--t3);">Cada punto = 15 min</span>
+                <div id="rsi-wrap" style="display:none;margin-top:6px;height:90px;position:relative;background:var(--c2);border-radius:var(--r);">
+                  <canvas id="rsi-canvas" style="width:100%;height:100%;display:block;"></canvas>
+                </div>
+              </div>
+              <div class="detail-grid" id="mkt-kpis" style="margin-bottom:10px;"></div>
+              <div class="mkt-quote-summary" id="mkt-quote-summary" style="margin-bottom:10px;"></div>
+              <div class="profile-panel">
+                <div class="pp-title">Perfil del emisor</div>
+                <div class="pp-text" id="mkt-profile"></div>
+                <div id="mkt-yahoo-link" style="margin-top:8px;"></div>
+                <div id="mkt-tesis-ia" style="margin-top:12px;"></div>
               </div>
             </div>
-            <div class="candle-wrap" style="margin-bottom:0;">
-              <div class="candle-hud" id="candle-hud"></div>
-              <canvas class="candle-canvas" id="candle-canvas"></canvas>
-            </div>
-            <div id="rsi-wrap" style="display:none;margin-top:6px;height:90px;position:relative;background:var(--c2);border-radius:var(--r);">
-              <canvas id="rsi-canvas" style="width:100%;height:100%;display:block;"></canvas>
-            </div>
-          </div>
-          <!-- KPIs row -->
-          <div class="detail-grid" id="mkt-kpis" style="margin-bottom:10px;"></div>
-          <div class="mkt-quote-summary" id="mkt-quote-summary" style="margin-bottom:10px;"></div>
-          <!-- Profile + Trade side by side -->
-          <div class="grid2 grid2-parejas-iguales">
-            <div class="profile-panel">
-              <div class="pp-title">Perfil del emisor</div>
-              <div class="pp-text" id="mkt-profile"></div>
-              <div id="mkt-yahoo-link" style="margin-top:8px;"></div>
-              <div id="mkt-tesis-ia" style="margin-top:12px;"></div>
-            </div>
+            <!-- COLUMNA DERECHA: panel de orden, fijo mientras se hace scroll de la izquierda -->
+            <div class="mkt-terminal-der">
             <div class="trade-panel">
               <div class="tp-title"><i class="ti ti-arrows-exchange"></i> Ejecutar operación a precio de mercado</div>
               <div style="display:flex;gap:6px;margin-bottom:8px;">
@@ -560,6 +562,7 @@
 
                 <div id="order-list" class="tp-order-list"></div>
               </div>
+            </div>
             </div>
           </div>
         </div>
