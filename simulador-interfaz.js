@@ -2255,26 +2255,26 @@ function configurarInteraccionCandlestick(){
     else { pos.takeProfit = +precioClic.toFixed(getDecimals(layout.asset)); arrastrandoLinea = 'tp'; }
     dibujarCandlestickBase(layout);
   });
-  window.addEventListener('mouseup', () => {
-    if (window.__dibujandoLinea){
-      const layout = window.__candleLayout;
-      const d = window.__dibujandoLinea;
-      const dist = Math.hypot(d.x2-d.x1, d.y2-d.y1);
-      if (layout && dist > 8){ // ignora clics accidentales sin arrastre real
-        window.lineasTendencia = window.lineasTendencia || {};
-        const id = layout.asset.id+'|'+layout.asset.type;
-        window.lineasTendencia[id] = window.lineasTendencia[id] || [];
-        window.lineasTendencia[id].push({
-          precio1: layout.lo + (layout.hi-layout.lo)*(1-(d.y1-layout.pad.t)/layout.cH),
-          precio2: layout.lo + (layout.hi-layout.lo)*(1-(d.y2-layout.pad.t)/layout.cH),
-          idx1: (d.x1-layout.pad.l)/(layout.cW/layout.n),
-          idx2: (d.x2-layout.pad.l)/(layout.cW/layout.n),
-        });
-      }
-      window.__dibujandoLinea = null;
-      if(layout) dibujarCandlestickBase(layout);
-      return;
+  function finalizarDibujoLinea(){
+    const layout = window.__candleLayout;
+    const d = window.__dibujandoLinea;
+    const dist = Math.hypot(d.x2-d.x1, d.y2-d.y1);
+    if (layout && dist > 8){ // ignora toques/clics accidentales sin arrastre real
+      window.lineasTendencia = window.lineasTendencia || {};
+      const id = layout.asset.id+'|'+layout.asset.type;
+      window.lineasTendencia[id] = window.lineasTendencia[id] || [];
+      window.lineasTendencia[id].push({
+        precio1: layout.lo + (layout.hi-layout.lo)*(1-(d.y1-layout.pad.t)/layout.cH),
+        precio2: layout.lo + (layout.hi-layout.lo)*(1-(d.y2-layout.pad.t)/layout.cH),
+        idx1: (d.x1-layout.pad.l)/(layout.cW/layout.n),
+        idx2: (d.x2-layout.pad.l)/(layout.cW/layout.n),
+      });
     }
+    window.__dibujandoLinea = null;
+    if(layout) dibujarCandlestickBase(layout);
+  }
+  window.addEventListener('mouseup', () => {
+    if (window.__dibujandoLinea){ finalizarDibujoLinea(); return; }
     if (arrastrandoLinea) { arrastrandoLinea = null; guardarPosicionSLTPArrastrada(); }
   });
 
@@ -2283,16 +2283,30 @@ function configurarInteraccionCandlestick(){
   canvas.addEventListener('touchstart', (e) => {
     const t = e.touches[0]; if (!t) return;
     const rect = canvas.getBoundingClientRect();
+    if (window.modoDibujoLinea){
+      const layout = window.__candleLayout;
+      if (!layout) return;
+      window.__dibujandoLinea = { x1:t.clientX-rect.left, y1:t.clientY-rect.top, x2:t.clientX-rect.left, y2:t.clientY-rect.top };
+      e.preventDefault();
+      return;
+    }
     const linea = lineaBajoCursor(t.clientY - rect.top);
     if (linea){ arrastrandoLinea = linea; e.preventDefault(); }
   }, { passive:false });
   canvas.addEventListener('touchmove', (e) => {
+    if (window.__dibujandoLinea){
+      const t = e.touches[0]; if (!t) return;
+      e.preventDefault();
+      manejarMovimiento(t.clientX, t.clientY);
+      return;
+    }
     if (!arrastrandoLinea) return;
     const t = e.touches[0]; if (!t) return;
     e.preventDefault();
     manejarMovimiento(t.clientX, t.clientY);
   }, { passive:false });
   canvas.addEventListener('touchend', () => {
+    if (window.__dibujandoLinea){ finalizarDibujoLinea(); return; }
     if (arrastrandoLinea) { arrastrandoLinea = null; guardarPosicionSLTPArrastrada(); }
   });
 
