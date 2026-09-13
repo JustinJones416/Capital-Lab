@@ -990,6 +990,68 @@ function candleSigma(annualSigma) {
 
 
 // Seed initial candle history for an asset
+// Horizontes estandar de mercado (1D/5D/1M/6M/1A), estilo Yahoo
+// Finance o cualquier terminal real. El Simulador no descarga
+// historico real para los 150+ activos del catalogo (muchos son
+// bonos y derivados sin cotizacion publica), asi que los horizontes
+// mas largos que "hoy" se generan con el mismo motor GBM ya
+// corregido, ancorados al precio actual real, con la volatilidad
+// escalada correctamente al intervalo de cada vela (no la misma
+// escala usada para velas intradia de 15 minutos). Esto es una
+// proyeccion historica coherente con el riesgo real del activo, no
+// datos de mercado inventados presentados como reales.
+const HORIZONTES_MERCADO = {
+  '1d': { velas:60, diasPorVela:1/96, etiqueta:'Cada punto = 15 min' },
+  '5d': { velas:60, diasPorVela:5/60, etiqueta:'Cada punto = 2 horas' },
+  '1m': { velas:30, diasPorVela:1, etiqueta:'Cada punto = 1 día' },
+  '6m': { velas:26, diasPorVela:7, etiqueta:'Cada punto = 1 semana' },
+  '1a': { velas:52, diasPorVela:7, etiqueta:'Cada punto = 1 semana' },
+};
+window.horizonteMercadoActual = '1d';
+
+function generarVelasHorizonte(asset, horizonte){
+  const cfg = HORIZONTES_MERCADO[horizonte];
+  const precioFinal = asset.currentPrice || asset.price;
+  const sigmaAnual = asset.sigma/100;
+  const sigmaVela = sigmaAnual*Math.sqrt(cfg.diasPorVela/252);
+  const driftVela = (asset.ret/100)*(cfg.diasPorVela/252) - 0.5*sigmaVela*sigmaVela;
+  // Se genera hacia atras desde el precio actual real, para que el
+  // ultimo punto del grafico siempre coincida exactamente con la
+  // cotizacion vigente, y luego se invierte para quedar en orden
+  // cronologico normal.
+  const velas = [];
+  let precio = precioFinal;
+  for(let i=0;i<cfg.velas;i++){
+    const r1 = randn(), r2 = randn(), r3 = randn();
+    const close = precio;
+    const open = Math.max(0.01, close/(1+driftVela+r1*sigmaVela));
+    const high = Math.max(open,close)*(1+Math.abs(r2)*sigmaVela*0.6);
+    const low = Math.min(open,close)*(1-Math.abs(r3)*sigmaVela*0.6);
+    velas.unshift({ o:+open.toFixed(getDecimals(asset)), h:+high.toFixed(getDecimals(asset)), l:+low.toFixed(getDecimals(asset)), c:+close.toFixed(getDecimals(asset)) });
+    precio = open;
+  }
+  return velas;
+}
+
+function cambiarHorizonteMercado(horizonte, btn){
+  window.horizonteMercadoActual = horizonte;
+  document.querySelectorAll('.mkt-horizonte-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const leyenda = document.getElementById('mkt-chart-leyenda');
+  if(leyenda) leyenda.textContent = HORIZONTES_MERCADO[horizonte].etiqueta;
+  if(selectedAsset) redibujarGraficoMercado(selectedAsset);
+}
+
+function etiquetaAgoHorizonte(ago){
+  if(ago===0) return 'Ahora';
+  const horizonte = window.horizonteMercadoActual || '1d';
+  const cfg = HORIZONTES_MERCADO[horizonte];
+  const dias = ago*cfg.diasPorVela;
+  if(dias < 1) return '-'+Math.round(dias*24*60)+'m';
+  if(dias < 30) return '-'+Math.round(dias)+'d';
+  if(dias < 365) return '-'+Math.round(dias/30)+'m';
+  return '-'+(dias/365).toFixed(1)+'a';
+}
 function initCandles(asset) {
   const id = asset.id;
   if (candleHistory[id]) return;
@@ -1815,7 +1877,7 @@ function dibujarFondoYEjesGrafico(ctx, W, H, pad, cW, cH, candles, asset){
   ctx.font = '9px DM Mono';
   for (let i = 0; i < n; i += Math.floor(n / 6)) {
     const ago = n - i;
-    const label = ago === 0 ? 'Ahora' : `-${ago * 15}m`;
+    const label = etiquetaAgoHorizonte(ago);
     ctx.fillText(label, toX(i), H - pad.b + 12);
   }
 
@@ -1833,7 +1895,8 @@ function dibujarFondoYEjesGrafico(ctx, W, H, pad, cW, cH, candles, asset){
 function drawAreaChart(asset) {
   if (!asset) return;
   if (!candleHistory[asset.id]) initCandles(asset);
-  const candles = candleHistory[asset.id];
+  const horizonte = window.horizonteMercadoActual || '1d';
+  const candles = horizonte==='1d' ? candleHistory[asset.id] : generarVelasHorizonte(asset, horizonte);
   if (!candles || candles.length < 2) return;
 
   const canvas = document.getElementById('candle-canvas');
@@ -1902,7 +1965,8 @@ function drawAreaChart(asset) {
 function drawCandlestickChart(asset) {
   if (!asset) return;
   if (!candleHistory[asset.id]) initCandles(asset);
-  const candles = candleHistory[asset.id];
+  const horizonte = window.horizonteMercadoActual || '1d';
+  const candles = horizonte==='1d' ? candleHistory[asset.id] : generarVelasHorizonte(asset, horizonte);
   if (!candles || candles.length < 2) return;
 
   const canvas = document.getElementById('candle-canvas');
@@ -1973,7 +2037,7 @@ function drawCandlestickChart(asset) {
   ctx.font = '9px DM Mono';
   for (let i = 0; i < n; i += Math.floor(n / 6)) {
     const ago = n - i;
-    const label = ago === 0 ? 'Ahora' : `-${ago * 15}m`;
+    const label = etiquetaAgoHorizonte(ago);
     ctx.fillText(label, toX(i), H - pad.b + 12);
   }
 

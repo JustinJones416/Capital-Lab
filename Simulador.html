@@ -455,6 +455,13 @@
                     <span id="mkt-chart-leyenda" style="font-size:10px;color:var(--t3);">Cada punto = 15 min</span>
                   </div>
                 </div>
+                <div class="mkt-chart-toggle" style="margin-bottom:6px;display:inline-flex;">
+                  <button class="mkt-chart-toggle-btn mkt-horizonte-btn active" onclick="cambiarHorizonteMercado('1d',this)">1D</button>
+                  <button class="mkt-chart-toggle-btn mkt-horizonte-btn" onclick="cambiarHorizonteMercado('5d',this)">5D</button>
+                  <button class="mkt-chart-toggle-btn mkt-horizonte-btn" onclick="cambiarHorizonteMercado('1m',this)">1M</button>
+                  <button class="mkt-chart-toggle-btn mkt-horizonte-btn" onclick="cambiarHorizonteMercado('6m',this)">6M</button>
+                  <button class="mkt-chart-toggle-btn mkt-horizonte-btn" onclick="cambiarHorizonteMercado('1a',this)">1A</button>
+                </div>
                 <div class="candle-wrap" style="margin-bottom:0;">
                   <div class="candle-hud" id="candle-hud"></div>
                   <canvas class="candle-canvas" id="candle-canvas"></canvas>
