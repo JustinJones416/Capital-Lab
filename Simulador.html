@@ -452,6 +452,10 @@
                       <button class="mkt-chart-toggle-btn" id="btn-toggle-sma" onclick="alternarIndicadorTecnico('sma',this)">Media móvil</button>
                       <button class="mkt-chart-toggle-btn" id="btn-toggle-rsi" onclick="alternarIndicadorTecnico('rsi',this)">RSI</button>
                     </div>
+                    <div class="mkt-chart-toggle">
+                      <button class="mkt-chart-toggle-btn" id="btn-modo-dibujo" onclick="alternarModoDibujo(this)" title="Clic y arrastra sobre el gráfico para trazar una línea"><i class="ti ti-pencil"></i> Dibujar</button>
+                      <button class="mkt-chart-toggle-btn" onclick="borrarLineasTendencia()" title="Borrar las líneas dibujadas en este activo"><i class="ti ti-eraser"></i></button>
+                    </div>
                     <span id="mkt-chart-leyenda" style="font-size:10px;color:var(--t3);">Cada punto = 15 min</span>
                   </div>
                 </div>

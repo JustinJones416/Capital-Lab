@@ -889,6 +889,43 @@ function actualizarSimuladorDecision(){
     <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--t3);margin-top:3px;"><span>Bajo</span><span>Moderado</span><span>Alto</span></div>`;
 }
 
+// Herramienta de dibujo: linea de tendencia trazada a mano por el
+// estudiante sobre el grafico, guardada por activo. Estandar basico
+// de cualquier plataforma de trading real (TradingView, brokers) para
+// marcar soportes, resistencias, o una tendencia observada.
+function dibujarLineasTendencia(ctx, layout){
+  const id = layout.asset.id+'|'+layout.asset.type;
+  const lineas = (window.lineasTendencia||{})[id]||[];
+  ctx.save();
+  ctx.strokeStyle = '#00c4ff';
+  ctx.lineWidth = 1.6;
+  lineas.forEach(l => {
+    ctx.beginPath();
+    ctx.moveTo(layout.toX(l.idx1), layout.toY(l.precio1));
+    ctx.lineTo(layout.toX(l.idx2), layout.toY(l.precio2));
+    ctx.stroke();
+  });
+  if(window.__dibujandoLinea){
+    const d = window.__dibujandoLinea;
+    ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(d.x1,d.y1); ctx.lineTo(d.x2,d.y2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.restore();
+}
+function alternarModoDibujo(btn){
+  window.modoDibujoLinea = !window.modoDibujoLinea;
+  btn.classList.toggle('active', window.modoDibujoLinea);
+  const canvas = document.getElementById('candle-canvas');
+  if(canvas) canvas.style.cursor = window.modoDibujoLinea ? 'crosshair' : '';
+}
+function borrarLineasTendencia(){
+  if(!selectedAsset) return;
+  const id = selectedAsset.id+'|'+selectedAsset.type;
+  if(window.lineasTendencia) delete window.lineasTendencia[id];
+  redibujarGraficoMercado(selectedAsset);
+}
+
 function dibujarSMA(ctx, layout){
   if(!window.indicadoresActivos.sma) return;
   const periodo = Math.min(20, Math.floor(layout.candles.length/2));
@@ -1957,6 +1994,7 @@ function drawAreaChart(asset) {
   window.__candleLayout = { asset, candles, pad, cW, cH, W, H, lo, hi, toX, toY, n, modoArea: true };
   dibujarLineasSLTP(ctx, window.__candleLayout);
   dibujarSMA(ctx, window.__candleLayout);
+  dibujarLineasTendencia(ctx, window.__candleLayout);
   dibujarRSI(candles);
   actualizarHudVela(candles[candles.length - 1], candles[0], asset);
   configurarInteraccionCandlestick();
@@ -2085,6 +2123,7 @@ function drawCandlestickChart(asset) {
   window.__candleLayout = { asset, candles, pad, cW, cH, W, H, lo, hi, n, toX, toY, bodyW };
   dibujarLineasSLTP(ctx, window.__candleLayout);
   dibujarSMA(ctx, window.__candleLayout);
+  dibujarLineasTendencia(ctx, window.__candleLayout);
   dibujarRSI(candles);
 
   // Actualiza la cabecera O/H/L/C — por defecto muestra la vela más
@@ -2150,6 +2189,13 @@ function configurarInteraccionCandlestick(){
     const rect = canvas.getBoundingClientRect();
     const mouseY = clientY - rect.top;
 
+    if (window.__dibujandoLinea){
+      window.__dibujandoLinea.x2 = clientX - rect.left;
+      window.__dibujandoLinea.y2 = mouseY;
+      dibujarCandlestickBase(layout);
+      return;
+    }
+
     if (arrastrandoLinea){
       canvas.style.cursor = 'ns-resize';
       const nuevoPrecio = layout.lo + (layout.hi - layout.lo) * (1 - (mouseY - layout.pad.t) / layout.cH);
@@ -2182,6 +2228,16 @@ function configurarInteraccionCandlestick(){
   canvas.addEventListener('mousedown', (e) => {
     const rect = canvas.getBoundingClientRect();
     const mouseY = e.clientY - rect.top;
+    // Herramienta de dibujo (linea de tendencia) — modo explicito,
+    // activado por un boton propio, con prioridad sobre el
+    // comportamiento normal de SL/TP mientras esta encendido.
+    if (window.modoDibujoLinea){
+      const layout = window.__candleLayout;
+      if (!layout) return;
+      const mouseX = e.clientX - rect.left;
+      window.__dibujandoLinea = { x1:mouseX, y1:mouseY, x2:mouseX, y2:mouseY };
+      return;
+    }
     const existente = lineaBajoCursor(mouseY);
     if (existente){ arrastrandoLinea = existente; return; }
     // Sin línea existente bajo el cursor: si hay una posición abierta
@@ -2200,6 +2256,25 @@ function configurarInteraccionCandlestick(){
     dibujarCandlestickBase(layout);
   });
   window.addEventListener('mouseup', () => {
+    if (window.__dibujandoLinea){
+      const layout = window.__candleLayout;
+      const d = window.__dibujandoLinea;
+      const dist = Math.hypot(d.x2-d.x1, d.y2-d.y1);
+      if (layout && dist > 8){ // ignora clics accidentales sin arrastre real
+        window.lineasTendencia = window.lineasTendencia || {};
+        const id = layout.asset.id+'|'+layout.asset.type;
+        window.lineasTendencia[id] = window.lineasTendencia[id] || [];
+        window.lineasTendencia[id].push({
+          precio1: layout.lo + (layout.hi-layout.lo)*(1-(d.y1-layout.pad.t)/layout.cH),
+          precio2: layout.lo + (layout.hi-layout.lo)*(1-(d.y2-layout.pad.t)/layout.cH),
+          idx1: (d.x1-layout.pad.l)/(layout.cW/layout.n),
+          idx2: (d.x2-layout.pad.l)/(layout.cW/layout.n),
+        });
+      }
+      window.__dibujandoLinea = null;
+      if(layout) dibujarCandlestickBase(layout);
+      return;
+    }
     if (arrastrandoLinea) { arrastrandoLinea = null; guardarPosicionSLTPArrastrada(); }
   });
 
