@@ -4767,6 +4767,22 @@ function ensureAnalysisBody(){
         <div class="card"><div class="card-title"><i class="ti ti-chart-line"></i> Proyección de precio (5 años)</div><div class="chart-box-lg"><canvas id="an-price-chart"></canvas></div></div>
         <div class="card"><div class="card-title"><i class="ti ti-target"></i> Riesgo vs Rentabilidad</div><div class="chart-box-lg"><canvas id="an-rv-chart"></canvas></div></div>
       </div>
+      <div class="card" id="an-simulador-decision" style="margin-bottom:14px;">
+        <div class="card-title"><i class="ti ti-adjustments"></i> Simulador de decisión</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+          <div>
+            <label style="font-size:11px;color:var(--t3);display:flex;justify-content:space-between;"><span>Monto a invertir</span><span id="sd-monto-val" class="mono" style="color:var(--t1);font-weight:600;"></span></label>
+            <input type="range" id="sd-monto" min="100" max="20000" step="100" value="1000" style="width:100%;" oninput="actualizarSimuladorDecision()">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--t3);display:flex;justify-content:space-between;"><span>Horizonte</span><span id="sd-horizonte-val" class="mono" style="color:var(--t1);font-weight:600;"></span></label>
+            <input type="range" id="sd-horizonte" min="1" max="60" step="1" value="12" style="width:100%;" oninput="actualizarSimuladorDecision()">
+          </div>
+        </div>
+        <div style="height:220px;"><canvas id="sd-abanico-canvas"></canvas></div>
+        <div id="sd-resumen" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;"></div>
+        <div id="sd-riesgo-barra" style="margin-top:14px;"></div>
+      </div>
       <div class="card" id="an-calificacion-card" style="margin-bottom:14px;"></div>
       <div class="card" id="an-lider-sector-box" style="margin-bottom:14px;display:none;"></div>
       <div class="card" id="an-noticias-card">
@@ -4902,6 +4918,7 @@ function renderAnalysis(id,type){
   // Compatibilidad: si se llama sin args, usa el activo seleccionado actual.
   if(!id){ if(!anSelectedId)return; id=anSelectedId; type=anCurrentClass; }
   const asset=allAssets().find(a=>a.id===id&&a.type===type);if(!asset)return;
+  window.__anAssetActual = asset;
   ensureAnalysisBody();
   // Al cambiar de ACTIVO se vuelve siempre a "Resumen" (igual que
   // Yahoo Finance). Pero esta función también se llama muchas veces
@@ -5162,6 +5179,7 @@ function renderAnalysis(id,type){
       try { intentarCargarBalanceYFlujoRealesSEC(asset); } catch(e){}
       try { renderComparacionLiderSectorSim(asset); } catch(e){}
       try { intentarCargarModeloDCF(asset); } catch(e){}
+      try { actualizarSimuladorDecision(); } catch(e){}
     }
   }
 

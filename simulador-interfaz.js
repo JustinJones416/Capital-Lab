@@ -761,7 +761,7 @@ function redibujarGraficoMercado(asset){
 
 function cambiarTipoGraficoMercado(tipo, btn){
   tipoGraficoMercadoActual = tipo;
-  document.querySelectorAll('.mkt-chart-toggle-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.mkt-chart-toggle-btn[data-tipo]').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   const icono = document.getElementById('mkt-chart-tipo-icono');
   const texto = document.getElementById('mkt-chart-tipo-texto');
@@ -771,6 +771,203 @@ function cambiarTipoGraficoMercado(tipo, btn){
   if(leyenda) leyenda.innerHTML = tipo==='velas' ? 'Cada vela = 15 min · <span style="color:var(--green);">■</span> Alza · <span style="color:var(--red);">■</span> Baja' : 'Cada punto = 15 min';
   if(selectedAsset) requestAnimationFrame(() => redibujarGraficoMercado(selectedAsset));
 }
+
+// Indicadores tecnicos sobre el grafico de Mercado. Antes la app solo
+// tenia analisis fundamental (estados financieros, DCF, valuacion) y
+// ningun indicador tecnico, algo que cualquier plataforma real ya
+// trae. Media movil simple y RSI, ambos activables por separado, sin
+// afectar el resto del grafico cuando estan apagados.
+window.indicadoresActivos = { sma: false, rsi: false };
+function alternarIndicadorTecnico(tipo, btn){
+  window.indicadoresActivos[tipo] = !window.indicadoresActivos[tipo];
+  btn.classList.toggle('active', window.indicadoresActivos[tipo]);
+  const wrapRsi = document.getElementById('rsi-wrap');
+  if(tipo==='rsi' && wrapRsi) wrapRsi.style.display = window.indicadoresActivos.rsi ? '' : 'none';
+  if(selectedAsset) redibujarGraficoMercado(selectedAsset);
+}
+
+function calcularSMA(candles, periodo){
+  const out = new Array(candles.length).fill(null);
+  let suma = 0;
+  for(let i=0;i<candles.length;i++){
+    suma += candles[i].c;
+    if(i>=periodo) suma -= candles[i-periodo].c;
+    if(i>=periodo-1) out[i] = suma/periodo;
+  }
+  return out;
+}
+
+function calcularRSI(candles, periodo){
+  const out = new Array(candles.length).fill(null);
+  if(candles.length < periodo+1) return out;
+  let gananciaProm = 0, perdidaProm = 0;
+  for(let i=1;i<=periodo;i++){
+    const cambio = candles[i].c - candles[i-1].c;
+    if(cambio>0) gananciaProm += cambio; else perdidaProm -= cambio;
+  }
+  gananciaProm /= periodo; perdidaProm /= periodo;
+  out[periodo] = perdidaProm===0 ? 100 : 100 - (100/(1+gananciaProm/perdidaProm));
+  for(let i=periodo+1;i<candles.length;i++){
+    const cambio = candles[i].c - candles[i-1].c;
+    const ganancia = cambio>0 ? cambio : 0;
+    const perdida = cambio<0 ? -cambio : 0;
+    gananciaProm = (gananciaProm*(periodo-1)+ganancia)/periodo;
+    perdidaProm = (perdidaProm*(periodo-1)+perdida)/periodo;
+    out[i] = perdidaProm===0 ? 100 : 100 - (100/(1+gananciaProm/perdidaProm));
+  }
+  return out;
+}
+
+// Dibuja la media movil como linea superpuesta sobre el precio, en el
+// mismo canvas y con el mismo sistema de coordenadas ya usado para
+// las lineas de Stop Loss / Take Profit.
+// Simulador de decision: en vez de un parrafo explicando el riesgo y
+// el retorno esperado, el estudiante mueve dos controles (monto,
+// horizonte) y ve al instante el rango real de resultados posibles,
+// como un banco o un bróker real muestran una proyección, no como
+// texto que hay que interpretar.
+let sdChart = null;
+function actualizarSimuladorDecision(){
+  const asset = window.__anAssetActual;
+  const canvas = document.getElementById('sd-abanico-canvas');
+  if(!asset || !canvas) return;
+  const monto = +document.getElementById('sd-monto').value;
+  const meses = +document.getElementById('sd-horizonte').value;
+  document.getElementById('sd-monto-val').textContent = '$'+monto.toLocaleString('es-PA');
+  document.getElementById('sd-horizonte-val').textContent = meses+(meses===1?' mes':' meses');
+
+  const mu = asset.ret/100, sigma = asset.sigma/100;
+  const zP10 = -1.2816, zP90 = 1.2816;
+  const labels = [], p10 = [], p50 = [], p90 = [];
+  for(let m=0;m<=meses;m++){
+    const t = m/12;
+    labels.push(m===0?'Hoy':m+'m');
+    const drift = (mu - 0.5*sigma*sigma)*t;
+    const vol = sigma*Math.sqrt(t);
+    p10.push(+(monto*Math.exp(drift+zP10*vol)).toFixed(0));
+    p50.push(+(monto*Math.exp(drift)).toFixed(0));
+    p90.push(+(monto*Math.exp(drift+zP90*vol)).toFixed(0));
+  }
+
+  if(sdChart) sdChart.destroy();
+  sdChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'Escenario favorable', data:p90, borderColor:'#00d084', backgroundColor:'rgba(0,208,132,.08)', fill:'+1', pointRadius:0, borderWidth:1.5 },
+        { label:'Escenario central', data:p50, borderColor:'#4a9eff', backgroundColor:'rgba(74,158,255,.12)', fill:'-1', pointRadius:0, borderWidth:2 },
+        { label:'Escenario adverso', data:p10, borderColor:'#ff4757', backgroundColor:'transparent', pointRadius:0, borderWidth:1.5 },
+      ],
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{ labels:{ color:'#8a9ab8', font:{size:10}, boxWidth:12 } } },
+      scales:{
+        x:{ ticks:{ color:'#6580b0', font:{size:9}, maxTicksLimit:8 }, grid:{ display:false } },
+        y:{ ticks:{ color:'#6580b0', font:{size:9}, callback:v=>'$'+(v/1000).toFixed(0)+'k' }, grid:{ color:'rgba(255,255,255,.06)' } },
+      },
+    },
+  });
+
+  const resumen = document.getElementById('sd-resumen');
+  resumen.innerHTML = `
+    <div style="text-align:center;padding:10px;border-radius:8px;background:#ff475714;border:1px solid #ff475744;"><div style="font-size:10px;color:var(--t3);margin-bottom:4px;">Si te va mal</div><div style="font-size:16px;font-weight:600;color:#ff4757;" class="mono">$${p10[p10.length-1].toLocaleString('es-PA')}</div></div>
+    <div style="text-align:center;padding:10px;border-radius:8px;background:#4a9eff14;border:1px solid #4a9eff44;"><div style="font-size:10px;color:var(--t3);margin-bottom:4px;">Escenario central</div><div style="font-size:16px;font-weight:600;color:#4a9eff;" class="mono">$${p50[p50.length-1].toLocaleString('es-PA')}</div></div>
+    <div style="text-align:center;padding:10px;border-radius:8px;background:#00d08414;border:1px solid #00d08444;"><div style="font-size:10px;color:var(--t3);margin-bottom:4px;">Si te va bien</div><div style="font-size:16px;font-weight:600;color:#00d084;" class="mono">$${p90[p90.length-1].toLocaleString('es-PA')}</div></div>`;
+
+  // Barra de riesgo visual: posiciona la volatilidad anual del activo
+  // en una escala de 0 a 60%, con zonas de color, en vez de solo
+  // mostrar el numero de sigma sin ningun punto de referencia visual.
+  const pctRiesgo = Math.min(100, (sigma*100/60)*100);
+  const barra = document.getElementById('sd-riesgo-barra');
+  barra.innerHTML = `
+    <div style="font-size:11px;color:var(--t3);margin-bottom:6px;">Riesgo anual de este activo, volatilidad ${fmt(sigma*100)}%</div>
+    <div style="position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg,#00d084,#ffb400,#ff4757);">
+      <div style="position:absolute;top:-4px;left:${pctRiesgo}%;transform:translateX(-50%);width:2px;height:16px;background:#fff;border-radius:1px;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--t3);margin-top:3px;"><span>Bajo</span><span>Moderado</span><span>Alto</span></div>`;
+}
+
+function dibujarSMA(ctx, layout){
+  if(!window.indicadoresActivos.sma) return;
+  const periodo = Math.min(20, Math.floor(layout.candles.length/2));
+  if(periodo < 3) return;
+  const sma = calcularSMA(layout.candles, periodo);
+  ctx.save();
+  ctx.strokeStyle = '#ffb400';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  let empezado = false;
+  sma.forEach((v,i) => {
+    if(v==null) return;
+    const x = layout.toX(i), y = layout.toY(v);
+    if(!empezado){ ctx.moveTo(x,y); empezado = true; } else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  ctx.fillStyle = '#ffb400';
+  ctx.font = '10px DM Mono';
+  ctx.textAlign = 'left';
+  ctx.fillText('Media movil '+periodo, layout.pad.l+4, layout.pad.t+12);
+  ctx.restore();
+}
+
+// Panel de RSI, mismo ancho que el grafico principal pero en un
+// canvas propio y mas bajo, con las zonas de sobrecompra (70) y
+// sobreventa (30) marcadas.
+function dibujarRSI(candles){
+  const wrap = document.getElementById('rsi-wrap');
+  const canvas = document.getElementById('rsi-canvas');
+  if(!wrap || !canvas || !window.indicadoresActivos.rsi) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = wrap.getBoundingClientRect();
+  const W = rect.width, H = rect.height;
+  if(W<=0||H<=0) return;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  const pad = { l:8, r:44, t:8, b:8 };
+  const cW = W-pad.l-pad.r, cH = H-pad.t-pad.b;
+  const rsi = calcularRSI(candles, 14);
+  const n = candles.length;
+  const toX = i => pad.l + (cW*(i+0.5))/n;
+  const toY = v => pad.t + cH*(1-v/100);
+
+  ctx.strokeStyle = 'rgba(255,71,87,.25)';
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(pad.l,toY(70)); ctx.lineTo(W-pad.r,toY(70)); ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,208,132,.25)';
+  ctx.beginPath(); ctx.moveTo(pad.l,toY(30)); ctx.lineTo(W-pad.r,toY(30)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = '#7c4dff';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  let empezado = false;
+  rsi.forEach((v,i) => {
+    if(v==null) return;
+    const x = toX(i), y = toY(v);
+    if(!empezado){ ctx.moveTo(x,y); empezado = true; } else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  const ultimo = [...rsi].reverse().find(v=>v!=null);
+  ctx.fillStyle = '#8a9ab8';
+  ctx.font = '10px DM Mono';
+  ctx.textAlign = 'left';
+  ctx.fillText('RSI 14', pad.l+4, pad.t+10);
+  if(ultimo!=null){
+    ctx.fillStyle = ultimo>70 ? '#ff4757' : ultimo<30 ? '#00d084' : '#8a9ab8';
+    ctx.textAlign = 'right';
+    ctx.fillText(ultimo.toFixed(1), W-pad.r+38, toY(ultimo)+3);
+  }
+  ctx.fillStyle = 'rgba(138,154,184,.7)';
+  ctx.textAlign = 'left';
+  ctx.fillText('70', W-pad.r+4, toY(70)+3);
+  ctx.fillText('30', W-pad.r+4, toY(30)+3);
+}
+
 const CANDLE_COUNT  = 60;
 // Volatility amplification for visible, realistic intraday movement.
 // ── Derivación temporal defendible ──
@@ -1696,6 +1893,8 @@ function drawAreaChart(asset) {
 
   window.__candleLayout = { asset, candles, pad, cW, cH, W, H, lo, hi, toX, toY, n, modoArea: true };
   dibujarLineasSLTP(ctx, window.__candleLayout);
+  dibujarSMA(ctx, window.__candleLayout);
+  dibujarRSI(candles);
   actualizarHudVela(candles[candles.length - 1], candles[0], asset);
   configurarInteraccionCandlestick();
 }
@@ -1821,6 +2020,8 @@ function drawCandlestickChart(asset) {
   // solo para saber a qué vela corresponde una posición X del cursor.
   window.__candleLayout = { asset, candles, pad, cW, cH, W, H, lo, hi, n, toX, toY, bodyW };
   dibujarLineasSLTP(ctx, window.__candleLayout);
+  dibujarSMA(ctx, window.__candleLayout);
+  dibujarRSI(candles);
 
   // Actualiza la cabecera O/H/L/C — por defecto muestra la vela más
   // reciente; con el cursor sobre el gráfico, muestra la vela bajo el

@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CapitalLab</title>
 <link rel="icon" type="image/png" href="logo-capitallab.png">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" media="print" onload="this.media='all'">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
@@ -441,10 +441,14 @@
                 <i class="ti ti-chart-line" id="mkt-chart-tipo-icono" style="color:var(--accent2);"></i>
                 <span id="mkt-chart-tipo-texto">Gráfico de área — precios de mercado en tiempo real</span>
               </div>
-              <div style="display:flex;align-items:center;gap:10px;">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                 <div class="mkt-chart-toggle">
                   <button class="mkt-chart-toggle-btn active" data-tipo="area" onclick="cambiarTipoGraficoMercado('area',this)">Área</button>
                   <button class="mkt-chart-toggle-btn" data-tipo="velas" onclick="cambiarTipoGraficoMercado('velas',this)">Velas</button>
+                </div>
+                <div class="mkt-chart-toggle">
+                  <button class="mkt-chart-toggle-btn" id="btn-toggle-sma" onclick="alternarIndicadorTecnico('sma',this)">Media móvil</button>
+                  <button class="mkt-chart-toggle-btn" id="btn-toggle-rsi" onclick="alternarIndicadorTecnico('rsi',this)">RSI</button>
                 </div>
                 <span id="mkt-chart-leyenda" style="font-size:10px;color:var(--t3);">Cada punto = 15 min</span>
               </div>
@@ -452,6 +456,9 @@
             <div class="candle-wrap" style="margin-bottom:0;">
               <div class="candle-hud" id="candle-hud"></div>
               <canvas class="candle-canvas" id="candle-canvas"></canvas>
+            </div>
+            <div id="rsi-wrap" style="display:none;margin-top:6px;height:90px;position:relative;background:var(--c2);border-radius:var(--r);">
+              <canvas id="rsi-canvas" style="width:100%;height:100%;display:block;"></canvas>
             </div>
           </div>
           <!-- KPIs row -->
@@ -645,6 +652,22 @@
       <div class="grid2" style="margin-bottom:14px;">
         <div class="card"><div class="card-title"><i class="ti ti-chart-line"></i> Proyección de precio (5 años)</div><div class="chart-box-lg"><canvas id="an-price-chart"></canvas></div></div>
         <div class="card"><div class="card-title"><i class="ti ti-target"></i> Riesgo vs Rentabilidad</div><div class="chart-box-lg"><canvas id="an-rv-chart"></canvas></div></div>
+      </div>
+      <div class="card" id="an-simulador-decision" style="margin-bottom:14px;">
+        <div class="card-title"><i class="ti ti-adjustments"></i> Simulador de decisión</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+          <div>
+            <label style="font-size:11px;color:var(--t3);display:flex;justify-content:space-between;"><span>Monto a invertir</span><span id="sd-monto-val" class="mono" style="color:var(--t1);font-weight:600;"></span></label>
+            <input type="range" id="sd-monto" min="100" max="20000" step="100" value="1000" style="width:100%;" oninput="actualizarSimuladorDecision()">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--t3);display:flex;justify-content:space-between;"><span>Horizonte</span><span id="sd-horizonte-val" class="mono" style="color:var(--t1);font-weight:600;"></span></label>
+            <input type="range" id="sd-horizonte" min="1" max="60" step="1" value="12" style="width:100%;" oninput="actualizarSimuladorDecision()">
+          </div>
+        </div>
+        <div style="height:220px;"><canvas id="sd-abanico-canvas"></canvas></div>
+        <div id="sd-resumen" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;"></div>
+        <div id="sd-riesgo-barra" style="margin-top:14px;"></div>
       </div>
       <div class="card" id="an-calificacion-card" style="margin-bottom:14px;"></div>
       <div class="card" id="an-lider-sector-box" style="margin-bottom:14px;display:none;"></div>
